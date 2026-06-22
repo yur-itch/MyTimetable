@@ -6,19 +6,25 @@ namespace MyTimetable.Controllers
     [Route("[controller]")]
     public class AppController : Controller
     {
-        private TsuInTimeFetcher fetcher = new();
+        private ScheduleData _data;
+
+        public AppController(ScheduleData data)
+        {
+            _data = data;
+        }
 
         [HttpGet]
         public async Task<IActionResult> Get()
         {
-            List<DaySchedule> days = await fetcher.Get();
+            List<DaySchedule> days = _data.Data;
             return View(days);
         }
 
         [HttpGet("GetPartial")]
-        public async Task<IActionResult> GetPartial(DateTime dateFrom, DateTime dateTo)
+        public IActionResult GetPartial(DateOnly dateFrom, DateOnly dateTo)
         {
-            List<DaySchedule> days = await fetcher.Get(dateFrom, dateTo);
+            List<DaySchedule> days = _data.Data
+                .Where(x => x.Date >= dateFrom && x.Date <= dateTo).ToList();
             return PartialView(days);
         }
     }

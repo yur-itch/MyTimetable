@@ -1,11 +1,8 @@
-@using System.Globalization
 @using MyTimetable.Models
 @model List<DaySchedule>
 @{ Layout = null; }
 @functions {
     static readonly string[] Weekdays = { "Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс" };
-    static readonly string[] Months = { "января", "февраля", "марта", "апреля", "мая", "июня",
-        "июля", "августа", "сентября", "октября", "ноября", "декабря" };
 
     static string ColorClass(string type) => type switch
     {
@@ -26,27 +23,21 @@
     var slots = slotMap.ToList();
     if (slots.Count > 0) slots.RemoveAt(slots.Count - 1);
 
-    var dayMap = new SortedDictionary<DateTime, DaySchedule>();
+    var dayMap = new SortedDictionary<DateOnly, DaySchedule>();
     foreach (var day in Model)
-    {
-        if (!DateTime.TryParseExact(day.Date, "yyyy-MM-dd",
-                CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
-            continue;
-        if (((int)date.DayOfWeek + 6) % 7 > 6) continue;
-        dayMap[date] = day;
-    }
+        dayMap[day.Date] = day;
     var days = dayMap.ToList();
 }
 @foreach (var kv in days)
 {
-    var date = kv.Key;
+    DateOnly date = kv.Key;
     var day = kv.Value;
     int dow = ((int)date.DayOfWeek + 6) % 7;
     var dateStr = date.ToString("yyyy-MM-dd");
     <div id="day-@dateStr" style="display:contents">
         <div class="cell s-left day-label">
             <div class="day-name">@Weekdays[dow]</div>
-            <div class="day-date">@date.Day @Months[date.Month - 1]</div>
+            <div class="day-date">@date.Day.@date.Month</div>
             <button class="refresh-btn">↻</button>
         </div>
         @foreach (var (num, t) in slots)

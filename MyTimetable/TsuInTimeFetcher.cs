@@ -10,7 +10,7 @@ namespace MyTimetable.Models
 
     public class DaySchedule
     {
-        public string Date { get; set; }
+        public DateOnly Date { get; set; }
         public List<Lesson> Lessons { get; set; }
     }
 
@@ -45,7 +45,7 @@ namespace MyTimetable.Models
 
 namespace MyTimetable
 {
-public class TsuInTimeFetcher
+    public class TsuInTimeFetcher
     {
         private HttpClient client = new(new HttpClientHandler
         {
@@ -54,8 +54,8 @@ public class TsuInTimeFetcher
             // Bypass local proxy (e.g. V2Ray on :10809) — intime.tsu.ru is accessible directly
             UseProxy = false
         });
-        private static string endpoint = "https://intime.tsu.ru/api/web/v1/schedule/group";
-        private static string groupID = "06696fef-39f2-11f0-9dca-6cb3110a6d8e";
+        private string endpoint = "https://intime.tsu.ru/api/web/v1/schedule/group";
+        private string groupID = "06696fef-39f2-11f0-9dca-6cb3110a6d8e";
 
         private string BuildUrl()
         {
