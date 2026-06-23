@@ -139,7 +139,10 @@
                     <div class="slot-end">@FmtTime(t.ends)</div>
                 </div>
             }
-            @await Html.PartialAsync("GetPartial", Model)
+            @foreach (var day in Model)
+            {
+                @await Html.PartialAsync("GetOne", day)
+            }
         </div>
     </div>
     <script>
@@ -154,7 +157,7 @@
             const btn = wrapper.querySelector('.refresh-btn');
             if (btn) btn.disabled = true;
             try {
-                const res = await fetch('/App/GetPartial?dateFrom=' + dateStr + '&dateTo=' + dateStr);
+                const res = await fetch('/App/GetOne?date=' + dateStr);
                 const tmp = document.createElement('div');
                 tmp.innerHTML = await res.text();
                 const next = tmp.querySelector('[id="day-' + dateStr + '"]');

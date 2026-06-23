@@ -16,16 +16,16 @@ namespace MyTimetable.Controllers
         [HttpGet]
         public async Task<IActionResult> Get()
         {
-            List<DaySchedule> days = _data.Data;
-            return View(days);
+            Response.Headers.ContentEncoding = "br";
+            return File(_data.ViewResult, "text/html; charset=utf-8");
         }
 
-        [HttpGet("GetPartial")]
-        public IActionResult GetPartial(DateOnly dateFrom, DateOnly dateTo)
+        [HttpGet("GetOne")]
+        public IActionResult GetOne(DateOnly date)
         {
-            List<DaySchedule> days = _data.Data
-                .Where(x => x.Date >= dateFrom && x.Date <= dateTo).ToList();
-            return PartialView(days);
+            if (_data.PartialViewResult.TryGetValue(date, out string? html))
+                return Content(html, "text/html; charset=utf-8");
+            return NotFound();
         }
     }
 }
