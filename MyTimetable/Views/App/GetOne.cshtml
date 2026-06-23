@@ -4,14 +4,23 @@
 @functions {
     static readonly string[] Weekdays = { "Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс" };
 
-    static string ColorClass(string type) => type switch
+    static string Accent(string type) => type switch
     {
-        "PRACTICE" => "lp",
-        "SEMINAR" => "ls",
-        "LECTURE" => "ll",
-        "EXAM" or "CONTROL_POINT" or "DIFFERENTIAL_CREDIT" or "CREDIT" => "le",
-        "CONSULTATION" => "lc",
-        _ => "ld",
+        "PRACTICE" => "#3b82f6",
+        "SEMINAR" => "#f59e0b",
+        "LECTURE" => "#e11d48",
+        "EXAM" or "CONTROL_POINT" or "DIFFERENTIAL_CREDIT" or "CREDIT" => "#a855f7",
+        "CONSULTATION" => "#ec4899",
+        _ => "#6b7280",
+    };
+    static string AccentBg(string type) => type switch
+    {
+        "PRACTICE" => "#11294d",
+        "SEMINAR" => "#3a2410",
+        "LECTURE" => "#3d1320",
+        "EXAM" or "CONTROL_POINT" or "DIFFERENTIAL_CREDIT" or "CREDIT" => "#2a1542",
+        "CONSULTATION" => "#3a132b",
+        _ => "#1f232b",
     };
 }
 @{
@@ -40,14 +49,14 @@
                 if (l.LessonNumber != num) continue;
                 if (l.Type == "LESSON")
                 {
-                    <div class="lesson @ColorClass(l.LessonType)">
+                    <div class="lesson" style="--accent:@Accent(l.LessonType);--accent-bg:@AccentBg(l.LessonType)">
                         <div class="lesson-title">@l.Title</div>
                         <div class="lesson-prof">@l.Professor?.FullName</div>
                     </div>
                 }
                 else
                 {
-                    <div class="lesson ld">
+                    <div class="lesson" style="--accent:#6b7280;--accent-bg:#1f232b">
                         <div class="lesson-title">ПУСТО</div>
                         <div class="lesson-prof">1.5 ЧАСА ГУЛЯЕМ</div>
                     </div>

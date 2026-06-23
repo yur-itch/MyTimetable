@@ -120,12 +120,6 @@
         .lesson-title { font-size: 13px; font-weight: 600; line-height: 1.25; color: #f3f3f8; }
         .lesson-prof  { font-size: 12px; margin-top: 3px; color: rgba(255,255,255,.62); }
 
-        .lp { --accent: #3b82f6; --accent-bg: #11294d; }
-        .ls { --accent: #f59e0b; --accent-bg: #3a2410; }
-        .ll { --accent: #e11d48; --accent-bg: #3d1320; }
-        .le { --accent: #a855f7; --accent-bg: #2a1542; }
-        .lc { --accent: #ec4899; --accent-bg: #3a132b; }
-        .ld { --accent: #6b7280; --accent-bg: #1f232b; }
     </style>
 </head>
 <body>
@@ -151,6 +145,13 @@
             if (cur) (cur.firstElementChild ?? cur).scrollIntoView({ block: "center" });
         });
 
+        document.querySelector('.grid').addEventListener('click', e => {
+            const btn = e.target.closest('.refresh-btn');
+            if (!btn) return;
+            const id = btn.closest('[id^="day-"]')?.id;
+            if (id) refreshDay(id.slice(4));
+        });
+
         async function refreshDay(dateStr) {
             const wrapper = document.getElementById('day-' + dateStr);
             if (!wrapper) return;
@@ -167,12 +168,6 @@
             }
         }
 
-        document.querySelector('.grid').addEventListener('click', e => {
-            const btn = e.target.closest('.refresh-btn');
-            if (!btn) return;
-            const id = btn.closest('[id^="day-"]')?.id;
-            if (id) refreshDay(id.slice(4));
-        });
     </script>
 </body>
 </html>
