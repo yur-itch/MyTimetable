@@ -27,5 +27,11 @@ namespace MyTimetable.Controllers
                 return Content(html, "text/html; charset=utf-8");
             return NotFound();
         }
+
+        [HttpGet("/")]
+        public IActionResult Root()
+        {
+            return Redirect("/app");
+        }
     }
 }
