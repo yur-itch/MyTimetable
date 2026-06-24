@@ -1,20 +1,12 @@
 @using MyTimetable.Models
 @model List<DaySchedule>
-@functions {
-    static string FmtTime(int sec)
-    {
-        int t = (((sec + 25200) % 86400) + 86400) % 86400;
-        return $"{t / 3600}:{(t % 3600) / 60:D2}";
-    }
-}
 @{
-    var slotMap = new SortedDictionary<int, (int starts, int ends)>();
+    var slotNums = new SortedSet<int>();
     foreach (var day in Model)
-        foreach (var l in day.Lessons ?? new())
-            if (!slotMap.ContainsKey(l.LessonNumber))
-                slotMap[l.LessonNumber] = (l.Starts, l.Ends);
-    var slots = slotMap.ToList();
-    if (slots.Count > 0) slots.RemoveAt(slots.Count - 1);
+        for (int i = 0; i < day.Lessons.Length; i++)
+            if (day.Lessons[i] != null)
+                slotNums.Add(i + 1);
+    var slots = slotNums.ToList();
 
     var today = DateOnly.FromDateTime(DateTime.Now);
     var sortedDates = Model.Select(d => d.Date).Distinct().Order().ToList();
@@ -126,16 +118,15 @@
     <div id="scroller">
         <div class="grid">
             <div class="cell s-both"></div>
-            @foreach (var (num, t) in slots)
+            @foreach (var num in slots)
             {
                 <div class="cell s-top slot-head">
-                    <div class="slot-start">@FmtTime(t.starts)</div>
-                    <div class="slot-end">@FmtTime(t.ends)</div>
+                    <div class="slot-start">Пара @num</div>
                 </div>
             }
             @foreach (var day in Model)
             {
-                @await Html.PartialAsync("GetOne", day)
+                @await Html.PartialAsync("GetOne", day, new ViewDataDictionary(ViewData) { ["GlobalSlots"] = slots })
             }
         </div>
     </div>

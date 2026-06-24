@@ -14,8 +14,13 @@ namespace MyTimetable.Controllers
         }
 
         [HttpGet]
+        [HttpGet("/")]
         public async Task<IActionResult> Get()
         {
+            if (!_data.StateValid)
+            {
+                return StatusCode(503, "Расписание временно недоступно");
+            }
             Response.Headers.ContentEncoding = "br";
             return File(_data.ViewResult, "text/html; charset=utf-8");
         }
@@ -26,12 +31,6 @@ namespace MyTimetable.Controllers
             if (_data.PartialViewResult.TryGetValue(date, out string? html))
                 return Content(html, "text/html; charset=utf-8");
             return NotFound();
-        }
-
-        [HttpGet("/")]
-        public IActionResult Root()
-        {
-            return Redirect("/app");
         }
     }
 }

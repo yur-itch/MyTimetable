@@ -24,12 +24,7 @@
     };
 }
 @{
-    var slotMap = new SortedDictionary<int, (int starts, int ends)>();
-    foreach (var l in Model.Lessons ?? new())
-        if (!slotMap.ContainsKey(l.LessonNumber))
-            slotMap[l.LessonNumber] = (l.Starts, l.Ends);
-    var slots = slotMap.ToList();
-    if (slots.Count > 0) slots.RemoveAt(slots.Count - 1);
+    var slots = ViewData["GlobalSlots"] as List<int> ?? Enumerable.Range(1, Model.Lessons.Length).ToList();
 
     DateOnly date = Model.Date;
     int dow = ((int)date.DayOfWeek + 6) % 7;
@@ -41,26 +36,16 @@
         <div class="day-date">@date.Day.@date.Month</div>
         <button class="refresh-btn">↻</button>
     </div>
-    @foreach (var (num, t) in slots)
+    @foreach (var num in slots)
     {
+        var l = Model.Lessons[num - 1];
         <div class="cell day-cell">
-            @foreach (var l in Model.Lessons ?? new())
+            @if (l != null)
             {
-                if (l.LessonNumber != num) continue;
-                if (l.Type == "LESSON")
-                {
-                    <div class="lesson" style="--accent:@Accent(l.LessonType);--accent-bg:@AccentBg(l.LessonType)">
-                        <div class="lesson-title">@l.Title</div>
-                        <div class="lesson-prof">@l.Professor?.FullName</div>
-                    </div>
-                }
-                else
-                {
-                    <div class="lesson" style="--accent:#6b7280;--accent-bg:#1f232b">
-                        <div class="lesson-title">ПУСТО</div>
-                        <div class="lesson-prof">1.5 ЧАСА ГУЛЯЕМ</div>
-                    </div>
-                }
+                <div class="lesson" style="--accent:@Accent(l.LessonType);--accent-bg:@AccentBg(l.LessonType)">
+                    <div class="lesson-title">@l.Title</div>
+                    <div class="lesson-prof">@l.Professor</div>
+                </div>
             }
         </div>
     }

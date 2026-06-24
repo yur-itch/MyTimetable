@@ -3,18 +3,24 @@ using MyTimetable.Models;
 
 namespace MyTimetable.Models
 {
-    public class ScheduleResponse
+    public class RawSchedule
     {
-        public List<DaySchedule> Grid { get; set; }
+        public List<RawDaySchedule> Grid { get; set; }
+    }
+
+    public class RawDaySchedule
+    {
+        public DateOnly Date { get; set; }
+        public List<RawLesson> Lessons { get; set; }
     }
 
     public class DaySchedule
     {
         public DateOnly Date { get; set; }
-        public List<Lesson> Lessons { get; set; }
+        public Lesson?[] Lessons { get; set; } = { null, null, null, null, null, null };
     }
 
-    public class Lesson
+    public class RawLesson
     {
         public string Type { get; set; }  // "EMPTY" или "LESSON"
         public int Starts { get; set; }   // время в секундах
@@ -25,18 +31,27 @@ namespace MyTimetable.Models
         public string Id { get; set; }
         public string Title { get; set; }
         public string LessonType { get; set; }  // "LECTURE", "PRACTICE", "SEMINAR"
-        public List<Group> Groups { get; set; }
-        public Professor Professor { get; set; }
+        public List<RawGroup> Groups { get; set; }
+        public RawProfessor Professor { get; set; }
     }
 
-    public class Group
+    public class Lesson
+    {
+        public DateOnly Date { get; set; }
+        public int LessonNumber { get; set; }
+        public string Title { get; set; }
+        public string LessonType { get; set; }  // "LECTURE", "PRACTICE", "SEMINAR"
+        public string Professor { get; set; }
+        public bool isCustom { get; set; } = false;
+    }
+
+    public class RawGroup
     {
         public string Id { get; set; }
         public string Name { get; set; }
-        public bool IsSubgroup { get; set; }
     }
 
-    public class Professor
+    public class RawProfessor
     {
         public string Id { get; set; }
         public string FullName { get; set; }
@@ -56,6 +71,7 @@ namespace MyTimetable
         });
         private string endpoint = "https://intime.tsu.ru/api/web/v1/schedule/group";
         private string groupID = "06696fef-39f2-11f0-9dca-6cb3110a6d8e";
+        private string[] groupNames = { "972501", "972501 (1)" };
 
         private string BuildUrl()
         {
@@ -72,13 +88,67 @@ namespace MyTimetable
             return $"{endpoint}?dateFrom={dateFromFormatted}&dateTo={dateToFormatted}&id={groupID}";
         }
 
+        private Lesson? ConvertLessonFromRaw(RawLesson lesson, DateOnly date)
+        {
+            string? groupName = null;
+            foreach (RawGroup group in lesson.Groups)
+            {
+                if (groupNames.Contains(group.Name))
+                {
+                    groupName = group.Name;
+                    break;
+                }
+            }
+            if (groupName == null)
+            {
+                return null;
+            }
+            Lesson res = new();
+            res.Date = date;
+            res.LessonNumber = lesson.LessonNumber;
+            res.Title = lesson.Title;
+            res.LessonType = lesson.LessonType;
+            res.Professor = lesson.Professor?.FullName ?? "";
+            return res;
+        }
+
+        private DaySchedule ConvertDayFromRaw(RawDaySchedule rawDaySchedule)
+        {
+            DaySchedule day = new();
+            day.Date = rawDaySchedule.Date;
+            foreach (RawLesson rawLesson in rawDaySchedule.Lessons)
+            {
+                if (rawLesson.Type == "EMPTY")
+                {
+                    continue;
+                }
+                Lesson? lesson = ConvertLessonFromRaw(rawLesson, day.Date);
+                if (lesson == null)
+                {
+                    continue;
+                }
+                if (lesson.LessonNumber < 1 || lesson.LessonNumber > 6)
+                {
+                    continue;
+                }
+                day.Lessons[lesson.LessonNumber - 1] = lesson;
+            }
+            return day;
+        }
+
+        private List<DaySchedule> ConvertFromRaw(RawSchedule rawSchedule)
+        {
+            return rawSchedule.Grid.Select(ConvertDayFromRaw).ToList();
+        }
+
         public async Task<List<DaySchedule>> Get(string url)
         {
             var response = await client.GetAsync(url);
             string json = await response.Content.ReadAsStringAsync();
-            var schedule = JsonSerializer.Deserialize<ScheduleResponse>(json,
+            var rawSchedule = JsonSerializer.Deserialize<RawSchedule>(json,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            return schedule?.Grid ?? new();
+            List<DaySchedule> schedule = rawSchedule == null ? new() : ConvertFromRaw(rawSchedule);
+            return schedule;
         }
 
         public async Task<List<DaySchedule>> Get() => await Get(BuildUrl());
