@@ -12,6 +12,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<ScheduleData>();
 builder.Services.AddSingleton<ViewRenderer>();
+builder.Services.AddSingleton<ScheduleBuilder>();
 //builder.Services.AddResponseCompression(options =>
 //{
 //    options.EnableForHttps = true;
@@ -25,6 +26,7 @@ builder.Services.AddSingleton<ViewRenderer>();
 builder.Services.AddHostedService<CacheWorker>();
 var app = builder.Build();
 //app.UseResponseCompression();
+app.UseStaticFiles();
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();

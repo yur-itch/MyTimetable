@@ -1,9 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using MyTimetable.Models;
-using System.IO.Compression;
-using System.Text;
 
 namespace MyTimetable
 {
@@ -13,103 +11,44 @@ namespace MyTimetable
         private readonly TsuInTimeFetcher fetcher = new();
         private readonly ViewRenderer _renderer;
         private readonly IServiceProvider _serviceProvider;
+        private readonly ScheduleBuilder _builder;
         private ScheduleData _data;
 
-        public CacheWorker(ScheduleData data, ILogger<CacheWorker> logger, ViewRenderer renderer, IServiceProvider serviceProvider)
+        public CacheWorker(ScheduleData data, ILogger<CacheWorker> logger, ViewRenderer renderer, IServiceProvider serviceProvider, ScheduleBuilder builder)
         {
             _logger = logger;
             _data = data;
             _renderer = renderer;
             _serviceProvider = serviceProvider;
+            _builder = builder;
         }
 
-        private async Task<bool> UpdateData()
+        // Тянет расписание из API и, если оно доступно, перезаписывает дефолтные уроки в БД.
+        // БД — единственный источник правды; в случае недоступности API данные в ней остаются как были.
+        private async Task RefreshDbFromApi()
         {
-            List<DaySchedule> newData;
+            List<DaySchedule> apiData;
             try
             {
-                newData = await fetcher.Get();
+                apiData = await fetcher.Get();
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "API unavailable, falling back to DB");
-                newData = new();
+                _logger.LogWarning(ex, "API unavailable, keeping existing DB data");
+                return;
             }
-            bool fromApi = false;
-            if (newData.Any())
+            if (!apiData.Any())
             {
-                _data.Data = newData;
-                fromApi = true;
-            } else
-            {
-                using var scope = _serviceProvider.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                var defaultLessons = db.Lessons.Where(x => x.isCustom == false).ToList();
-                if (defaultLessons.Any())
-                {
-                    var firstDate = defaultLessons.Min(x => x.Date);
-                    var lastDate = defaultLessons.Max(x => x.Date);
-                    int count = lastDate.DayNumber - firstDate.DayNumber + 1;
-                    List<DaySchedule> days = Enumerable.Range(0, count)
-                        .Select(i => new DaySchedule { Date = firstDate.AddDays(i) })
-                        .ToList();
-                    foreach (Lesson lesson in defaultLessons)
-                    {
-                        days[lesson.Date.DayNumber - firstDate.DayNumber].Lessons[lesson.LessonNumber - 1] = lesson;
-                    }
-                    _data.Data = days;
-                }
+                return;
             }
-            if (fromApi || _data.Data.Any())
-            {
-                _data.StateValid = true;
-                _logger.LogInformation("Updated TsuInTime data at {time}", DateTimeOffset.Now);
-            } else
-            {
-                _logger.LogInformation("Failed to update TsuInTime data at {time}: API not available and DB is empty", DateTimeOffset.Now);
-            }
-            return fromApi;
-        }
 
-        private async Task UpdateViews()
-        {
-            using var scope = _serviceProvider.CreateScope();
-            var httpContext = new DefaultHttpContext
-            {
-                RequestServices = scope.ServiceProvider,
-            };
-            var routeData = new RouteData();
-            routeData.Values["controller"] = "App";
-
-            var actionContext = new ActionContext(
-                httpContext,
-                routeData,
-                new ActionDescriptor()
-            );
-
-            var html = await _renderer.RenderViewToStringAsync("Get", _data.Data, actionContext);
-            var bytes = Encoding.UTF8.GetBytes(html);
-            using var output = new MemoryStream();
-            using (var brotli = new BrotliStream(output, CompressionLevel.Optimal))
-            {
-                brotli.Write(bytes);
-            }
-            _data.ViewResult = output.ToArray();
-
-            foreach (DaySchedule day in _data.Data)
-            {
-                _data.PartialViewResult[day.Date] = await _renderer.RenderViewToStringAsync("GetOne", day, actionContext, true);
-            }
-        }
-
-        private async Task UpdateDb()
-        {
-            using var scope = _serviceProvider.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            Lesson[] lessons = _data.Data
+            Lesson[] lessons = apiData
                 .SelectMany(x => x.Lessons)
                 .OfType<Lesson>()
                 .ToArray();
+
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             using var transaction = await db.Database.BeginTransactionAsync();
             try
             {
@@ -125,17 +64,49 @@ namespace MyTimetable
             }
         }
 
+        private async Task UpdateViews(List<DaySchedule> schedule)
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var httpContext = new DefaultHttpContext
+            {
+                RequestServices = scope.ServiceProvider,
+            };
+            var routeData = new RouteData();
+            routeData.Values["controller"] = "App";
+
+            var actionContext = new ActionContext(
+                httpContext,
+                routeData,
+                new ActionDescriptor()
+            );
+
+            var html = await _renderer.RenderViewToStringAsync("Get", schedule, actionContext);
+            _data.ViewResult = Compression.Brotli(html);
+
+            foreach (DaySchedule day in schedule)
+            {
+                _data.PartialViewResult[day.Date] = await _renderer.RenderViewToStringAsync("GetOne", day, actionContext, true);
+            }
+        }
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
                 {
-                    bool fromApi = await UpdateData();
-                    var tasks = fromApi
-                        ? new[] { UpdateViews(), UpdateDb() }
-                        : new[] { UpdateViews() };
-                    await Task.WhenAll(tasks);
+                    await RefreshDbFromApi();
+                    List<DaySchedule> schedule = await _builder.LoadFromDb();
+                    if (schedule.Any())
+                    {
+                        await UpdateViews(schedule);
+                        _data.StateValid = true;
+                        _logger.LogInformation("Updated TsuInTime views at {time}", DateTimeOffset.Now);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Failed to update TsuInTime views at {time}: DB is empty", DateTimeOffset.Now);
+                    }
                 }
                 catch (Exception ex)
                 {

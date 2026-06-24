@@ -72,30 +72,17 @@
 
         .day-label {
             padding: 8px 6px;
-            min-height: var(--row-min);
+            height: var(--row-min);
             display: flex;
             flex-direction: column;
         }
         .day-name { font-size: 16px; font-weight: 600; }
         .day-date { font-size: 16px; color: var(--sub); margin-top: 2px; }
 
-        .refresh-btn {
-            margin-top: auto;
-            padding: 0;
-            background: none;
-            border: none;
-            color: var(--sub);
-            cursor: pointer;
-            font-size: 15px;
-            line-height: 1;
-            opacity: 0.5;
-        }
-        .refresh-btn:hover { opacity: 1; color: var(--fg); }
-        .refresh-btn:disabled { opacity: 0.2; cursor: default; }
-
         .day-cell {
             padding: 5px;
-            min-height: var(--row-min);
+            height: var(--row-min);
+            overflow: hidden;
             display: flex;
             flex-direction: column;
             gap: 5px;
@@ -108,10 +95,13 @@
             padding: 7px 9px;
             flex: 1 1 auto;
             overflow: hidden;
+            cursor: pointer;
         }
+        .lesson.hidden { opacity: .32; }
         .lesson-title { font-size: 13px; font-weight: 600; line-height: 1.25; color: #f3f3f8; }
         .lesson-prof  { font-size: 12px; margin-top: 3px; color: rgba(255,255,255,.62); }
 
+        .day-cell { content-visibility: auto; contain-intrinsic-size: 92px; }
     </style>
 </head>
 <body>
@@ -137,28 +127,38 @@
         });
 
         document.querySelector('.grid').addEventListener('click', e => {
-            const btn = e.target.closest('.refresh-btn');
-            if (!btn) return;
-            const id = btn.closest('[id^="day-"]')?.id;
+            const lesson = e.target.closest('.lesson');
+            if (lesson) { toggleLesson(lesson); return; }
+            const label = e.target.closest('.day-label');
+            if (!label) return;
+            const id = label.closest('[id^="day-"]')?.id;
             if (id) refreshDay(id.slice(4));
         });
+
+        async function toggleLesson(el) {
+            const dateStr = el.closest('[id^="day-"]')?.id.slice(4);
+            const num = el.dataset.num;
+            if (!dateStr || !num) return;
+            const action = el.classList.contains('hidden') ? 'Unhide' : 'Hide';
+            try {
+                await fetch('/App/' + action + '?date=' + dateStr + '&lessonNumber=' + num, { method: 'PATCH' });
+                refreshDay(dateStr);
+            } catch {}
+        }
 
         async function refreshDay(dateStr) {
             const wrapper = document.getElementById('day-' + dateStr);
             if (!wrapper) return;
-            const btn = wrapper.querySelector('.refresh-btn');
-            if (btn) btn.disabled = true;
             try {
                 const res = await fetch('/App/GetOne?date=' + dateStr);
                 const tmp = document.createElement('div');
                 tmp.innerHTML = await res.text();
                 const next = tmp.querySelector('[id="day-' + dateStr + '"]');
                 if (next) wrapper.replaceWith(next);
-            } catch {
-                if (btn) btn.disabled = false;
-            }
+            } catch {}
         }
 
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
     </script>
 </body>
 </html>

@@ -34,7 +34,6 @@
     <div class="cell s-left day-label">
         <div class="day-name">@Weekdays[dow]</div>
         <div class="day-date">@date.Day.@date.Month</div>
-        <button class="refresh-btn">↻</button>
     </div>
     @foreach (var num in slots)
     {
@@ -42,7 +41,7 @@
         <div class="cell day-cell">
             @if (l != null)
             {
-                <div class="lesson" style="--accent:@Accent(l.LessonType);--accent-bg:@AccentBg(l.LessonType)">
+                <div class="lesson@(Model.Hidden[num - 1] ? " hidden" : "")" data-num="@num" style="--accent:@Accent(l.LessonType);--accent-bg:@AccentBg(l.LessonType)">
                     <div class="lesson-title">@l.Title</div>
                     <div class="lesson-prof">@l.Professor</div>
                 </div>

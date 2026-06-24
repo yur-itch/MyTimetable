@@ -18,6 +18,8 @@ namespace MyTimetable.Models
     {
         public DateOnly Date { get; set; }
         public Lesson?[] Lessons { get; set; } = { null, null, null, null, null, null };
+        // Параллельно Lessons: слот скрыт (есть в Deactivations) — рендерится приглушённым, не удаляется.
+        public bool[] Hidden { get; set; } = { false, false, false, false, false, false };
     }
 
     public class RawLesson
@@ -56,6 +58,12 @@ namespace MyTimetable.Models
         public string Id { get; set; }
         public string FullName { get; set; }
     }
+
+    public class LessonDeactivation
+    {
+        public DateOnly Date { get; set; }
+        public int LessonNumber { get; set; }
+    }
 }
 
 namespace MyTimetable
@@ -88,6 +96,15 @@ namespace MyTimetable
             return $"{endpoint}?dateFrom={dateFromFormatted}&dateTo={dateToFormatted}&id={groupID}";
         }
 
+        private static string FormatProfessor(string? fullName)
+        {
+            if (string.IsNullOrWhiteSpace(fullName)) return "";
+            var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 1) return parts[0];
+            var initials = string.Concat(parts.Skip(1).Select(p => p[0] + "."));
+            return $"{parts[0]} {initials}";
+        }
+
         private Lesson? ConvertLessonFromRaw(RawLesson lesson, DateOnly date)
         {
             string? groupName = null;
@@ -108,7 +125,7 @@ namespace MyTimetable
             res.LessonNumber = lesson.LessonNumber;
             res.Title = lesson.Title;
             res.LessonType = lesson.LessonType;
-            res.Professor = lesson.Professor?.FullName ?? "";
+            res.Professor = FormatProfessor(lesson.Professor?.FullName);
             return res;
         }
 
