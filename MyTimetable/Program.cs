@@ -26,6 +26,14 @@ builder.Services.AddSingleton<CacheRebuilder>();
 //});
 builder.Services.AddHostedService<CacheWorker>();
 var app = builder.Build();
+
+// Применяем миграции на старте: на чистой БД (свежий Postgres на Railway) это создаёт схему.
+// Если упадёт здесь — значит БД недоступна или строка подключения неверна; смотри логи деплоя.
+using (var scope = app.Services.CreateScope())
+{
+    scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.Migrate();
+}
+
 //app.UseResponseCompression();
 app.UseStaticFiles();
 app.UseHttpsRedirection();
