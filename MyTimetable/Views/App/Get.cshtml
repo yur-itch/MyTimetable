@@ -100,6 +100,7 @@
         .lesson.hidden { opacity: .32; }
         .lesson-title { font-size: 13px; font-weight: 600; line-height: 1.25; color: #f3f3f8; }
         .lesson-prof  { font-size: 12px; margin-top: 3px; color: rgba(255,255,255,.62); }
+        .lesson-room  { font-size: 12px; margin-top: 2px; color: rgba(255,255,255,.45); }
 
         .day-cell { content-visibility: auto; contain-intrinsic-size: 92px; }
     </style>
@@ -141,21 +142,26 @@
             if (!dateStr || !num) return;
             const action = el.classList.contains('hidden') ? 'Unhide' : 'Hide';
             try {
-                await fetch('/App/' + action + '?date=' + dateStr + '&lessonNumber=' + num, { method: 'PATCH' });
-                refreshDay(dateStr);
+                // PATCH сразу возвращает обновлённый партиал дня — вставляем его, без отдельного GET.
+                const res = await fetch('/App/' + action + '?date=' + dateStr + '&lessonNumber=' + num, { method: 'PATCH' });
+                if (res.ok) swapDay(dateStr, await res.text());
             } catch {}
         }
 
         async function refreshDay(dateStr) {
-            const wrapper = document.getElementById('day-' + dateStr);
-            if (!wrapper) return;
             try {
                 const res = await fetch('/App/GetOne?date=' + dateStr);
-                const tmp = document.createElement('div');
-                tmp.innerHTML = await res.text();
-                const next = tmp.querySelector('[id="day-' + dateStr + '"]');
-                if (next) wrapper.replaceWith(next);
+                if (res.ok) swapDay(dateStr, await res.text());
             } catch {}
+        }
+
+        function swapDay(dateStr, html) {
+            const wrapper = document.getElementById('day-' + dateStr);
+            if (!wrapper) return;
+            const tmp = document.createElement('div');
+            tmp.innerHTML = html;
+            const next = tmp.querySelector('[id="day-' + dateStr + '"]');
+            if (next) wrapper.replaceWith(next);
         }
 
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');

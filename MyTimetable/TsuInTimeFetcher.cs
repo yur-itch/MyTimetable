@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json;
 using MyTimetable.Models;
 
 namespace MyTimetable.Models
@@ -35,6 +36,7 @@ namespace MyTimetable.Models
         public string LessonType { get; set; }  // "LECTURE", "PRACTICE", "SEMINAR"
         public List<RawGroup> Groups { get; set; }
         public RawProfessor Professor { get; set; }
+        public RawAudience Audience { get; set; }
     }
 
     public class Lesson
@@ -44,7 +46,13 @@ namespace MyTimetable.Models
         public string Title { get; set; }
         public string LessonType { get; set; }  // "LECTURE", "PRACTICE", "SEMINAR"
         public string Professor { get; set; }
+        public string Room { get; set; } = "";
         public bool isCustom { get; set; } = false;
+
+        // Не хранится в БД: показывать препода в карточке, только если у этого предмета
+        // за год встречается больше одного разного преподавателя. Проставляется при сборке кэша.
+        [NotMapped]
+        public bool ShowProfessor { get; set; }
     }
 
     public class RawGroup
@@ -57,6 +65,12 @@ namespace MyTimetable.Models
     {
         public string Id { get; set; }
         public string FullName { get; set; }
+    }
+
+    public class RawAudience
+    {
+        public string? Name { get; set; }       // полное, есть всегда: "332 (2) Учебная аудитория", "Онлайн"
+        public string? ShortName { get; set; }   // компактное "332 (2)"; null у онлайна и части помещений
     }
 
     public class LessonDeactivation
@@ -124,11 +138,23 @@ namespace MyTimetable
             {
                 NormalizeGroup(group);
             }
+            if (lesson.Audience != null)
+            {
+                lesson.Audience.Name = CollapseSpaces(lesson.Audience.Name);
+                lesson.Audience.ShortName = CollapseSpaces(lesson.Audience.ShortName);
+            }
         }
 
         private static void NormalizeGroup(RawGroup group)
         {
             group.Name = CollapseSpaces(group.Name).ToUpperInvariant();
+        }
+
+        // Короткое имя аудитории, если есть, иначе длинное ("Онлайн" и т.п. идут как длинное).
+        private static string RoomOf(RawAudience? a)
+        {
+            if (a == null) return "";
+            return !string.IsNullOrEmpty(a.ShortName) ? a.ShortName : (a.Name ?? "");
         }
 
         private static string CollapseSpaces(string? s)
@@ -141,10 +167,7 @@ namespace MyTimetable
         {
             if (string.IsNullOrWhiteSpace(fullName)) return "";
             var parts = fullName.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-            string surname = Capitalize(parts[0].ToLowerInvariant());
-            if (parts.Length == 1) return surname;
-            var initials = string.Concat(parts.Skip(1).Select(p => char.ToUpperInvariant(p[0]) + "."));
-            return $"{surname} {initials}";
+            return Capitalize(parts[0].ToLowerInvariant());
         }
 
         private Lesson? ConvertLessonFromRaw(RawLesson lesson, DateOnly date)
@@ -168,6 +191,7 @@ namespace MyTimetable
             res.Title = lesson.Title;
             res.LessonType = lesson.LessonType;
             res.Professor = FormatProfessor(lesson.Professor?.FullName);
+            res.Room = RoomOf(lesson.Audience);
             return res;
         }
 

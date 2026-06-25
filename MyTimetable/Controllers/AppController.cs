@@ -32,7 +32,11 @@ namespace MyTimetable.Controllers
         }
 
         [HttpGet("GetOne")]
-        public IActionResult GetOne(DateOnly date)
+        public IActionResult GetOne(DateOnly date) => PartialFor(date);
+
+        // Свежий партиал дня из тёплого кэша. Его же возвращают Hide/Unhide, чтобы клиент
+        // вставил обновлённый день без отдельного GET (один round trip на переключение).
+        private IActionResult PartialFor(DateOnly date)
         {
             if (!_data.StateValid)
             {
@@ -56,19 +60,16 @@ namespace MyTimetable.Controllers
             }
 
             LessonDeactivation? deactivation = await db.Deactivations.FindAsync(new object[] { date, lessonNumber });
-            if (deactivation != null)
+            if (deactivation == null)
             {
-                return Ok("Урок уже скрыт");
+                LessonDeactivation newDeactivation = new();
+                newDeactivation.LessonNumber = lessonNumber;
+                newDeactivation.Date = date;
+                await db.Deactivations.AddAsync(newDeactivation);
+                await db.SaveChangesAsync();
+                await _rebuilder.Rebuild(); // держим кэш всегда тёплым — пересобираем сразу
             }
-
-            LessonDeactivation newDeactivation = new();
-            newDeactivation.LessonNumber = lessonNumber;
-            newDeactivation.Date = date;
-            await db.Deactivations.AddAsync(newDeactivation);
-
-            await db.SaveChangesAsync();
-            await _rebuilder.Rebuild(); // держим кэш всегда тёплым — пересобираем сразу
-            return Ok();
+            return PartialFor(date);
         }
 
         [HttpPatch("Unhide")]
@@ -84,16 +85,13 @@ namespace MyTimetable.Controllers
             }
 
             LessonDeactivation? deactivation = await db.Deactivations.FindAsync(new object[] { date, lessonNumber });
-            if (deactivation == null)
+            if (deactivation != null)
             {
-                return Ok("Урок уже показан");
+                db.Deactivations.Remove(deactivation);
+                await db.SaveChangesAsync();
+                await _rebuilder.Rebuild(); // держим кэш всегда тёплым — пересобираем сразу
             }
-
-            db.Deactivations.Remove(deactivation);
-
-            await db.SaveChangesAsync();
-            await _rebuilder.Rebuild(); // держим кэш всегда тёплым — пересобираем сразу
-            return Ok();
+            return PartialFor(date);
         }
     }
 }

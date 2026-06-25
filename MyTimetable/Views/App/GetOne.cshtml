@@ -4,6 +4,31 @@
 @functions {
     static readonly string[] Weekdays = { "Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс" };
 
+    static readonly Dictionary<string, string> Abbrevs = new()
+    {
+        ["Физическая культура и спорт"]                                                          = "Физра",
+        ["Элективные дисциплины по физической культуре и спорту"]                                = "Физра",
+        ["Алгебра и геометрия"]                                                                  = "Алгем",
+        ["Критическое мышление в ИТ"]                                                            = "Критмыш",
+        ["Математический анализ"]                                                                = "Матан",
+        ["Ознакомительная практика (учебная)"]                                                   = "Практика",
+        ["Основы программирования"]                                                              = "Прога",
+        ["Основы дискретной логики и теории доказательств"]                                      = "МКН1",
+        ["Основы российской государственности"]                                                  = "ОРГ",
+        ["Парадигмы программирования"]                                                           = "Парадигмы",
+        ["Погружение в университетскую среду"]                                                   = "Погружение",
+        ["Практикум по программированию"]                                                        = "Прога",
+        ["Безопасность жизнедеятельности"]                                                       = "БЖД",
+        ["Введение в программирование"]                                                          = "Прога",
+        ["Дискретная теория вероятности и основы математической статистики"]                     = "МКН3",
+        ["Дискретные структуры"]                                                                 = "МКН2",
+        ["Иностранный язык"]                                                                     = "Английский",
+        ["История России"]                                                                       = "История",
+    };
+
+    static string ShortTitle(string title)
+        => Abbrevs.TryGetValue(title, out var s) ? s : title;
+
     static string Accent(string type) => type switch
     {
         "PRACTICE" => "#3b82f6",
@@ -42,8 +67,15 @@
             @if (l != null)
             {
                 <div class="lesson@(Model.Hidden[num - 1] ? " hidden" : "")" data-num="@num" style="--accent:@Accent(l.LessonType);--accent-bg:@AccentBg(l.LessonType)">
-                    <div class="lesson-title">@l.Title</div>
-                    <div class="lesson-prof">@l.Professor</div>
+                    <div class="lesson-title">@ShortTitle(l.Title)</div>
+                    @if (l.Room.Length > 0)
+                    {
+                        <div class="lesson-room">@l.Room</div>
+                    }
+                    @if (l.ShowProfessor && l.Professor.Length > 0)
+                    {
+                        <div class="lesson-prof">@l.Professor</div>
+                    }
                 </div>
             }
         </div>

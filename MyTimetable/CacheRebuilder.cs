@@ -32,6 +32,7 @@ namespace MyTimetable
                 _data.StateValid = false;
                 return false;
             }
+            MarkProfessorVisibility(schedule);
 
             using var scope = _serviceProvider.CreateScope();
             var httpContext = new DefaultHttpContext
@@ -52,6 +53,23 @@ namespace MyTimetable
 
             _data.StateValid = true;
             return true;
+        }
+
+        // Помечаем препода к показу только у тех предметов, что за год вели ≥2 разных преподавателя.
+        // Пустого препода не считаем за отдельного (это просто незаполненные данные, а не другой человек).
+        private static void MarkProfessorVisibility(List<DaySchedule> schedule)
+        {
+            List<Lesson> all = schedule.SelectMany(d => d.Lessons).OfType<Lesson>().ToList();
+            HashSet<string> multiProfTitles = all
+                .Where(l => l.Professor.Length > 0)
+                .GroupBy(l => l.Title)
+                .Where(g => g.Select(l => l.Professor).Distinct().Count() > 1)
+                .Select(g => g.Key)
+                .ToHashSet();
+            foreach (Lesson l in all)
+            {
+                l.ShowProfessor = multiProfTitles.Contains(l.Title);
+            }
         }
     }
 }
