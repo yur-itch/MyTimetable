@@ -96,13 +96,55 @@ namespace MyTimetable
             return $"{endpoint}?dateFrom={dateFromFormatted}&dateTo={dateToFormatted}&id={groupID}";
         }
 
+        private static void Normalize(RawSchedule schedule)
+        {
+            foreach (var day in schedule.Grid)
+            {
+                NormalizeDay(day);
+            }
+        }
+
+        private static void NormalizeDay(RawDaySchedule day)
+        {
+            foreach (var lesson in day.Lessons)
+            {
+                // Нормализуем только реальные пары: у EMPTY-слотов LESSON-поля (Title, Groups, ...) равны null.
+                if (lesson?.Type?.Trim().ToUpperInvariant() != "LESSON") continue;
+                NormalizeLesson(lesson);
+            }
+        }
+
+        private static void NormalizeLesson(RawLesson lesson)
+        {
+            lesson.Type = "LESSON";
+            lesson.Title = Capitalize(CollapseSpaces(lesson.Title));
+            lesson.LessonType = CollapseSpaces(lesson.LessonType).ToUpperInvariant();
+
+            foreach (var group in lesson.Groups)
+            {
+                NormalizeGroup(group);
+            }
+        }
+
+        private static void NormalizeGroup(RawGroup group)
+        {
+            group.Name = CollapseSpaces(group.Name).ToUpperInvariant();
+        }
+
+        private static string CollapseSpaces(string? s)
+            => s == null ? "" : string.Join(" ", s.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+        private static string Capitalize(string s)
+            => s.Length == 0 ? "" : char.ToUpperInvariant(s[0]) + s[1..];
+
         private static string FormatProfessor(string? fullName)
         {
             if (string.IsNullOrWhiteSpace(fullName)) return "";
-            var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length == 1) return parts[0];
-            var initials = string.Concat(parts.Skip(1).Select(p => p[0] + "."));
-            return $"{parts[0]} {initials}";
+            var parts = fullName.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            string surname = Capitalize(parts[0].ToLowerInvariant());
+            if (parts.Length == 1) return surname;
+            var initials = string.Concat(parts.Skip(1).Select(p => char.ToUpperInvariant(p[0]) + "."));
+            return $"{surname} {initials}";
         }
 
         private Lesson? ConvertLessonFromRaw(RawLesson lesson, DateOnly date)
@@ -164,8 +206,12 @@ namespace MyTimetable
             string json = await response.Content.ReadAsStringAsync();
             var rawSchedule = JsonSerializer.Deserialize<RawSchedule>(json,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            List<DaySchedule> schedule = rawSchedule == null ? new() : ConvertFromRaw(rawSchedule);
-            return schedule;
+            if (rawSchedule != null)
+            {
+                Normalize(rawSchedule);
+                return ConvertFromRaw(rawSchedule);
+            }
+            return new();
         }
 
         public async Task<List<DaySchedule>> Get() => await Get(BuildUrl());

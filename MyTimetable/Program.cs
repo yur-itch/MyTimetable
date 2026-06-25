@@ -13,6 +13,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<ScheduleData>();
 builder.Services.AddSingleton<ViewRenderer>();
 builder.Services.AddSingleton<ScheduleBuilder>();
+builder.Services.AddSingleton<CacheRebuilder>();
 //builder.Services.AddResponseCompression(options =>
 //{
 //    options.EnableForHttps = true;

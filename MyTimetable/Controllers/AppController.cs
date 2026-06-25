@@ -8,53 +8,39 @@ namespace MyTimetable.Controllers
     {
         private IServiceProvider _serviceProvider;
         private ScheduleData _data;
-        private ScheduleBuilder _builder;
-        private ViewRenderer _renderer;
+        private CacheRebuilder _rebuilder;
 
-        public AppController(ScheduleData data, IServiceProvider serviceProvider, ScheduleBuilder builder, ViewRenderer renderer)
+        public AppController(ScheduleData data, IServiceProvider serviceProvider, CacheRebuilder rebuilder)
         {
             _data = data;
             _serviceProvider = serviceProvider;
-            _builder = builder;
-            _renderer = renderer;
+            _rebuilder = rebuilder;
         }
 
         [HttpGet]
         [HttpGet("/")]
-        public async Task<IActionResult> Get()
+        public IActionResult Get()
         {
-            // Кэш валиден — отдаём заранее сжатую страницу. Иначе рендерим из БД на лету.
-            if (_data.StateValid)
-            {
-                Response.Headers.ContentEncoding = "br";
-                return File(_data.ViewResult, "text/html; charset=utf-8");
-            }
-            List<DaySchedule> schedule = await _builder.LoadFromDb();
-            if (!schedule.Any())
+            // Кэш всегда тёплый (прогрев на старте + пересборка на каждый Hide/Unhide).
+            // Невалиден только если показывать нечего: пустая БД и API не засеял.
+            if (!_data.StateValid)
             {
                 return StatusCode(503, "Расписание временно недоступно");
             }
-            string html = await _renderer.RenderViewToStringAsync("Get", schedule, ControllerContext);
             Response.Headers.ContentEncoding = "br";
-            return File(Compression.Brotli(html), "text/html; charset=utf-8");
+            return File(_data.ViewResult, "text/html; charset=utf-8");
         }
 
         [HttpGet("GetOne")]
-        public async Task<IActionResult> GetOne(DateOnly date)
+        public IActionResult GetOne(DateOnly date)
         {
-            if (_data.StateValid)
+            if (!_data.StateValid)
             {
-                if (_data.PartialViewResult.TryGetValue(date, out string? cached))
-                    return Content(cached, "text/html; charset=utf-8");
-                return NotFound();
+                return StatusCode(503, "Расписание временно недоступно");
             }
-            DaySchedule? day = (await _builder.LoadFromDb()).FirstOrDefault(d => d.Date == date);
-            if (day == null)
-            {
-                return NotFound();
-            }
-            string html = await _renderer.RenderViewToStringAsync("GetOne", day, ControllerContext, true);
-            return Content(html, "text/html; charset=utf-8");
+            if (_data.PartialViewResult.TryGetValue(date, out string? cached))
+                return Content(cached, "text/html; charset=utf-8");
+            return NotFound();
         }
 
         [HttpPatch("Hide")]
@@ -81,7 +67,7 @@ namespace MyTimetable.Controllers
             await db.Deactivations.AddAsync(newDeactivation);
 
             await db.SaveChangesAsync();
-            _data.StateValid = false; // кэш устарел — следующий Get/GetOne отрендерит из БД
+            await _rebuilder.Rebuild(); // держим кэш всегда тёплым — пересобираем сразу
             return Ok();
         }
 
@@ -106,7 +92,7 @@ namespace MyTimetable.Controllers
             db.Deactivations.Remove(deactivation);
 
             await db.SaveChangesAsync();
-            _data.StateValid = false; // кэш устарел — следующий Get/GetOne отрендерит из БД
+            await _rebuilder.Rebuild(); // держим кэш всегда тёплым — пересобираем сразу
             return Ok();
         }
     }
