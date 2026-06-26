@@ -49,8 +49,6 @@
     };
 }
 @{
-    var slots = ViewData["GlobalSlots"] as List<int> ?? Enumerable.Range(1, Model.Lessons.Length).ToList();
-
     DateOnly date = Model.Date;
     int dow = ((int)date.DayOfWeek + 6) % 7;
     var dateStr = date.ToString("yyyy-MM-dd");
@@ -60,22 +58,32 @@
         <div class="day-name">@Weekdays[dow]</div>
         <div class="day-date">@date.Day.@date.Month</div>
     </div>
-    @foreach (var num in slots)
+    @for (int i = 0; i < Model.Cells.Length; i++)
     {
-        var l = Model.Lessons[num - 1];
+        // В одном слоте может быть до двух уроков: дефолтный и кастомный. Один растягивается на всю
+        // ячейку, два встают столбиком. Скрывается только дефолтный (data-num + класс hidden);
+        // кастомный без data-num — клик по нему ничего не делает.
+        var cell = Model.Cells[i];
+        var num = i + 1;
         <div class="cell day-cell">
-            @if (l != null)
+            @if (cell.DefaultLesson is { } def)
             {
-                <div class="lesson@(Model.Hidden[num - 1] ? " hidden" : "")" data-num="@num" style="--accent:@Accent(l.LessonType);--accent-bg:@AccentBg(l.LessonType)">
-                    <div class="lesson-title">@ShortTitle(l.Title)</div>
-                    @if (l.Room.Length > 0)
+                <div class="lesson@(cell.Hidden ? " hidden" : "")" data-num="@num" style="--accent:@Accent(def.LessonType);--accent-bg:@AccentBg(def.LessonType)">
+                    <div class="lesson-title">@ShortTitle(def.Title)</div>
+                    @if (def.Room.Length > 0)
                     {
-                        <div class="lesson-room">@l.Room</div>
+                        <div class="lesson-room">@def.Room</div>
                     }
-                    @if (l.ShowProfessor && l.Professor.Length > 0)
+                    @if (def.Professor.IsShown && def.Professor.Name.Length > 0)
                     {
-                        <div class="lesson-prof">@l.Professor</div>
+                        <div class="lesson-prof">@def.Professor.Name</div>
                     }
+                </div>
+            }
+            @if (cell.CustomLesson is { } cust)
+            {
+                <div class="lesson custom" style="--accent:@Accent(cust.LessonType);--accent-bg:@AccentBg(cust.LessonType)">
+                    <div class="lesson-title">@ShortTitle(cust.Title)</div>
                 </div>
             }
         </div>

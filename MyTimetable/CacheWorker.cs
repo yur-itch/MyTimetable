@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using MyTimetable.Models;
+using MyTimetable.TsuInTime;
+using MyTimetable.Entities;
 
 namespace MyTimetable
 {
-    public class CacheWorker : BackgroundService
+    public sealed class CacheWorker : BackgroundService
     {
         private readonly ILogger<CacheWorker> _logger;
         private readonly TsuInTimeFetcher fetcher = new();
@@ -39,9 +41,20 @@ namespace MyTimetable
             }
             List<DateOnly> staleDates = await ComputeStaleDeactivationDates(apiData);
 
-            Lesson[] lessons = apiData
-                .SelectMany(x => x.Lessons)
-                .OfType<Lesson>()
+            DefaultLessonEntry[] defaultLessons = apiData
+                .SelectMany(x => Enumerable
+                    .Range(0, 6)
+                    .Select(y => (Date: x.Date, LessonNumber: y + 1, Lesson: x.Cells[y].DefaultLesson))
+                    .Where(t => t.Lesson != null)
+                    .Select(t => new DefaultLessonEntry()
+                    {
+                        Date = t.Date,
+                        LessonNumber = t.LessonNumber,
+                        LessonType = t.Lesson!.LessonType,
+                        Title = t.Lesson.Title,
+                        Professor = t.Lesson.Professor.Name,
+                        Room = t.Lesson.Room
+                    }))
                 .ToArray();
 
             using var scope = _serviceProvider.CreateScope();
@@ -54,8 +67,8 @@ namespace MyTimetable
                     // Скрытия в неделях с изменившимся составом пар сбрасываем здесь же — атомарно с replace уроков.
                     await db.Deactivations.Where(x => staleDates.Contains(x.Date)).ExecuteDeleteAsync();
                 }
-                await db.Lessons.Where(x => x.isCustom == false).ExecuteDeleteAsync();
-                await db.Lessons.AddRangeAsync(lessons);
+                await db.DefaultLessons.ExecuteDeleteAsync();
+                await db.DefaultLessons.AddRangeAsync(defaultLessons);
                 await db.SaveChangesAsync();
                 await transaction.CommitAsync();
             }
@@ -74,11 +87,6 @@ namespace MyTimetable
 
             return (date.DayNumber - dayOfWeek) / 7;
         }
-
-        private static IEnumerable<(DateOnly, int, string, string, string)> Sig(List<DaySchedule> week) =>
-            week.SelectMany(d => d.Lessons
-                .Where(l => l != null)
-                .Select(l => (d.Date, l!.LessonNumber, l.Title, l.LessonType, l.Professor)));
 
         // assumes data is sorted, because the builder gives it sorted
         private static IEnumerable<List<DaySchedule>> IterateWeeks(List<DaySchedule> days)
@@ -136,7 +144,7 @@ namespace MyTimetable
                         newWeek.Add(newDay);
                     }
                 }
-                if (!Sig(week).SequenceEqual(Sig(newWeek)))
+                if (!week.SequenceEqual(newWeek))
                 {
                     foreach (var day in week)
                     {

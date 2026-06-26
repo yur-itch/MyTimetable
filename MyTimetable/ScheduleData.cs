@@ -5,7 +5,7 @@ using System.Collections.Concurrent;
 
 namespace MyTimetable
 {
-    public class ScheduleData
+    public sealed class ScheduleData
     {
         private bool _stateValid = false;
         private readonly Lock _lock = new();

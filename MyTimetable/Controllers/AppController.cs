@@ -1,10 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using MyTimetable.Entities;
 using MyTimetable.Models;
 
 namespace MyTimetable.Controllers
 {
     [Route("[controller]")]
-    public class AppController : Controller
+    public sealed class AppController : Controller
     {
         private IServiceProvider _serviceProvider;
         private ScheduleData _data;
@@ -53,7 +54,7 @@ namespace MyTimetable.Controllers
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            Lesson? lesson = await db.Lessons.FindAsync(new object[] { date, lessonNumber, false });
+            DefaultLessonEntry? lesson = await db.DefaultLessons.FindAsync(new object[] { date, lessonNumber });
             if (lesson == null)
             {
                 return NotFound();
@@ -62,9 +63,11 @@ namespace MyTimetable.Controllers
             LessonDeactivation? deactivation = await db.Deactivations.FindAsync(new object[] { date, lessonNumber });
             if (deactivation == null)
             {
-                LessonDeactivation newDeactivation = new();
-                newDeactivation.LessonNumber = lessonNumber;
-                newDeactivation.Date = date;
+                LessonDeactivation newDeactivation = new LessonDeactivation()
+                {
+                    Date = date,
+                    Number = lessonNumber
+                };
                 await db.Deactivations.AddAsync(newDeactivation);
                 await db.SaveChangesAsync();
                 await _rebuilder.Rebuild(); // держим кэш всегда тёплым — пересобираем сразу
@@ -78,7 +81,7 @@ namespace MyTimetable.Controllers
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            Lesson? lesson = await db.Lessons.FindAsync(new object[] { date, lessonNumber, false });
+            DefaultLessonEntry? lesson = await db.DefaultLessons.FindAsync(new object[] { date, lessonNumber });
             if (lesson == null)
             {
                 return NotFound();

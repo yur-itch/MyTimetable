@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc.ViewFeatures;
 
 namespace MyTimetable
 {
-    public class ViewRenderer
+    public sealed class ViewRenderer
     {
         private IRazorViewEngine _viewEngine;
         private ITempDataProvider _tempDataProvider;

@@ -1,12 +1,7 @@
 @using MyTimetable.Models
 @model List<DaySchedule>
 @{
-    var slotNums = new SortedSet<int>();
-    foreach (var day in Model)
-        for (int i = 0; i < day.Lessons.Length; i++)
-            if (day.Lessons[i] != null)
-                slotNums.Add(i + 1);
-    var slots = slotNums.ToList();
+    int slotCount = Model.Count > 0 ? Model.Max(d => d.Cells.Length) : 0;
 
     var today = DateOnly.FromDateTime(DateTime.Now);
     var sortedDates = Model.Select(d => d.Date).Distinct().Order().ToList();
@@ -27,7 +22,7 @@
             --line: #1b1b24;
             --fg: #e8e8ef;
             --sub: #6b6b7b;
-            --row-min: 92px;
+            --row-min: 184px;
             --day-w: 58px;
         }
 
@@ -46,7 +41,7 @@
 
         .grid {
             display: grid;
-            grid-template-columns: var(--day-w) repeat(@slots.Count, minmax(110px, 1fr));
+            grid-template-columns: var(--day-w) repeat(@slotCount, minmax(110px, 1fr));
             border-top: 1px solid var(--line);
             border-left: 1px solid var(--line);
         }
@@ -93,23 +88,25 @@
             border-left: 4px solid var(--accent);
             background: var(--accent-bg);
             padding: 7px 9px;
-            flex: 1 1 auto;
+            flex: 1 1 0;
+            min-height: 0;
             overflow: hidden;
             cursor: pointer;
         }
         .lesson.hidden { opacity: .32; }
+        .lesson.custom { cursor: default; }
         .lesson-title { font-size: 13px; font-weight: 600; line-height: 1.25; color: #f3f3f8; }
         .lesson-prof  { font-size: 12px; margin-top: 3px; color: rgba(255,255,255,.62); }
         .lesson-room  { font-size: 12px; margin-top: 2px; color: rgba(255,255,255,.45); }
 
-        .day-cell { content-visibility: auto; contain-intrinsic-size: 92px; }
+        .day-cell { content-visibility: auto; contain-intrinsic-size: 184px; }
     </style>
 </head>
 <body>
     <div id="scroller">
         <div class="grid">
             <div class="cell s-both"></div>
-            @foreach (var num in slots)
+            @for (int num = 1; num <= slotCount; num++)
             {
                 <div class="cell s-top slot-head">
                     <div class="slot-start">Пара @num</div>
@@ -117,7 +114,7 @@
             }
             @foreach (var day in Model)
             {
-                @await Html.PartialAsync("GetOne", day, new ViewDataDictionary(ViewData) { ["GlobalSlots"] = slots })
+                @await Html.PartialAsync("GetOne", day)
             }
         </div>
     </div>

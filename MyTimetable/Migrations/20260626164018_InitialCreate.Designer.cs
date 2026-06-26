@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MyTimetable.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260624170332_Removals")]
-    partial class Removals
+    [Migration("20260626164018_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -25,7 +25,7 @@ namespace MyTimetable.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("MyTimetable.Models.Lesson", b =>
+            modelBuilder.Entity("MyTimetable.Entities.CustomLessonEntry", b =>
                 {
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date");
@@ -33,8 +33,26 @@ namespace MyTimetable.Migrations
                     b.Property<int>("LessonNumber")
                         .HasColumnType("integer");
 
-                    b.Property<bool>("isCustom")
-                        .HasColumnType("boolean");
+                    b.Property<string>("LessonType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Date", "LessonNumber");
+
+                    b.ToTable("CustomLessons");
+                });
+
+            modelBuilder.Entity("MyTimetable.Entities.DefaultLessonEntry", b =>
+                {
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<int>("LessonNumber")
+                        .HasColumnType("integer");
 
                     b.Property<string>("LessonType")
                         .IsRequired()
@@ -44,27 +62,28 @@ namespace MyTimetable.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Room")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.HasKey("Date", "LessonNumber", "isCustom");
+                    b.HasKey("Date", "LessonNumber");
 
-                    b.ToTable("Lessons");
+                    b.ToTable("DefaultLessons");
                 });
 
-            modelBuilder.Entity("MyTimetable.Models.LessonDeactivation", b =>
+            modelBuilder.Entity("MyTimetable.Entities.LessonDeactivation", b =>
                 {
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date");
 
-                    b.Property<int>("LessonNumber")
+                    b.Property<int>("Number")
                         .HasColumnType("integer");
 
-                    b.Property<bool>("isCustom")
-                        .HasColumnType("boolean");
-
-                    b.HasKey("Date", "LessonNumber");
+                    b.HasKey("Date", "Number");
 
                     b.ToTable("Deactivations");
                 });

@@ -1,88 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
-using System.Text.Json;
+﻿using System.Text.Json;
 using MyTimetable.Models;
 
-namespace MyTimetable.Models
+namespace MyTimetable.TsuInTime
 {
-    public class RawSchedule
-    {
-        public List<RawDaySchedule> Grid { get; set; }
-    }
-
-    public class RawDaySchedule
-    {
-        public DateOnly Date { get; set; }
-        public List<RawLesson> Lessons { get; set; }
-    }
-
-    public class DaySchedule
-    {
-        public DateOnly Date { get; set; }
-        public Lesson?[] Lessons { get; set; } = { null, null, null, null, null, null };
-        // Параллельно Lessons: слот скрыт (есть в Deactivations) — рендерится приглушённым, не удаляется.
-        public bool[] Hidden { get; set; } = { false, false, false, false, false, false };
-    }
-
-    public class RawLesson
-    {
-        public string Type { get; set; }  // "EMPTY" или "LESSON"
-        public int Starts { get; set; }   // время в секундах
-        public int Ends { get; set; }
-        public int LessonNumber { get; set; }
-
-        // Поля только для типа LESSON
-        public string Id { get; set; }
-        public string Title { get; set; }
-        public string LessonType { get; set; }  // "LECTURE", "PRACTICE", "SEMINAR"
-        public List<RawGroup> Groups { get; set; }
-        public RawProfessor Professor { get; set; }
-        public RawAudience Audience { get; set; }
-    }
-
-    public class Lesson
-    {
-        public DateOnly Date { get; set; }
-        public int LessonNumber { get; set; }
-        public string Title { get; set; }
-        public string LessonType { get; set; }  // "LECTURE", "PRACTICE", "SEMINAR"
-        public string Professor { get; set; }
-        public string Room { get; set; } = "";
-        public bool isCustom { get; set; } = false;
-
-        // Не хранится в БД: показывать препода в карточке, только если у этого предмета
-        // за год встречается больше одного разного преподавателя. Проставляется при сборке кэша.
-        [NotMapped]
-        public bool ShowProfessor { get; set; }
-    }
-
-    public class RawGroup
-    {
-        public string Id { get; set; }
-        public string Name { get; set; }
-    }
-
-    public class RawProfessor
-    {
-        public string Id { get; set; }
-        public string FullName { get; set; }
-    }
-
-    public class RawAudience
-    {
-        public string? Name { get; set; }       // полное, есть всегда: "332 (2) Учебная аудитория", "Онлайн"
-        public string? ShortName { get; set; }   // компактное "332 (2)"; null у онлайна и части помещений
-    }
-
-    public class LessonDeactivation
-    {
-        public DateOnly Date { get; set; }
-        public int LessonNumber { get; set; }
-    }
-}
-
-namespace MyTimetable
-{
-    public class TsuInTimeFetcher
+    public sealed class TsuInTimeFetcher
     {
         private HttpClient client = new(new HttpClientHandler
         {
@@ -170,7 +91,7 @@ namespace MyTimetable
             return Capitalize(parts[0].ToLowerInvariant());
         }
 
-        private Lesson? ConvertLessonFromRaw(RawLesson lesson, DateOnly date)
+        private DefaultLesson? ConvertLessonFromRaw(RawLesson lesson)
         {
             string? groupName = null;
             foreach (RawGroup group in lesson.Groups)
@@ -185,37 +106,53 @@ namespace MyTimetable
             {
                 return null;
             }
-            Lesson res = new();
-            res.Date = date;
-            res.LessonNumber = lesson.LessonNumber;
-            res.Title = lesson.Title;
-            res.LessonType = lesson.LessonType;
-            res.Professor = FormatProfessor(lesson.Professor?.FullName);
-            res.Room = RoomOf(lesson.Audience);
+            DefaultLesson res = new DefaultLesson()
+            {
+                Title = lesson.Title,
+                LessonType = lesson.LessonType,
+                Professor = new Professor()
+                {
+                    Name = FormatProfessor(lesson.Professor?.FullName),
+                    IsShown = true  // TODO: replace with actual value
+                },
+                Room = RoomOf(lesson.Audience)
+            };
             return res;
         }
 
         private DaySchedule ConvertDayFromRaw(RawDaySchedule rawDaySchedule)
         {
-            DaySchedule day = new();
-            day.Date = rawDaySchedule.Date;
+            //DaySchedule day = new();
+            //day.Date = rawDaySchedule.Date;
+            DefaultLesson?[] lessons = { null, null, null, null, null, null };
             foreach (RawLesson rawLesson in rawDaySchedule.Lessons)
             {
                 if (rawLesson.Type == "EMPTY")
                 {
                     continue;
                 }
-                Lesson? lesson = ConvertLessonFromRaw(rawLesson, day.Date);
+                if (rawLesson.LessonNumber < 1 || rawLesson.LessonNumber > 6)
+                {
+                    continue;
+                }
+                DefaultLesson? lesson = ConvertLessonFromRaw(rawLesson);
                 if (lesson == null)
                 {
                     continue;
                 }
-                if (lesson.LessonNumber < 1 || lesson.LessonNumber > 6)
-                {
-                    continue;
-                }
-                day.Lessons[lesson.LessonNumber - 1] = lesson;
+                lessons[rawLesson.LessonNumber - 1] = lesson;
             }
+            var cells = lessons.Select(x => new Cell()
+            {
+                CustomLesson = null,
+                DefaultLesson = x,
+                Hidden = false,
+            }).ToArray();
+            var day = new DaySchedule()
+            {
+                Date = rawDaySchedule.Date,
+                Cells = cells
+            };
             return day;
         }
 
