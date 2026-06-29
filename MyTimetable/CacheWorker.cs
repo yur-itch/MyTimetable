@@ -25,7 +25,7 @@ namespace MyTimetable
         // БД — единственный источник правды; в случае недоступности API данные в ней остаются как были.
         private async Task RefreshDbFromApi()
         {
-            List<DaySchedule> apiData;
+            CalendarSchedule apiData;
             try
             {
                 apiData = await fetcher.Get();
@@ -79,51 +79,16 @@ namespace MyTimetable
             }
         }
 
-        private static int WeekNumber(DateOnly date)
-        {
-            // Remap DayOfWeek so Monday=0 ... Sunday=6
-            // (.NET default is Sunday=0 ... Saturday=6)
-            int dayOfWeek = ((int)date.DayOfWeek + 6) % 7;
-
-            return (date.DayNumber - dayOfWeek) / 7;
-        }
-
-        // assumes data is sorted, because the builder gives it sorted
-        private static IEnumerable<List<DaySchedule>> IterateWeeks(List<DaySchedule> days)
-        {
-            if (days.Count == 0)
-            {
-                yield break;
-            }
-            var prevWeekNumber = -1;
-            List<DaySchedule> piece = new();
-            foreach (var day in days)
-            {
-                var newWeekNumber = WeekNumber(day.Date);
-                if (newWeekNumber != prevWeekNumber)
-                {
-                    if (piece.Count > 0)
-                    {
-                        yield return piece;
-                    }
-                    prevWeekNumber = newWeekNumber;
-                    piece = new();
-                }
-                piece.Add(day);
-            }
-            if (piece.Count != 0)
-            {
-                yield return piece;
-            }
-        }
-
         // Чистое вычисление: какие будущие даты потеряли актуальность скрытий — т.е. в их календарной
         // неделе изменился состав пар. В БД не пишет; эффект применяет вызывающий внутри транзакции
         // замены уроков, чтобы оба удаления и вставка были атомарны.
-        private async Task<List<DateOnly>> ComputeStaleDeactivationDates(List<DaySchedule> newData)
+        private async Task<List<DateOnly>> ComputeStaleDeactivationDates(CalendarSchedule newData)
         {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
             var today = DateOnly.FromDateTime(DateTime.Now);
-            var oldData = (await _builder.LoadFromDb()).Where(x => x.Date >= today).ToList();
+            var oldData = new CalendarSchedule((await _builder.LoadFromDb(db)).Where(x => x.Date >= today));
             var dateMapping = new Dictionary<DateOnly, DaySchedule>();
             var daysToInvalidate = new List<DateOnly>();
             foreach (var day in newData)
@@ -134,7 +99,7 @@ namespace MyTimetable
                 }
                 dateMapping[day.Date] = day;
             }
-            foreach (var week in IterateWeeks(oldData))
+            foreach (var week in oldData.GetWeeks())
             {
                 List<DaySchedule> newWeek = new();
                 foreach (var day in week)
@@ -144,7 +109,12 @@ namespace MyTimetable
                         newWeek.Add(newDay);
                     }
                 }
-                if (!week.SequenceEqual(newWeek))
+                // Сравниваем СОСТАВ дефолтных уроков по дням, а не DaySchedule целиком: у DaySchedule
+                // поле Cells — массив, и равенство рекорда сравнило бы его по ссылке (всегда «изменилось»).
+                // DefaultLesson — рекорд с value-equality, поэтому поденное сравнение корректно по контенту.
+                bool sameComposition = week.Count == newWeek.Count
+                    && week.Zip(newWeek).All(p => DayDefaults(p.First).SequenceEqual(DayDefaults(p.Second)));
+                if (!sameComposition)
                 {
                     foreach (var day in week)
                     {
@@ -159,13 +129,19 @@ namespace MyTimetable
             return daysToInvalidate;
         }
 
+        // Состав дефолтных уроков дня по слотам — для контентного сравнения недель (см. ComputeStale...).
+        private static IEnumerable<DefaultLesson?> DayDefaults(DaySchedule day)
+            => day.Cells.Select(c => c.DefaultLesson);
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             // Прогрев из текущей БД до обращения к API: при засеянной БД кэш валиден сразу,
             // не дожидаясь (возможно медленного) запроса к API.
             try
             {
-                await _rebuilder.Rebuild();
+                using var scope = _serviceProvider.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                await _rebuilder.Rebuild(db);
             }
             catch (Exception ex)
             {
@@ -177,7 +153,11 @@ namespace MyTimetable
                 try
                 {
                     await RefreshDbFromApi();
-                    if (await _rebuilder.Rebuild())
+                    // Свежий контекст на каждый тик: долгоживущий DbContext копил бы identity map и отдавал
+                    // устаревшие отслеживаемые сущности вместо актуальных данных из БД.
+                    using var scope = _serviceProvider.CreateScope();
+                    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    if (await _rebuilder.Rebuild(db))
                     {
                         _logger.LogInformation("Updated TsuInTime views at {time}", DateTimeOffset.Now);
                     }

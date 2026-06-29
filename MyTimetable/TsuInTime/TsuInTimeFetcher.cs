@@ -156,12 +156,12 @@ namespace MyTimetable.TsuInTime
             return day;
         }
 
-        private List<DaySchedule> ConvertFromRaw(RawSchedule rawSchedule)
+        private CalendarSchedule ConvertFromRaw(RawSchedule rawSchedule)
         {
-            return rawSchedule.Grid.Select(ConvertDayFromRaw).ToList();
+            return new CalendarSchedule(rawSchedule.Grid.Select(ConvertDayFromRaw));
         }
 
-        public async Task<List<DaySchedule>> Get(string url)
+        public async Task<CalendarSchedule> Get(string url)
         {
             var response = await client.GetAsync(url);
             string json = await response.Content.ReadAsStringAsync();
@@ -172,12 +172,12 @@ namespace MyTimetable.TsuInTime
                 Normalize(rawSchedule);
                 return ConvertFromRaw(rawSchedule);
             }
-            return new();
+            return new CalendarSchedule([]);
         }
 
-        public async Task<List<DaySchedule>> Get() => await Get(BuildUrl());
+        public async Task<CalendarSchedule> Get() => await Get(BuildUrl());
 
-        public async Task<List<DaySchedule>> Get(DateTime dateFrom, DateTime dateTo)
+        public async Task<CalendarSchedule> Get(DateTime dateFrom, DateTime dateTo)
             => await Get(BuildUrl(dateFrom, dateTo));
     }
 }

@@ -1,15 +1,5 @@
 @using MyTimetable.Models
-@model List<DaySchedule>
-@{
-    int slotCount = Model.Count > 0 ? Model.Max(d => d.Cells.Length) : 0;
-
-    var today = DateOnly.FromDateTime(DateTime.Now);
-    var sortedDates = Model.Select(d => d.Date).Distinct().Order().ToList();
-    int currentIdx = sortedDates.Count > 0
-        ? Math.Max(0, sortedDates.FindLastIndex(dt => dt <= today))
-        : -1;
-    string scrollTarget = currentIdx >= 0 ? "day-" + sortedDates[currentIdx].ToString("yyyy-MM-dd") : "";
-}
+@model PageView
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -41,7 +31,7 @@
 
         .grid {
             display: grid;
-            grid-template-columns: var(--day-w) repeat(@slotCount, minmax(110px, 1fr));
+            grid-template-columns: var(--day-w) repeat(@Model.SlotCount, minmax(110px, 1fr));
             border-top: 1px solid var(--line);
             border-left: 1px solid var(--line);
         }
@@ -106,21 +96,21 @@
     <div id="scroller">
         <div class="grid">
             <div class="cell s-both"></div>
-            @for (int num = 1; num <= slotCount; num++)
+            @for (int num = 1; num <= Model.SlotCount; num++)
             {
                 <div class="cell s-top slot-head">
                     <div class="slot-start">Пара @num</div>
                 </div>
             }
-            @foreach (var day in Model)
+            @foreach (var piece in Model.Days)
             {
-                @await Html.PartialAsync("GetOne", day)
+                @Html.Raw(piece)
             }
         </div>
     </div>
     <script>
         requestAnimationFrame(() => {
-            const cur = document.getElementById("@scrollTarget");
+            const cur = document.getElementById("@Model.ScrollTarget");
             if (cur) (cur.firstElementChild ?? cur).scrollIntoView({ block: "center" });
         });
 

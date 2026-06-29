@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using MyTimetable.Models;
 using MyTimetable.Entities;
-using System.Collections.Immutable;
 
 namespace MyTimetable
 {
@@ -10,20 +9,36 @@ namespace MyTimetable
     public sealed class ScheduleBuilder
     {
         private readonly IServiceProvider _serviceProvider;
+        private readonly TimeProvider _time;
 
-        public ScheduleBuilder(IServiceProvider serviceProvider)
+        public ScheduleBuilder(IServiceProvider serviceProvider, TimeProvider time)
         {
             _serviceProvider = serviceProvider;
+            _time = time;
         }
 
-        public async Task<List<DaySchedule>> LoadFromDb()
-            => await LoadFromDb(DateOnly.MinValue, DateOnly.MaxValue);
-
-        public async Task<List<DaySchedule>> LoadFromDb(DateOnly from, DateOnly to)
+        // Границы учебного года — реальные даты вместо DateOnly.Min/Max. Запрошенный диапазон LoadFromDb
+        // благодаря им всегда конечен, поэтому from/to можно честно использовать как края календаря,
+        // не плодя пустые недели до бесконечности.
+        // NB: даты-заглушка — 1 сентября .. 30 июня того учебного года, в который попадает сегодня.
+        // Поставь реальные начало/конец, если период другой.
+        public DateOnly YearStart
         {
-            using var scope = _serviceProvider.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            get
+            {
+                var today = DateOnly.FromDateTime(_time.GetLocalNow().DateTime);
+                int startYear = today.Month >= 9 ? today.Year : today.Year - 1;
+                return new DateOnly(startYear, 9, 1);
+            }
+        }
 
+        public DateOnly YearEnd => new DateOnly(YearStart.Year + 1, 6, 30);
+
+        public async Task<CalendarSchedule> LoadFromDb(AppDbContext db)
+            => await LoadFromDb(db, YearStart, YearEnd);
+
+        public async Task<CalendarSchedule> LoadFromDb(AppDbContext db, DateOnly from, DateOnly to)
+        {
             var defaultLessonsList = await db.DefaultLessons
                 .Where(x => x.Date >= from && x.Date <= to)
                 .ToListAsync();
@@ -76,10 +91,6 @@ namespace MyTimetable
             var allSlots = defaultLessons.Keys.Union(customLessons.Keys);
 
             // Пустая строка дня: 6 пустых ячеек. Нужна и для дырок внутри дня, и для целиком пустых дней.
-            static Cell[] EmptyRow() => Enumerable.Range(0, 6)
-                .Select(_ => new Cell { DefaultLesson = null, CustomLesson = null, Hidden = false })
-                .ToArray();
-
             // Занятые дни: дата -> позиционный Cell[6] (индекс = номер пары - 1). Группируем по дате
             // один раз — это и есть замена перебора "для каждого дня ищем его ячейки" (O(n) вместо O(n^2)).
             var cellsByDate = allSlots
@@ -97,7 +108,7 @@ namespace MyTimetable
                     group => group.Key,
                     group =>
                     {
-                        var cells = EmptyRow();
+                        var cells = DaySchedule.Empty(group.Key).Cells;
                         foreach (var item in group)
                         {
                             if (item.Slot.Number >= 1 && item.Slot.Number <= 6)
@@ -110,22 +121,23 @@ namespace MyTimetable
 
             if (cellsByDate.Count == 0)
             {
-                return new();
+                return new CalendarSchedule([]);
             }
+
+            // Запрошенный диапазон задаёт ГРАНИЦЫ календаря, а не только фильтр выборки. Данные уже
+            // внутри [from, to] (отфильтрованы запросом), поэтому пустые дни-границы лишь растягивают
+            // сетку до запрошенных краёв — пустые from/to тоже попадают в календарь.
+            cellsByDate.TryAdd(from, DaySchedule.Empty(from).Cells);
+            cellsByDate.TryAdd(to, DaySchedule.Empty(to).Cells);
 
             // Непрерывный календарь от первой до последней даты: дни без пар получают пустые ячейки,
             // чтобы в сетке не было разрывов (выходные/окна рисуются пустыми).
-            DateOnly firstDate = cellsByDate.Keys.Min();
-            DateOnly lastDate = cellsByDate.Keys.Max();
-
-            return Enumerable.Range(0, lastDate.DayNumber - firstDate.DayNumber + 1)
-                .Select(offset => firstDate.AddDays(offset))
-                .Select(date => new DaySchedule
+            return new CalendarSchedule(
+                cellsByDate.Select(x => new DaySchedule
                 {
-                    Date = date,
-                    Cells = cellsByDate.TryGetValue(date, out var cells) ? cells : EmptyRow()
-                })
-                .ToList();
+                    Date = x.Key,
+                    Cells = x.Value
+                }));
         }
     }
 }

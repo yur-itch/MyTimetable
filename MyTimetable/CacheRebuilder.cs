@@ -14,24 +14,39 @@ namespace MyTimetable
         private readonly ViewRenderer _renderer;
         private readonly ScheduleBuilder _builder;
         private readonly ScheduleData _data;
+        private readonly TimeProvider _time;
 
-        public CacheRebuilder(IServiceProvider serviceProvider, ViewRenderer renderer, ScheduleBuilder builder, ScheduleData data)
+        public CacheRebuilder(IServiceProvider serviceProvider, ViewRenderer renderer, ScheduleBuilder builder, ScheduleData data, TimeProvider time)
         {
             _serviceProvider = serviceProvider;
             _renderer = renderer;
             _builder = builder;
             _data = data;
+            _time = time;
         }
 
         // true — кэш пересобран и валиден; false — в БД нет данных, кэш помечен невалидным.
-        public async Task<bool> Rebuild()
+        public async Task<bool> Rebuild(AppDbContext db, List<DateOnly>? dates = null)
         {
-            List<DaySchedule> schedule = await _builder.LoadFromDb();
+            CalendarSchedule schedule = await _builder.LoadFromDb(db);
             if (!schedule.Any())
             {
                 _data.StateValid = false;
                 return false;
             }
+
+            if (dates == null)
+            {
+                dates = Enumerable
+                    .Range(_builder.YearStart.DayNumber, _builder.YearEnd.DayNumber - _builder.YearStart.DayNumber + 1)
+                    .Select(x => DateOnly.FromDayNumber(x))
+                    .ToList();
+            } else if (!dates.Any())
+            {
+                _data.StateValid = true;
+                return true;
+            }
+
             using var scope = _serviceProvider.CreateScope();
             var httpContext = new DefaultHttpContext
             {
@@ -41,13 +56,28 @@ namespace MyTimetable
             routeData.Values["controller"] = "App";
             var actionContext = new ActionContext(httpContext, routeData, new ActionDescriptor());
 
-            string html = await _renderer.RenderViewToStringAsync("Get", schedule, actionContext);
-            _data.ViewResult = Compression.Brotli(html);
-
-            foreach (DaySchedule day in schedule)
+            foreach (DaySchedule day in dates.Select(x => schedule.DateToDaySchedule(x)!))
             {
                 _data.PartialViewResult[day.Date] = await _renderer.RenderViewToStringAsync("GetOne", day, actionContext, true);
             }
+
+            // Упорядоченный снимок кэшированных партиалов: страница собирается из всех кусочков
+            // (а не только что перерендренных), снимок — чтобы не перечислять живой словарь во время рендера.
+            var ordered = _data.PartialViewResult.OrderBy(kv => kv.Key).ToList();
+
+            var today = DateOnly.FromDateTime(_time.GetLocalNow().DateTime);
+            int currentIdx = ordered.Count > 0 ? Math.Max(0, ordered.FindLastIndex(kv => kv.Key <= today)) : -1;
+            string scrollTarget = currentIdx >= 0 ? "day-" + ordered[currentIdx].Key.ToString("yyyy-MM-dd") : "";
+
+            var view = new PageView
+            {
+                SlotCount = schedule.Max(d => d.Cells.Length),
+                ScrollTarget = scrollTarget,
+                Days = ordered.Select(kv => kv.Value).ToList()
+            };
+
+            string html = await _renderer.RenderViewToStringAsync("Get", view, actionContext);
+            _data.ViewResult = Compression.Brotli(html);
 
             _data.StateValid = true;
             return true;

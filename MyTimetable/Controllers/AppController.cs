@@ -1,21 +1,30 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using MyTimetable.Entities;
 using MyTimetable.Models;
+using MyTimetable.Planning;
 
 namespace MyTimetable.Controllers
 {
     [Route("[controller]")]
     public sealed class AppController : Controller
     {
-        private IServiceProvider _serviceProvider;
+        private AppDbContext _db;
         private ScheduleData _data;
         private CacheRebuilder _rebuilder;
+        private Planner _planner;
+        private ScheduleBuilder _builder;
+        private ChangesetApplier _applier;
+        private TimeProvider _time;
 
-        public AppController(ScheduleData data, IServiceProvider serviceProvider, CacheRebuilder rebuilder)
+        public AppController(ScheduleData data, AppDbContext db, CacheRebuilder rebuilder, Planner planner, ScheduleBuilder scheduleBuilder, ChangesetApplier applier, TimeProvider time)
         {
             _data = data;
-            _serviceProvider = serviceProvider;
+            _db = db;
             _rebuilder = rebuilder;
+            _planner = planner;
+            _builder = scheduleBuilder;
+            _applier = applier;
+            _time = time;
         }
 
         [HttpGet]
@@ -51,16 +60,13 @@ namespace MyTimetable.Controllers
         [HttpPatch("Hide")]
         public async Task<IActionResult> Hide(DateOnly date, int lessonNumber)
         {
-            using var scope = _serviceProvider.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-            DefaultLessonEntry? lesson = await db.DefaultLessons.FindAsync(new object[] { date, lessonNumber });
+            DefaultLessonEntry? lesson = await _db.DefaultLessons.FindAsync(new object[] { date, lessonNumber });
             if (lesson == null)
             {
                 return NotFound();
             }
 
-            LessonDeactivation? deactivation = await db.Deactivations.FindAsync(new object[] { date, lessonNumber });
+            LessonDeactivation? deactivation = await _db.Deactivations.FindAsync(new object[] { date, lessonNumber });
             if (deactivation == null)
             {
                 LessonDeactivation newDeactivation = new LessonDeactivation()
@@ -68,9 +74,9 @@ namespace MyTimetable.Controllers
                     Date = date,
                     Number = lessonNumber
                 };
-                await db.Deactivations.AddAsync(newDeactivation);
-                await db.SaveChangesAsync();
-                await _rebuilder.Rebuild(); // держим кэш всегда тёплым — пересобираем сразу
+                await _db.Deactivations.AddAsync(newDeactivation);
+                await _db.SaveChangesAsync();
+                await _rebuilder.Rebuild(_db, [date]); // держим кэш всегда тёплым — пересобираем сразу
             }
             return PartialFor(date);
         }
@@ -78,23 +84,37 @@ namespace MyTimetable.Controllers
         [HttpPatch("Unhide")]
         public async Task<IActionResult> Unhide(DateOnly date, int lessonNumber)
         {
-            using var scope = _serviceProvider.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-            DefaultLessonEntry? lesson = await db.DefaultLessons.FindAsync(new object[] { date, lessonNumber });
+            DefaultLessonEntry? lesson = await _db.DefaultLessons.FindAsync(new object[] { date, lessonNumber });
             if (lesson == null)
             {
                 return NotFound();
             }
 
-            LessonDeactivation? deactivation = await db.Deactivations.FindAsync(new object[] { date, lessonNumber });
+            LessonDeactivation? deactivation = await _db.Deactivations.FindAsync(new object[] { date, lessonNumber });
             if (deactivation != null)
             {
-                db.Deactivations.Remove(deactivation);
-                await db.SaveChangesAsync();
-                await _rebuilder.Rebuild(); // держим кэш всегда тёплым — пересобираем сразу
+                _db.Deactivations.Remove(deactivation);
+                await _db.SaveChangesAsync();
+                await _rebuilder.Rebuild(_db, [date]); // держим кэш всегда тёплым — пересобираем сразу
             }
             return PartialFor(date);
+        }
+
+        [HttpPatch("Plan")]
+        public async Task<IActionResult> Plan([FromQuery] Dictionary<string, int> titles)
+        {
+            _planner.LoadQueue(titles);
+            CalendarSchedule days = await _builder.LoadFromDb(_db, DateOnly.FromDateTime(_time.GetLocalNow().DateTime), _builder.YearEnd);
+            ScheduleChangeset schedule = new();
+            IPlanningSelectorFactory selectorFactory = new PlanningSelectorFactory(
+                (queue, slots) => new RoundRobinSelector(queue, slots));
+            List<DateOnly> dates = _planner.Plan(selectorFactory, days, schedule);
+            await _applier.Apply(_db, schedule);
+            await _db.SaveChangesAsync(); // контроллер владеет единицей работы запроса — он и коммитит
+            await _rebuilder.Rebuild(_db, dates);
+            Dictionary<DateOnly, string> rendered = dates.ToDictionary(x => x, x => _data.PartialViewResult[x]);
+            var response = new { success = rendered, failure = _planner.Queue.Values.Sum() };
+            return Ok(response);
         }
     }
 }
