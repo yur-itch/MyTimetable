@@ -11,16 +11,10 @@ namespace TestMyTimetable.Planning
 {
     public class TestGapClosingSelector
     {
+        // GetDays переехал в DayLayout (internal, публичный метод) — рефлексия больше не нужна,
+        // тест проекта видит internal-члены через InternalsVisibleTo.
         private static IEnumerable<List<int>> CallGetDays(List<Slot> slots)
-        {
-            var method = typeof(GapClosingSelector).GetMethod(
-                "GetDays",
-                BindingFlags.NonPublic | BindingFlags.Static)
-                ?? throw new InvalidOperationException("Method GetDays not found");
-
-            var result = method.Invoke(null, [slots]);
-            return (IEnumerable<List<int>>)result!;
-        }
+            => DayLayout.GetDays(slots).Select(d => d.Open);
 
         // ── Пустой список ────────────────────────────────────────────
 
@@ -142,13 +136,16 @@ namespace TestMyTimetable.Planning
             result.Select(g => g.Single()).Should().Equal([10, 20, 30, 40, 50]);
         }
 
+        // GetGapsInDay стал instance-методом (нужен _slotCount из конструктора) — рефлексия теперь
+        // бьёт по инстансу, а не по типу; сам метод остался private, InternalsVisibleTo тут не помогает.
         private static List<SlotRange> Invoke(int[] emptySlots)
         {
-            var method = typeof(GapClosingSelector) // ← замени на имя своего класса
-                .GetMethod("GetGapsInDay", BindingFlags.NonPublic | BindingFlags.Static)
+            var selector = new GapClosingSelector(new Dictionary<string, int>(), new List<Slot>());
+            var method = typeof(GapClosingSelector)
+                .GetMethod("GetGapsInDay", BindingFlags.NonPublic | BindingFlags.Instance)
                 ?? throw new InvalidOperationException("GetGapsInDay not found");
 
-            return ((IEnumerable<SlotRange>)method.Invoke(null, [emptySlots.ToList()])!).ToList();
+            return ((IEnumerable<SlotRange>)method.Invoke(selector, [emptySlots.ToList()])!).ToList();
         }
 
         // Каждый кейс: [пустые слоты, ожидаемые Start[], ожидаемые Size[]]

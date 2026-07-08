@@ -10,9 +10,10 @@ namespace MyTimetable.Planning
         public RandomSelector(Dictionary<string, int> queue, List<Slot> fillable, Random? random = null) : base(queue, fillable)
             => _random = random ?? Random.Shared;
 
-        protected override string PickSubject()
+        protected override string? PickSubject()
         {
             var available = Available.Select(kv => kv.Key).ToList();
+            if (available.Count == 0) return null;
             return available[_random.Next(available.Count)];
         }
     }

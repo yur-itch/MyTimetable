@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.ResponseCompression;
 using System.IO.Compression;
 
 using MyTimetable;
+using MyTimetable.Models;
 using MyTimetable.Planning;
+using MyTimetable.TsuInTime;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,7 +14,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // Источник «сейчас» для горизонта планирования (ScheduleBuilder/Planner/CacheRebuilder/AppController).
 // Обычно системное время; Schedule:DateOffsetDays != 0 включает машину времени для отладки планировщика.
-// Воркер и фетчер на это НЕ завязаны — они остаются на реальном времени.
+// Воркер на это НЕ завязан — он остается на реальном времени.
 int dateOffsetDays = builder.Configuration.GetValue<int>("Schedule:DateOffsetDays");
 builder.Services.AddSingleton<TimeProvider>(dateOffsetDays == 0
     ? TimeProvider.System
@@ -20,12 +22,27 @@ builder.Services.AddSingleton<TimeProvider>(dateOffsetDays == 0
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddSingleton<IPlanningSelectorFactory>(new PlanningSelectorFactory((q, f) => new GapClosingSelector(q, f)));
+builder.Services.AddSingleton<IReadOnlyDictionary<string, IPlanningSelectorFactory>>(_ =>
+    new Dictionary<string, IPlanningSelectorFactory>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["gap"] = new PlanningSelectorFactory((q, s) => new GapClosingSelector(q, s, DaySchedule.DefaultSlotCount)),
+        ["emptyseed"] = new PlanningSelectorFactory((q, s) => new EmptyDaySeedSelector(q, s, DaySchedule.DefaultSlotCount)),
+        ["leading"] = new PlanningSelectorFactory((q, s) => new LeadingChunkGrowthSelector(q, s, DaySchedule.DefaultSlotCount)),
+        ["trailing"] = new PlanningSelectorFactory((q, s) => new TrailingChunkGrowthSelector(q, s, DaySchedule.DefaultSlotCount)),
+        ["roundrobin"] = new PlanningSelectorFactory((q, s) => new RoundRobinSelector(q, s)),
+        ["fairshare"] = new PlanningSelectorFactory((q, s) => new FairShareSelector(q, s)),
+        ["largest"] = new PlanningSelectorFactory((q, s) => new LargestQueueFirstSelector(q, s)),
+        ["smallest"] = new PlanningSelectorFactory((q, s) => new SmallestQueueFirstSelector(q, s)),
+        ["random"] = new PlanningSelectorFactory((q, s) => new RandomSelector(q, s)),
+        ["weighted"] = new PlanningSelectorFactory((q, s) => new WeightedRandomSelector(q, s)),
+    });
 builder.Services.AddSingleton<Planner>();
+builder.Services.AddSingleton<PlanPage>();
 builder.Services.AddSingleton<ScheduleData>();
 builder.Services.AddSingleton<ViewRenderer>();
 builder.Services.AddSingleton<ScheduleBuilder>();
 builder.Services.AddSingleton<ChangesetApplier>();
+builder.Services.AddSingleton<TsuInTimeFetcher>();
 builder.Services.AddSingleton<CacheRebuilder>();
 //builder.Services.AddResponseCompression(options =>
 //{
@@ -44,7 +61,12 @@ var app = builder.Build();
 // Если упадёт здесь — значит БД недоступна или строка подключения неверна; смотри логи деплоя.
 using (var scope = app.Services.CreateScope())
 {
-    scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.Migrate();
+    var sp = scope.ServiceProvider;
+    sp.GetRequiredService<AppDbContext>().Database.Migrate();
+
+    // Пререндерим страницу планирования из текущей (на старте пустой) очереди. Дальше её пересобирают
+    // эндпоинты планирования и снятия конфликтов при каждом изменении очереди (PlanPage.Rebuild).
+    await sp.GetRequiredService<PlanPage>().Rebuild(sp.GetRequiredService<Planner>().Queue);
 }
 
 //app.UseResponseCompression();

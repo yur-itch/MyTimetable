@@ -16,6 +16,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
 	  <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.2" />
+	  <PackageReference Include="NUglify" Version="1.21.17" />
   </ItemGroup>
 	<ItemGroup>
 		<InternalsVisibleTo Include="TestMyTimetable" />

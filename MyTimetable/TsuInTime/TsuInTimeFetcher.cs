@@ -15,10 +15,17 @@ namespace MyTimetable.TsuInTime
         private string endpoint = "https://intime.tsu.ru/api/web/v1/schedule/group";
         private string groupID = "06696fef-39f2-11f0-9dca-6cb3110a6d8e";
         private string[] groupNames = { "972501", "972501 (1)" };
+        private readonly TimeProvider _time;
+
+        public TsuInTimeFetcher(TimeProvider? time = null)
+        {
+            _time = time ?? TimeProvider.System;
+        }
 
         private string BuildUrl()
         {
-            int yearStart = DateTime.Now.Month >= 7 ? DateTime.Now.Year : DateTime.Now.Year - 1;
+            var now = _time.GetLocalNow().DateTime;
+            int yearStart = now.Month >= 7 ? now.Year : now.Year - 1;
             var dateFrom = new DateTime(yearStart, 9, 1);
             var dateTo = new DateTime(yearStart + 1, 7, 1);
             return BuildUrl(dateFrom, dateTo);
@@ -124,14 +131,14 @@ namespace MyTimetable.TsuInTime
         {
             //DaySchedule day = new();
             //day.Date = rawDaySchedule.Date;
-            DefaultLesson?[] lessons = { null, null, null, null, null, null };
+            DefaultLesson?[] lessons = new DefaultLesson?[DaySchedule.DefaultSlotCount];
             foreach (RawLesson rawLesson in rawDaySchedule.Lessons)
             {
                 if (rawLesson.Type == "EMPTY")
                 {
                     continue;
                 }
-                if (rawLesson.LessonNumber < 1 || rawLesson.LessonNumber > 6)
+                if (rawLesson.LessonNumber < 1 || rawLesson.LessonNumber > DaySchedule.DefaultSlotCount)
                 {
                     continue;
                 }

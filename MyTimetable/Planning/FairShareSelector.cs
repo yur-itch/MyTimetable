@@ -15,8 +15,9 @@ namespace MyTimetable.Planning
         public FairShareSelector(Dictionary<string, int> queue, List<Slot> fillable) : base(queue, fillable)
             => _desired = CaptureDesired();
 
-        protected override string PickSubject()
+        protected override string? PickSubject()
         {
+            if (!Available.Any()) return null;
             string best = Available.First().Key;
             double bestDistance = double.PositiveInfinity;
             foreach (string candidate in Available.Select(kv => kv.Key))

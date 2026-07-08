@@ -1,0 +1,259 @@
+@model MyTimetable.PlanView
+@{ Layout = null; }
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Планирование</title>
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --line: #1b1b24;
+            --fg: #e8e8ef;
+            --sub: #6b6b7b;
+            --accent: #3b82f6;
+            --accent-bg: #11294d;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            margin: 0;
+            min-height: 100%;
+            background: var(--bg);
+            color: var(--fg);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .wrap { max-width: 560px; margin: 0 auto; padding: 24px 16px 64px; }
+
+        a.back { color: var(--sub); text-decoration: none; font-size: 14px; }
+        a.back:hover { color: var(--fg); }
+
+        h1 { font-size: 20px; margin: 12px 0 20px; }
+        label { display: block; font-size: 13px; color: var(--sub); margin: 18px 0 6px; }
+
+        select, input {
+            background: #13131c;
+            border: 1px solid var(--line);
+            color: var(--fg);
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 14px;
+        }
+        select { width: 100%; }
+        select:focus, input:focus { outline: none; border-color: var(--accent); }
+
+        .row { display: flex; gap: 8px; margin-bottom: 8px; }
+        .row .title { flex: 1 1 auto; min-width: 0; }
+        .row .count { width: 84px; }
+        .row .del { width: 40px; flex: 0 0 auto; background: #1a1320; border-color: #5b2330; color: #e88; cursor: pointer; }
+        .row .strat { flex: 1 1 auto; min-width: 0; }
+        .row .mv { width: 36px; flex: 0 0 auto; background: #13131c; border: 1px solid var(--line); color: var(--fg); border-radius: 6px; cursor: pointer; }
+        .row .mv:hover { border-color: var(--accent); }
+
+        .add { margin-top: 4px; background: #13131c; border: 1px solid var(--line); color: var(--fg); border-radius: 6px; padding: 8px 12px; font-size: 14px; cursor: pointer; }
+        .add:hover { border-color: var(--accent); }
+
+        .go { margin-top: 24px; width: 100%; background: var(--accent-bg); border: 1px solid var(--accent); color: #cfe0ff; border-radius: 8px; padding: 12px; font-size: 15px; font-weight: 600; cursor: pointer; }
+        .go:hover { background: #173667; }
+        .go:disabled { opacity: .5; cursor: default; }
+
+        .reset { margin-top: 10px; width: 100%; background: #1a1320; border: 1px solid #5b2330; color: #e88; border-radius: 8px; padding: 10px; font-size: 14px; cursor: pointer; }
+        .reset:hover { background: #271826; }
+        .reset:disabled { opacity: .5; cursor: default; }
+
+        #result { margin-top: 18px; font-size: 14px; min-height: 20px; }
+        #result.ok { color: #7ddc8e; }
+        #result.err { color: #e88; }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <a class="back" href="/App">← к расписанию</a>
+        <h1>Планирование пар</h1>
+
+        <label>Предметы и количество</label>
+        <div id="rows">
+@foreach (var kv in Model.Queue)
+{
+            <div class="row">
+                <input class="title" type="text" placeholder="Название предмета" value="@kv.Key" />
+                <input class="count" type="number" min="1" value="@kv.Value" />
+                <button type="button" class="del" title="Убрать">✕</button>
+            </div>
+}
+        </div>
+        <button type="button" class="add" onclick="addRow()">+ предмет</button>
+
+        <label>Стратегии (применяются стопкой, сверху вниз)</label>
+        <div id="strats"></div>
+        <button type="button" class="add" onclick="addStrat()">+ стратегия</button>
+
+        <button type="button" class="go" id="go" onclick="submitPlan()">Запланировать</button>
+        <button type="button" class="reset" id="reset" onclick="resetDb()">Сбросить БД</button>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const rows = document.getElementById('rows');
+        const strats = document.getElementById('strats');
+        const STRATEGIES = [@Html.Raw(string.Join(", ", Model.Strategies.Select(s => "\"" + s + "\"")))];
+
+        function addStrat(value) {
+            const div = document.createElement('div');
+            div.className = 'row';
+
+            const sel = document.createElement('select');
+            sel.className = 'strat';
+            for (const s of STRATEGIES) {
+                const o = document.createElement('option');
+                o.value = s;
+                o.textContent = s;
+                sel.appendChild(o);
+            }
+            if (value) sel.value = value;
+
+            const up = document.createElement('button');
+            up.type = 'button'; up.className = 'mv'; up.title = 'Выше'; up.textContent = '↑';
+            up.onclick = () => { if (div.previousElementSibling) strats.insertBefore(div, div.previousElementSibling); saveStrats(); };
+
+            const down = document.createElement('button');
+            down.type = 'button'; down.className = 'mv'; down.title = 'Ниже'; down.textContent = '↓';
+            down.onclick = () => { if (div.nextElementSibling) strats.insertBefore(div.nextElementSibling, div); saveStrats(); };
+
+            const del = document.createElement('button');
+            del.type = 'button'; del.className = 'del'; del.title = 'Убрать'; del.textContent = '✕';
+            del.onclick = () => { div.remove(); saveStrats(); };
+
+            div.append(sel, up, down, del);
+            strats.appendChild(div);
+            saveStrats();
+        }
+
+        function addRow(title = '', count = 1) {
+            const div = document.createElement('div');
+            div.className = 'row';
+            div.innerHTML =
+                '<input class="title" type="text" placeholder="Название предмета" />' +
+                '<input class="count" type="number" min="1" />' +
+                '<button type="button" class="del" title="Убрать">✕</button>';
+            div.querySelector('.title').value = title;
+            div.querySelector('.count').value = count;
+            rows.appendChild(div);
+        }
+
+        // Предметы приходят с сервера (текущая очередь) и локально не сохраняются. Удаление строки —
+        // делегированием, чтобы работало и для серверных строк, и для добавленных кнопкой.
+        rows.addEventListener('click', e => {
+            if (e.target.classList.contains('del')) e.target.closest('.row').remove();
+        });
+
+        // Стопка стратегий — предпочтение клиента, его и помним в localStorage (очередь сюда не входит).
+        const STORAGE_KEY = 'planner.strategies.v1';
+        let restoring = false;
+
+        function saveStrats() {
+            if (restoring) return;
+            const strategies = [...strats.querySelectorAll('.strat')].map(s => s.value);
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(strategies)); } catch { }
+        }
+
+        strats.addEventListener('change', saveStrats);
+
+        (function init() {
+            restoring = true;
+            let saved = [];
+            try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { }
+            for (const s of saved.filter(s => STRATEGIES.includes(s))) addStrat(s);
+            // всегда оставляем юзабельную форму: хотя бы одна стратегия; пустая очередь — одна пустая строка
+            if (!strats.querySelector('.strat')) addStrat('gap');
+            if (!rows.querySelector('.row')) addRow();
+            restoring = false;
+        })();
+
+        async function resetDb() {
+            const reset = document.getElementById('reset');
+            const result = document.getElementById('result');
+            result.className = '';
+            result.textContent = '';
+            if (!confirm('Снести все кастомные уроки и скрытия?')) return;
+
+            reset.disabled = true;
+            try {
+                const res = await fetch('/App/Reset', { method: 'POST' });
+                if (!res.ok) {
+                    result.className = 'err';
+                    result.textContent = 'Ошибка ' + res.status + ': ' + (await res.text());
+                    return;
+                }
+                const data = await res.json();
+                result.className = 'ok';
+                result.textContent = 'Сброшено: кастомных ' + data.cleared.custom + ', скрытий ' + data.cleared.deactivations + '.';
+            } catch {
+                result.className = 'err';
+                result.textContent = 'Сеть недоступна.';
+            } finally {
+                reset.disabled = false;
+            }
+        }
+
+        async function submitPlan() {
+            const go = document.getElementById('go');
+            const result = document.getElementById('result');
+            result.className = '';
+            result.textContent = '';
+
+            // Стратегии — повторяющийся strategies=<имя> в порядке строк (биндинг в List<string>).
+            const params = [];
+            for (const sel of strats.querySelectorAll('.strat')) {
+                params.push('strategies=' + encodeURIComponent(sel.value));
+            }
+            if (params.length === 0) {
+                result.className = 'err';
+                result.textContent = 'Добавь хотя бы одну стратегию.';
+                return;
+            }
+
+            // Биндинг [FromQuery] Dictionary<string,int> ждёт titles[Ключ]=значение.
+            let requested = 0;
+            for (const row of rows.querySelectorAll('.row')) {
+                const title = row.querySelector('.title').value.trim();
+                const count = parseInt(row.querySelector('.count').value, 10);
+                if (!title || !(count > 0)) continue;
+                params.push('titles[' + encodeURIComponent(title) + ']=' + count);
+                requested += count;
+            }
+            if (requested === 0) {
+                result.className = 'err';
+                result.textContent = 'Добавь хотя бы один предмет с количеством.';
+                return;
+            }
+
+            go.disabled = true;
+            try {
+                const res = await fetch('/App/Plan?' + params.join('&'), { method: 'PATCH' });
+                if (!res.ok) {
+                    result.className = 'err';
+                    result.textContent = 'Ошибка ' + res.status + ': ' + (await res.text());
+                    return;
+                }
+                const data = await res.json();
+                const failure = data.failure ?? 0;
+                const placed = requested - failure;
+                const days = data.success ? Object.keys(data.success).length : 0;
+                result.className = 'ok';
+                result.innerHTML = 'Размещено пар: ' + placed + ' (в ' + days + ' дн.), не влезло: ' + failure +
+                    '. <a class="back" href="/App">открыть расписание →</a>';
+            } catch {
+                result.className = 'err';
+                result.textContent = 'Сеть недоступна.';
+            } finally {
+                go.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

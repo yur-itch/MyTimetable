@@ -7,6 +7,7 @@ namespace MyTimetable.Planning
     {
         public LargestQueueFirstSelector(Dictionary<string, int> queue, List<Slot> fillable) : base(queue, fillable) { }
 
-        protected override string PickSubject() => Available.MaxBy(kv => kv.Value).Key;
+        // Пустой Available -> MaxBy возвращает default(KeyValuePair), его Key == null -> остановка.
+        protected override string? PickSubject() => Available.MaxBy(kv => kv.Value).Key;
     }
 }

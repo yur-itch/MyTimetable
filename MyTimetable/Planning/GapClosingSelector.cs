@@ -5,12 +5,6 @@ using System.Text.RegularExpressions;
 
 namespace MyTimetable.Planning
 {
-    record class Day
-    {
-        public required DateOnly Date;
-        public required List<int> Open;
-    }
-
     record class Range
     {
         public required int Size;
@@ -37,29 +31,9 @@ namespace MyTimetable.Planning
 
     public class GapClosingSelector : PlanningSelectorBase
     {
-        private static IEnumerable<Day> GetDays(List<Slot> slots)
-        {
-            if (slots.Count == 0) yield break;
-            DateOnly date = slots.First().Date;
-            List<int> day = [slots[0].Number];
-            for (int i = 1; i < slots.Count; i++)
-            {
-                Slot slot = slots[i];
-                if (slot.Date != date)
-                {
-                    yield return new Day { Date = date, Open = new List<int>(day) };
-                    date = slot.Date;
-                    day.Clear();
-                }
-                day.Add(slot.Number);
-            }
-            if (day.Any())
-            {
-                yield return new Day { Date = date, Open = new List<int>(day) };
-            }
-        }
+        private readonly int _slotCount;
 
-        private static void FirstAndLastOccupied(List<int> day, out int? firstTaken, out int? lastTaken)
+        private static void FirstAndLastOccupied(List<int> day, int slotCount, out int? firstTaken, out int? lastTaken)
         {
             firstTaken = null;
             lastTaken = null;
@@ -67,23 +41,23 @@ namespace MyTimetable.Planning
             if (day.Count == 0)
             {
                 firstTaken = 1;
-                lastTaken = 6;
+                lastTaken = slotCount;
                 return;
             }
-            if (day.Count == 6) return;
+            if (day.Count == slotCount) return;
 
             if (day[0] > 1)
             {
                 firstTaken = 1;
                 lastTaken = day[0] - 1;
-                if (day[day.Count - 1] < 6)
+                if (day[day.Count - 1] < slotCount)
                 {
-                    lastTaken = 6;
+                    lastTaken = slotCount;
                 }
             }
-            else if (day[day.Count - 1] < 6)
+            else if (day[day.Count - 1] < slotCount)
             {
-                lastTaken = 6;
+                lastTaken = slotCount;
                 int gap = 1;
                 foreach (int v in day)
                 {
@@ -93,10 +67,10 @@ namespace MyTimetable.Planning
                 firstTaken = gap;
             }
 
-            if (lastTaken != 6 || firstTaken != 1)
+            if (lastTaken != slotCount || firstTaken != 1)
             {
                 int dayIndex = 1;
-                for (int i = day[0] + 1; i < 6; i++)
+                for (int i = day[0] + 1; i < slotCount; i++)
                 {
                     if (dayIndex == day.Count)
                     {
@@ -108,7 +82,7 @@ namespace MyTimetable.Planning
                         {
                             firstTaken = i;
                         }
-                        if (lastTaken != 6)
+                        if (lastTaken != slotCount)
                         {
                             lastTaken = i;
                         }
@@ -121,9 +95,9 @@ namespace MyTimetable.Planning
             }
         }
 
-        private static IEnumerable<Range> GetGapsInDay(List<int> day)
+        private IEnumerable<Range> GetGapsInDay(List<int> day)
         {
-            FirstAndLastOccupied(day, out int? firstTaken, out int? lastTaken);
+            FirstAndLastOccupied(day, _slotCount, out int? firstTaken, out int? lastTaken);
 
             if (firstTaken == lastTaken || day.Count == 0) yield break;
 
@@ -177,7 +151,7 @@ namespace MyTimetable.Planning
         private readonly List<string> _order;
         private int _position = 0;
 
-        protected override string PickSubject()
+        protected override string? PickSubject()
         {
             for (int i = 0; i < _order.Count; i++)
             {
@@ -189,14 +163,14 @@ namespace MyTimetable.Planning
                     return key;
                 }
             }
-            // недостижимо: Plan вызывает PickSubject только при наличии доступных
-            throw new InvalidOperationException("No subjects with a remaining count to select.");
+            return null; // ни одного предмета с остатком — остановка
         }
 
-        public GapClosingSelector(Dictionary<string, int> queue, List<Slot> fillable) : base(queue, fillable)
+        public GapClosingSelector(Dictionary<string, int> queue, List<Slot> fillable, int slotCount = 6) : base(queue, fillable)
         {
+            _slotCount = slotCount;
             _order = Queue.Keys.ToList();
-            _gapSlots = GetDays(fillable)
+            _gapSlots = DayLayout.GetDays(fillable)
                 .SelectMany(x =>
                 {
                     var ranges = GetGapsInDay(x.Open);

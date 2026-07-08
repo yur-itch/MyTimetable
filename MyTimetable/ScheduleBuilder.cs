@@ -111,7 +111,7 @@ namespace MyTimetable
                         var cells = DaySchedule.Empty(group.Key).Cells;
                         foreach (var item in group)
                         {
-                            if (item.Slot.Number >= 1 && item.Slot.Number <= 6)
+                            if (item.Slot.Number >= 1 && item.Slot.Number <= DaySchedule.DefaultSlotCount)
                             {
                                 cells[item.Slot.Number - 1] = item.Cell;
                             }

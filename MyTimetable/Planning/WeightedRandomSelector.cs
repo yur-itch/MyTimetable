@@ -10,9 +10,10 @@ namespace MyTimetable.Planning
         public WeightedRandomSelector(Dictionary<string, int> queue, List<Slot> fillable, Random? random = null) : base(queue, fillable)
             => _random = random ?? Random.Shared;
 
-        protected override string PickSubject()
+        protected override string? PickSubject()
         {
             var available = Available.ToList();
+            if (available.Count == 0) return null;
             int total = 0;
             foreach (var kv in available) total += kv.Value;
 

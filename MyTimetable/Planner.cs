@@ -9,18 +9,6 @@ namespace MyTimetable
         // нельзя подменять извне (новая ссылка рассинхронизировала бы селектор с очередью) — только
         // переписывать содержимое на месте через LoadQueue. Наружу отдаём read-only вид.
         private readonly Dictionary<string, int> _queue = new();
-        private ScheduleBuilder _scheduleBuilder;
-        private ChangesetApplier _applier;
-        private IServiceProvider _serviceProvider;
-        private readonly TimeProvider _time;
-
-        public Planner(ScheduleBuilder builder, ChangesetApplier applier, IPlanningSelectorFactory selectorFactory, IServiceProvider serviceProvider, TimeProvider time)
-        {
-            _scheduleBuilder = builder;
-            _applier = applier;
-            _serviceProvider = serviceProvider;
-            _time = time;
-        }
 
         public IReadOnlyDictionary<string, int> Queue => _queue;
 
@@ -44,7 +32,7 @@ namespace MyTimetable
         private static IEnumerable<Slot> GetConflictingSlots(DaySchedule day)
             => GetActiveSlots(day).Intersect(day.GetCustomOccupiedSlots());
 
-        private IEnumerable<Slot> GetConflictingSlots(CalendarSchedule days)
+        public IEnumerable<Slot> GetConflictingSlots(CalendarSchedule days)
             => days.SelectMany(x => GetConflictingSlots(x));
 
         private IEnumerable<Slot> GetFillableSlots(CalendarSchedule days)
@@ -54,33 +42,19 @@ namespace MyTimetable
         // поэтому убираем кастомный, а его предмет возвращаем в очередь, чтобы перепланировать в другой слот.
         // Сначала материализуем слоты: SetCustom мутирует ячейки, а GetConflictingSlots читает их лениво —
         // иначе перечисление видело бы собственные правки.
-        public int ResolveConflicts(CalendarSchedule days, ScheduleChangeset changeset)
+        public List<DateOnly> ResolveConflicts(CalendarSchedule days, ScheduleChangeset changeset)
         {
-            int count = 0;
+            HashSet<DateOnly> dates = new();
             foreach (Slot slot in GetConflictingSlots(days).ToList())
             {
                 // safe: конфликтный слот по определению содержит кастомный урок
                 string title = days.SlotToCell(slot)!.CustomLesson!.Title; // читаем до очистки ячейки
                 if (!_queue.ContainsKey(title)) _queue[title] = 0;
                 _queue[title]++;
-                count++;
+                dates.Add(slot.Date);
                 RemoveCustom(days, slot, changeset);
             }
-            return count;
-        }
-
-        public async Task<int> ResolveFutureConflicts()
-        {
-            using var scope = _serviceProvider.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-            var futureSchedule = await _scheduleBuilder.LoadFromDb(db, DateOnly.FromDateTime(_time.GetLocalNow().DateTime), _scheduleBuilder.YearEnd);
-
-            var changeset = new ScheduleChangeset();
-            int res = ResolveConflicts(futureSchedule, changeset);
-            await _applier.Apply(db, changeset);
-            await db.SaveChangesAsync(); // владелец scope коммитит единицу работы
-            return res;
+            return dates.ToList();
         }
 
         public List<DateOnly> Plan(IPlanningSelectorFactory selectorFactory, CalendarSchedule schedule, ScheduleChangeset changeset)

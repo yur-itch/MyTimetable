@@ -8,17 +8,18 @@ namespace MyTimetable
     public sealed class CacheWorker : BackgroundService
     {
         private readonly ILogger<CacheWorker> _logger;
-        private readonly TsuInTimeFetcher fetcher = new();
+        private readonly TsuInTimeFetcher fetcher;
         private readonly IServiceProvider _serviceProvider;
         private readonly ScheduleBuilder _builder;
         private readonly CacheRebuilder _rebuilder;
 
-        public CacheWorker(ILogger<CacheWorker> logger, IServiceProvider serviceProvider, ScheduleBuilder builder, CacheRebuilder rebuilder)
+        public CacheWorker(ILogger<CacheWorker> logger, IServiceProvider serviceProvider, ScheduleBuilder builder, CacheRebuilder rebuilder, TsuInTimeFetcher fetcher)
         {
             _logger = logger;
             _serviceProvider = serviceProvider;
             _builder = builder;
             _rebuilder = rebuilder;
+            this.fetcher = fetcher;
         }
 
         // Тянет расписание из API и, если оно доступно, перезаписывает дефолтные уроки в БД.
@@ -43,7 +44,7 @@ namespace MyTimetable
 
             DefaultLessonEntry[] defaultLessons = apiData
                 .SelectMany(x => Enumerable
-                    .Range(0, 6)
+                    .Range(0, DaySchedule.DefaultSlotCount)
                     .Select(y => (Date: x.Date, LessonNumber: y + 1, Lesson: x.Cells[y].DefaultLesson))
                     .Where(t => t.Lesson != null)
                     .Select(t => new DefaultLessonEntry()

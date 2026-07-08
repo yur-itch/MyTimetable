@@ -11,7 +11,7 @@ namespace MyTimetable.Planning
         public RoundRobinSelector(Dictionary<string, int> queue, List<Slot> fillable) : base(queue, fillable)
             => _order = Queue.Keys.ToList();
 
-        protected override string PickSubject()
+        protected override string? PickSubject()
         {
             for (int i = 0; i < _order.Count; i++)
             {
@@ -23,8 +23,7 @@ namespace MyTimetable.Planning
                     return key;
                 }
             }
-            // недостижимо: Plan вызывает PickSubject только при наличии доступных
-            throw new InvalidOperationException("No subjects with a remaining count to select.");
+            return null; // ни одного предмета с остатком — остановка
         }
     }
 }

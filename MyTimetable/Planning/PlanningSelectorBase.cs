@@ -29,8 +29,6 @@ namespace MyTimetable.Planning
         protected IEnumerable<KeyValuePair<string, int>> Available
             => Queue.Where(kv => kv.Value > 0);
 
-        protected bool Exhausted => !Available.Any();
-
         // Берёт следующий слот для заполнения. По умолчанию — ближайший по порядку (убирая его из Fillable);
         // слот-стратегии (дырки, равномерный разброс, лимит на день) переопределяют выбор. null — слотов
         // для размещения больше нет: Plan на этом заканчивает (даже если очередь ещё не пуста).
@@ -42,16 +40,20 @@ namespace MyTimetable.Planning
             return slot;
         }
 
-        // Выбор предмета для очередного размещения. Вызывается только когда есть доступные (см. Plan).
-        protected abstract string PickSubject();
+        // Выбор предмета для очередного размещения. null — подходящего предмета нет (например, очередь
+        // пуста): Plan на этом заканчивает, симметрично null из TakeSlot.
+        protected abstract string? PickSubject();
 
+        // Цикл: тянем слот и предмет, любой null означает конец. Никаких предварительных проверок —
+        // оба условия остановки выражены одинаково через null.
         public IEnumerable<PlannedSlot> Plan()
         {
-            while (!Exhausted)
+            while (true)
             {
                 Slot? slot = TakeSlot();
                 if (slot is null) yield break;
-                string title = PickSubject();
+                string? title = PickSubject();
+                if (title is null) yield break;
                 Queue[title]--;
                 yield return new PlannedSlot
                 {
