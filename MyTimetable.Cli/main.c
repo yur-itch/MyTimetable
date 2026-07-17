@@ -34,17 +34,15 @@ static char session_data[SESSION_DATA_LEN] =
 #define PLAN_ANCHOR      "PLAN_STATE_MYTIMETABLE_ANCHOR___!"  // ровно 32
 #define PLAN_DATA_SIZE    4096
 #define PLAN_TOTAL_LEN    (ANCHOR_SIZE + PLAN_DATA_SIZE)
-#define PLAN_PLACEHOLDER  "PLAN_EMPTY_PLACEHOLDER_FOR_SERIALIZED_STATE_HERE___" // ровно 64, padding
-
 #define MAX_SUBJECTS   32
 #define MAX_STRATEGIES 32
 #define MAX_TITLE_LEN  64
 
 #define plan_ptr(d)  ((d) + ANCHOR_SIZE)
-#define is_plan_placeholder(p) (memcmp((p), PLAN_PLACEHOLDER, PLAN_DATA_SIZE) == 0)
+#define is_plan_placeholder(p) ((p)[0] == 0)
 
-static char plan_data[PLAN_TOTAL_LEN] =
-    PLAN_ANCHOR PLAN_PLACEHOLDER;
+// 4096 bytes all zeros = empty plan
+static char plan_data[PLAN_TOTAL_LEN] = {0};
 
 // ── Поиск подстроки в бинарных данных ────────────────────────────
 static void* mem_find(const void* haystack, size_t hlen,
@@ -214,14 +212,12 @@ static void plan_patch_save(char titles[][MAX_TITLE_LEN], int* counts, int n,
                              char strats[][32], int s) {
     char buf[PLAN_DATA_SIZE];
     int len = plan_serialize(buf, sizeof(buf), titles, counts, n, strats, s);
-    if (len == 0) {
-        // Empty plan — restore placeholder
-        memcpy(buf, PLAN_PLACEHOLDER, PLAN_DATA_SIZE);
-        len = PLAN_DATA_SIZE;
+    if (len == 0 || (len == 1 && buf[0] == '\n')) {
+        // Empty plan — all zeros
+        memset(buf, 0, PLAN_DATA_SIZE);
     } else {
         // Pad remaining with nulls (data section must be same size)
         for (int i = len; i < PLAN_DATA_SIZE; i++) buf[i] = 0;
-        len = PLAN_DATA_SIZE;
     }
     printf("Saving plan to binary...\n");
     self_patch_any(PLAN_ANCHOR, buf, PLAN_DATA_SIZE, 1);
