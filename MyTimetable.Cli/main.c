@@ -389,6 +389,25 @@ static void render_schedule(int n, char** dates, char*** cells) {
 }
 
 
+// ── URL encoding ─────────────────────────────────────────────────
+static int url_enc_char(char* d, unsigned char c) {
+    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~') {
+        if (d) *d = c; return 1;
+    }
+    if (d) { sprintf(d, "%%%02X", c); }
+    return 3;
+}
+
+static int url_encode(char* dst, const char* src) {
+    int t = 0;
+    for (const unsigned char* s = (const unsigned char*)src; *s; s++) {
+        int n = url_enc_char(dst ? dst + t : NULL, *s);
+        t += n;
+    }
+    if (dst) dst[t] = 0;
+    return t;
+}
+
 // ── Проверка сессии ──────────────────────────────────────────────
 static int needs_login(void) { return is_placeholder(session_ptr(session_data)); }
 
@@ -491,10 +510,271 @@ static int cmd_schedule(int argc, char** argv) {
     return 0;
 }
 
+// ── Interactive planner ───────────────────────────────────────────
+#define MAX_SUBJECTS 32
+#define MAX_STRATEGIES 32
+#define MAX_TITLE_LEN 64
+
+static const char* ALL_STRATEGIES[] = {
+    "gap", "emptyseed", "leading", "trailing",
+    "roundrobin", "fairshare", "largest", "smallest",
+    "random", "weighted",
+    NULL
+};
+
+static int strategy_index(const char* name) {
+    for (int i = 0; ALL_STRATEGIES[i]; i++)
+        if (strcmp(ALL_STRATEGIES[i], name) == 0) return i;
+    return -1;
+}
+
 static int cmd_plan(void) {
-    WCHAR url[256]; swprintf(url,256,L"http://%ls:%d/App/Plan",client.host,client.port);
-    ShellExecuteW(NULL,L"open",url,NULL,NULL,SW_SHOWNORMAL);
-    printf("Opened planning page.\n"); return 0;
+    for (int i = 2; i < __argc; i++) {
+        if (strcmp(__argv[i], "--host") == 0 && i + 1 < __argc) mbstowcs(client.host, __argv[++i], 256);
+        else if (strcmp(__argv[i], "--port") == 0 && i + 1 < __argc) client.port = atoi(__argv[++i]);
+    }
+
+    // State
+    char titles[MAX_SUBJECTS][MAX_TITLE_LEN];
+    int  counts[MAX_SUBJECTS];
+    int  n = 0;
+    char strats[MAX_STRATEGIES][32];
+    int  s = 0;
+
+    printf("Planner interactive. Type 'help' for commands, 'quit' to exit.\n");
+
+    char line[512];
+    while (1) {
+        printf("plan> "); fflush(stdout);
+        if (!fgets(line, sizeof(line), stdin)) { printf("\n"); break; }
+        // strip trailing newline
+        size_t llen = strlen(line);
+        while (llen > 0 && (line[llen - 1] == '\n' || line[llen - 1] == '\r')) line[--llen] = 0;
+
+        char* cmd = line;
+        while (*cmd == ' ') cmd++;
+        if (!*cmd) continue;
+
+        // Parse args
+        char* args[16];
+        int ac = 0;
+        char* tok = strtok(cmd, " ");
+        while (tok && ac < 16) { args[ac++] = tok; tok = strtok(NULL, " "); }
+
+        if (strcmp(args[0], "quit") == 0 || strcmp(args[0], "q") == 0) {
+            break;
+        }
+        else if (strcmp(args[0], "help") == 0 || strcmp(args[0], "h") == 0) {
+            printf("Commands:\n");
+            printf("  add <title> <count>   - add subject to queue\n");
+            printf("  rm <title>            - remove subject\n");
+            printf("  subjects              - list subjects\n");
+            printf("  push <strategy>       - add strategy on top\n");
+            printf("  pop                   - remove top strategy\n");
+            printf("  mv <from> <to>        - move strategy (1-indexed)\n");
+            printf("  strategies            - list strategies\n");
+            printf("  submit                - send plan to server\n");
+            printf("  help  / h             - this help\n");
+            printf("  quit  / q             - exit\n");
+            printf("Strategies: ");
+            for (int i = 0; ALL_STRATEGIES[i]; i++) {
+                if (i > 0) printf(", ");
+                printf("%s", ALL_STRATEGIES[i]);
+            }
+            printf("\n");
+        }
+        else if (strcmp(args[0], "subjects") == 0) {
+            if (n == 0) { printf("(empty)\n"); }
+            for (int i = 0; i < n; i++)
+                printf("  %s x %d\n", titles[i], counts[i]);
+        }
+        else if (strcmp(args[0], "add") == 0) {
+            if (ac < 3) { printf("Usage: add <title> <count>\n"); continue; }
+            int cnt = atoi(args[ac - 1]);
+            if (cnt < 1) { printf("Count must be >= 1\n"); continue; }
+            if (n >= MAX_SUBJECTS) { printf("Max %d subjects\n", MAX_SUBJECTS); continue; }
+            // Title = everything between 'add ' and ' <count>'
+            const char* title_start = line + 4;
+            while (*title_start == ' ') title_start++;
+            // Find last space to separate count
+            const char* last_space = NULL;
+            for (const char* p = title_start; *p; p++) {
+                if (*p == ' ') last_space = p;
+            }
+            char title_buf[MAX_TITLE_LEN];
+            if (last_space) {
+                size_t tl = last_space - title_start;
+                if (tl >= MAX_TITLE_LEN) tl = MAX_TITLE_LEN - 1;
+                memcpy(title_buf, title_start, tl);
+                title_buf[tl] = 0;
+                // Check if the count already consumed the title end
+                char* endp = NULL;
+                strtol(last_space + 1, &endp, 10);
+                if (!endp || *endp != 0) {
+                    // last space is part of title, whole thing is title with count = 1
+                    snprintf(title_buf, MAX_TITLE_LEN, "%s", args[1]);
+                    cnt = ac > 2 ? atoi(args[ac - 1]) : 1;
+                }
+            } else {
+                snprintf(title_buf, MAX_TITLE_LEN, "%s", args[1]);
+                cnt = 1;
+            }
+            // Check for duplicate
+            for (int i = 0; i < n; i++) {
+                if (strcmp(titles[i], title_buf) == 0) {
+                    counts[i] += cnt;
+                    printf("  Updated: %s -> x %d\n", title_buf, counts[i]);
+                    goto add_done;
+                }
+            }
+            snprintf(titles[n], MAX_TITLE_LEN, "%s", title_buf);
+            counts[n] = cnt;
+            n++;
+            printf("  Added: %s x %d\n", title_buf, cnt);
+            add_done: ;
+        }
+        else if (strcmp(args[0], "rm") == 0) {
+            if (ac < 2) { printf("Usage: rm <title>\n"); continue; }
+            // Title = everything after 'rm '
+            const char* title = line + 3;
+            while (*title == ' ') title++;
+            int found = 0;
+            for (int i = 0; i < n; i++) {
+                if (strcmp(titles[i], title) == 0) {
+                    for (int j = i; j < n - 1; j++) {
+                        strcpy(titles[j], titles[j + 1]);
+                        counts[j] = counts[j + 1];
+                    }
+                    n--;
+                    printf("  Removed: %s\n", title);
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found) printf("  Not found: %s\n", title);
+        }
+        else if (strcmp(args[0], "strategies") == 0) {
+            if (s == 0) { printf("(empty)\n"); }
+            for (int i = 0; i < s; i++)
+                printf("  %d. %s\n", i + 1, strats[i]);
+        }
+        else if (strcmp(args[0], "push") == 0) {
+            if (ac < 2) { printf("Usage: push <strategy>\n"); continue; }
+            const char* sn = args[1];
+            if (strategy_index(sn) < 0) {
+                printf("Unknown strategy: %s\n", sn);
+                printf("Valid: ");
+                for (int i = 0; ALL_STRATEGIES[i]; i++) {
+                    if (i > 0) printf(", ");
+                    printf("%s", ALL_STRATEGIES[i]);
+                }
+                printf("\n");
+                continue;
+            }
+            if (s >= MAX_STRATEGIES) { printf("Max %d strategies\n", MAX_STRATEGIES); continue; }
+            strcpy(strats[s], sn);
+            s++;
+            printf("  Pushed: %s (pos %d)\n", sn, s);
+        }
+        else if (strcmp(args[0], "pop") == 0) {
+            if (s == 0) { printf("(empty)\n"); continue; }
+            s--;
+            printf("  Popped: %s\n", strats[s]);
+        }
+        else if (strcmp(args[0], "mv") == 0) {
+            if (ac < 3) { printf("Usage: mv <from> <to>\n"); continue; }
+            int from = atoi(args[1]) - 1;
+            int to   = atoi(args[2]) - 1;
+            if (from < 0 || from >= s || to < 0 || to >= s) {
+                printf("Positions must be 1-%d\n", s);
+                continue;
+            }
+            char tmp[32]; strcpy(tmp, strats[from]);
+            if (from < to) {
+                for (int i = from; i < to; i++) strcpy(strats[i], strats[i + 1]);
+            } else {
+                for (int i = from; i > to; i--) strcpy(strats[i], strats[i - 1]);
+            }
+            strcpy(strats[to], tmp);
+            printf("  Moved %s from %d to %d\n", tmp, from + 1, to + 1);
+        }
+        else if (strcmp(args[0], "submit") == 0) {
+            if (n == 0) { printf("No subjects. Add some first.\n"); continue; }
+            if (s == 0) { printf("No strategies. Push at least one.\n"); continue; }
+
+            // Build query string
+            char qs[4096];
+            int qpos = 0;
+
+            // Session ID
+            if (!needs_login()) {
+                char sid[128] = {0};
+                session_trimmed(sid, 128);
+                qpos += snprintf(qs + qpos, sizeof(qs) - qpos, "session_id=%s&", sid);
+            }
+
+            // Strategies
+            for (int i = 0; i < s; i++) {
+                char enc[128];
+                url_encode(enc, strats[i]);
+                qpos += snprintf(qs + qpos, sizeof(qs) - qpos, "strategies=%s&", enc);
+            }
+
+            // Titles
+            for (int i = 0; i < n; i++) {
+                char enc_title[256];
+                url_encode(enc_title, titles[i]);
+                qpos += snprintf(qs + qpos, sizeof(qs) - qpos, "titles[%s]=%d&", enc_title, counts[i]);
+            }
+
+            if (qpos > 0) qs[qpos - 1] = 0; // remove trailing &
+
+            printf("  Sending plan...\n");
+
+            // Rebuild path as narrow string then widen
+            char path_utf8[4096 + 16];
+            snprintf(path_utf8, sizeof(path_utf8), "/App/Plan?%s", qs);
+
+            WCHAR wpath[4096];
+            mbstowcs(wpath, path_utf8, 4096);
+
+            int st = 0;
+            char* resp = http_request(L"PATCH", wpath, NULL, &st);
+
+            if (!resp) {
+                printf("  Connection failed.\n");
+                continue;
+            }
+            if (st == 401) {
+                printf("  Token expired. Clearing...\n");
+                free(resp);
+                self_patch(SESSION_PLACEHOLDER, 0);
+                return 1;
+            }
+            if (st != 200) {
+                printf("  Error %d: %s\n", st, resp);
+                free(resp);
+                continue;
+            }
+
+            // Parse response
+            char* success = js_obj(resp, "success");
+            char* failure_str = js_obj(resp, "failure");
+            int failure = failure_str ? atoi(failure_str) : 0;
+            int placed = 0;
+            for (int i = 0; i < n; i++) placed += counts[i];
+            placed -= failure;
+
+            printf("  Result: placed %d lessons, failed %d\n", placed, failure);
+            free(success);
+            free(failure_str);
+            free(resp);
+        }
+        else {
+            printf("Unknown: %s. Type 'help'.\n", args[0]);
+        }
+    }
+    return 0;
 }
 
 static int cmd_proxy(void) {
