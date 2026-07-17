@@ -30,6 +30,18 @@
 static char session_data[SESSION_DATA_LEN] =
     SESSION_ANCHOR SESSION_PLACEHOLDER;
 
+// ── Plan persistent storage ───────────────────────────────────────
+#define PLAN_ANCHOR      "PLAN_STATE_MYTIMETABLE_ANCHOR___!"  // ровно 32
+#define PLAN_DATA_SIZE    4096
+#define PLAN_TOTAL_LEN    (ANCHOR_SIZE + PLAN_DATA_SIZE)
+#define PLAN_PLACEHOLDER  "PLAN_EMPTY_PLACEHOLDER_FOR_SERIALIZED_STATE_HERE___" // ровно 64, padding
+
+#define plan_ptr(d)  ((d) + ANCHOR_SIZE)
+#define is_plan_placeholder(p) (memcmp((p), PLAN_PLACEHOLDER, PLAN_DATA_SIZE) == 0)
+
+static char plan_data[PLAN_TOTAL_LEN] =
+    PLAN_ANCHOR PLAN_PLACEHOLDER;
+
 // ── Поиск подстроки в бинарных данных ────────────────────────────
 static void* mem_find(const void* haystack, size_t hlen,
                       const void* needle, size_t nlen) {
@@ -52,6 +64,78 @@ static const char* own_path(void) {
 }
 
 // ── Self-patch ────────────────────────────────────────────────────
+static void self_patch_any(const char* anchor_str, const char* data, int data_size, int will_restart) {
+    FILE* f = fopen(own_path(), "rb");
+    if (!f) { fprintf(stderr, "Cannot read self\n"); return; }
+    fseek(f, 0, SEEK_END);
+    long fsize = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char* binary = malloc(fsize);
+    if (!binary) { fclose(f); return; }
+    fread(binary, 1, fsize, f);
+    fclose(f);
+
+    char* anchor = (char*)mem_find(binary, fsize, anchor_str, ANCHOR_SIZE);
+    if (!anchor) {
+        fprintf(stderr, "Anchor not found - cannot self-patch\n");
+        free(binary);
+        return;
+    }
+
+    memcpy(anchor + ANCHOR_SIZE, data, data_size);
+
+    char tmp_path[MAX_PATH_A + 8];
+    snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", own_path());
+    FILE* ftmp = fopen(tmp_path, "wb");
+    if (!ftmp) { free(binary); return; }
+    fwrite(binary, 1, fsize, ftmp);
+    fclose(ftmp);
+    free(binary);
+
+    printf(will_restart ? "Saved. Restarting...\n" : "Cleared.\n");
+
+    char esc_self[MAX_PATH_A * 2] = {0};
+    {
+        const char* s = own_path();
+        char* d = esc_self;
+        while (*s) {
+            if (*s == '\\') *d++ = '\\';
+            *d++ = *s++;
+        }
+    }
+    char esc_tmp[MAX_PATH_A * 2 + 8] = {0};
+    snprintf(esc_tmp, sizeof(esc_tmp), "%s.tmp", esc_self);
+
+    char cmdline[4096];
+    if (will_restart) {
+        snprintf(cmdline, sizeof(cmdline),
+            "cmd.exe /C start /B cmd.exe /C "
+            "timeout /T 1 /NOBREAK >nul & "
+            "copy /Y \"%s\" \"%s\" >nul & "
+            "del \"%s\" & "
+            "start \"\" \"%s\"",
+            esc_tmp, esc_self, esc_tmp, esc_self);
+    } else {
+        snprintf(cmdline, sizeof(cmdline),
+            "cmd.exe /C start /B cmd.exe /C "
+            "timeout /T 1 /NOBREAK >nul & "
+            "copy /Y \"%s\" \"%s\" >nul & "
+            "del \"%s\"",
+            esc_tmp, esc_self, esc_tmp);
+    }
+
+    STARTUPINFOA si = { sizeof(si) };
+    PROCESS_INFORMATION pi;
+    if (CreateProcessA(NULL, cmdline, NULL, NULL, FALSE,
+                       CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+    } else {
+        system(cmdline);
+    }
+    exit(0);
+}
+
 static void self_patch(const char* new_session, int will_restart) {
     FILE* f = fopen(own_path(), "rb");
     if (!f) { fprintf(stderr, "Cannot read self\n"); return; }
