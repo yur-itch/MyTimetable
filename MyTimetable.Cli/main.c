@@ -41,8 +41,8 @@ static char session_data[SESSION_DATA_LEN] =
 #define plan_ptr(d)  ((d) + ANCHOR_SIZE)
 #define is_plan_placeholder(p) ((p)[0] == 0)
 
-// 4096 bytes all zeros = empty plan
-static char plan_data[PLAN_TOTAL_LEN] = {0};
+// First 32 bytes = PLAN_ANCHOR (found by self_patch_any), rest = payload (zeros = empty)
+static char plan_data[PLAN_TOTAL_LEN] = PLAN_ANCHOR;
 
 // ── Поиск подстроки в бинарных данных ────────────────────────────
 static void* mem_find(const void* haystack, size_t hlen,
