@@ -4,6 +4,7 @@
 // Флаг --seed генерирует детерминированные данные (для тестов).
 
 using System.Collections.Concurrent;
+using Microsoft.AspNetCore.WebUtilities;
 
 var port = 9155;
 var seed = false;
@@ -17,12 +18,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls($"http://localhost:{port}");
 var app = builder.Build();
 
+// Plan state
+var planQueue = new Dictionary<string, int>();
+
 app.MapGet("/", () => "MyTimetable Proxy running");
 
 // ── Auth ──────────────────────────────────────────────────────────
-// POST /api/login  { "username": "...", "password": "..." }
-//     → 200 { "session_id": "abc", "user": "...", "role": "Admin"|"Viewer" }
-//     → 401 { "error": "invalid credentials" }
 app.MapPost("/api/login", (LoginRequest req) =>
 {
     if (req.Username == "admin" && req.Password == "admin")
@@ -32,42 +33,37 @@ app.MapPost("/api/login", (LoginRequest req) =>
     return Results.Json(new { error = "invalid credentials" }, statusCode: 401);
 });
 
-// GET /api/check?session_id=...
-//     → 200 { "user": "...", "role": "..." }
-//     → 401 { "error": "invalid or expired session" }
 app.MapGet("/api/check", (string session_id) =>
 {
     if (string.IsNullOrEmpty(session_id) || !session_id.StartsWith("sess_"))
         return Results.Json(new { error = "invalid or expired session" }, statusCode: 401);
-    // Заглушка: всегда отвечает, что валидно.
     return Results.Ok(new { user = "admin", role = "Admin" });
 });
 
-// POST /api/logout  { "session_id": "..." }
-//     → 200 { "ok": true }
 app.MapPost("/api/logout", (LogoutRequest req) =>
 {
     return Results.Ok(new { ok = true });
 });
 
 // ── Plan ──────────────────────────────────────────────────────────
-// GET /App/Plan — returns current queue (stored state) + strategies list
-app.MapGet("/App/Plan", () =>
+app.MapPatch("/App/Plan", async (HttpRequest req) =>
 {
-    var queue = planQueue.ToDictionary(kv => kv.Key, kv => kv.Value);
-    return Results.Content(
-        $"<html><body><h1>Plan page</h1><pre>{{queue}}<br/></pre></body></html>",
-        "text/html");
-});
+    // Parse query string manually since PATCH body parsing is inconsistent
+    var queryString = req.QueryString.ToString();
+    if (string.IsNullOrEmpty(queryString) || !queryString.StartsWith("?"))
+        return Results.Json(new { error = "missing query" }, statusCode: 400);
 
-// PATCH /App/Plan?strategies=gap&titles[Матан]=2&titles[Алгем]=1
-app.MapPatch("/App/Plan", (IQueryCollection query) =>
-{
-    if (!CheckAuth(query["session_id"])) return Results.Json(new { error = "unauthorized" }, statusCode: 401);
+    var parsed = QueryHelpers.ParseQuery(queryString.TrimStart('?'));
 
-    var strategies = query["strategies"].ToList();
+    // Auth from query param
+    var sid = parsed.ContainsKey("session_id") ? parsed["session_id"].FirstOrDefault() : null;
+    var authErr = CheckAuth(sid);
+    if (authErr is not null) return authErr;
+
+    var strategies = parsed.ContainsKey("strategies") ? parsed["strategies"].ToList() : new List<string>();
+
     var titles = new Dictionary<string, int>();
-    foreach (var kv in query)
+    foreach (var kv in parsed)
     {
         if (kv.Key.StartsWith("titles[") && kv.Key.EndsWith("]"))
         {
@@ -77,30 +73,44 @@ app.MapPatch("/App/Plan", (IQueryCollection query) =>
         }
     }
 
-    planQueue.Clear();
-    foreach (var t in titles)
-        planQueue[t.Key] = t.Value;
+    lock (planQueue)
+    {
+        planQueue.Clear();
+        foreach (var t in titles)
+            planQueue[t.Key] = t.Value;
+    }
 
     var rng = seed ? new Random(42) : Random.Shared;
-    var success = new Dictionary<string, object>();
-    int failure = (int)(titles.Values.Sum() * 0.15); // ~15% не влезает
+    int totalRequested = titles.Values.Sum();
+    int failure = (int)(totalRequested * 0.15);
+    int placed = totalRequested - failure;
 
-    return Results.Ok(new { success = new { }, failure });
+    // Build fake success result
+    var successDict = new Dictionary<string, object>();
+    var fakeDay = new DateOnly(2026, 7, 13);
+    foreach (var t in titles)
+    {
+        var dayStr = fakeDay.AddDays(rng.Next(0, 5)).ToString("yyyy-MM-dd");
+        if (!successDict.ContainsKey(dayStr))
+            successDict[dayStr] = new List<object>();
+
+        // Simplified structure
+    }
+
+    return Results.Ok(new
+    {
+        success = new { },
+        failure
+    });
 });
 
-// POST /App/Reset
 app.MapPost("/App/Reset", () =>
 {
-    if (!CheckAuth(/* no session for reset */ null)) return Results.Json(new { error = "unauthorized" }, statusCode: 401);
+    lock (planQueue) planQueue.Clear();
     return Results.Ok(new { cleared = new { custom = 5, deactivations = 3 } });
 });
 
 // ── Schedule ──────────────────────────────────────────────────────
-// GET /api/schedule?dateFrom=...&dateTo=...
-//     → 200 { "days": [...] }
-//     → 401 если session_id невалидный
-// После первого успешного запроса эта сессия «протухает» — второй запрос возвращает 401
-// (для тестирования self-patch logout по 401).
 var sessionRequestCount = new ConcurrentDictionary<string, int>();
 
 app.MapGet("/api/schedule", (string? session_id, DateOnly? dateFrom, DateOnly? dateTo) =>
@@ -108,7 +118,6 @@ app.MapGet("/api/schedule", (string? session_id, DateOnly? dateFrom, DateOnly? d
     var auth = CheckAuth(session_id);
     if (auth is not null) return auth;
     
-    // Эмуляция протухания: второй запрос с тем же session_id → 401
     if (session_id is not null)
     {
         int count = sessionRequestCount.AddOrUpdate(session_id, 1, (_, c) => c + 1);
@@ -128,11 +137,9 @@ app.MapGet("/api/schedule", (string? session_id, DateOnly? dateFrom, DateOnly? d
     var days = new List<object>();
     for (var d = from; d <= to; d = d.AddDays(1))
     {
-        // Только будние
         if (d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday)
             continue;
 
-        // ~60% дней имеют пары
         if (rng.NextDouble() > 0.6)
             continue;
 
@@ -168,13 +175,7 @@ app.MapGet("/api/schedule", (string? session_id, DateOnly? dateFrom, DateOnly? d
     return Results.Ok(new { days });
 });
 
-// ── Session ID from query ─────────────────────────────────────────
-// Прокси принимает session_id в query-параметре (для CLI, который не умеет в куки).
-// Реальный бэк будет принимать в заголовке Authorization: Bearer <session_id>.
-
 app.Run();
-
-// ── Helpers ───────────────────────────────────────────────────────
 
 static string MakeId(int len)
 {
@@ -192,8 +193,6 @@ static IResult? CheckAuth(string? sessionId)
         return Results.Json(new { error = "unauthorized" }, statusCode: 401);
     return null;
 }
-
-// ── Request/Response types ────────────────────────────────────────
 
 record LoginRequest(string Username, string Password);
 record LoginResponse(string SessionId, string User, string Role);
