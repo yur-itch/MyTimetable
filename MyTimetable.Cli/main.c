@@ -514,7 +514,16 @@ static int cmd_login(int argc, char** argv) {
         if (strcmp(argv[i],"--user")==0 && i+1<argc) user = argv[++i];
         if (strcmp(argv[i],"--password")==0 && i+1<argc) pass = argv[++i];
         if (strcmp(argv[i],"--host")==0 && i+1<argc) mbstowcs(client.host, argv[++i], 256);
-        if (strcmp(argv[i],"--port")==0 && i+1<argc) client.port = atoi(argv[++i]);
+        if (strcmp(argv[i],"--port")==0 && i+1<argc) {
+            char* endptr = NULL;
+            long val = strtol(argv[++i], &endptr, 10);
+            if (endptr == argv[i] || *endptr != '\0' || val < 1 || val > 65535) {
+                fprintf(stderr, "Invalid port: %s. Using default %d.\n", argv[i], DEFAULT_PORT);
+                client.port = DEFAULT_PORT;
+            } else {
+                client.port = (int)val;
+            }
+        }
     }
     char* sid = do_login(user, pass);
     if (!sid) { printf("Login failed\n"); return 1; }
@@ -537,7 +546,16 @@ static int cmd_schedule(int argc, char** argv) {
     const char* range = "today";
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i],"--host")==0 && i+1<argc) mbstowcs(client.host, argv[++i], 256);
-        else if (strcmp(argv[i],"--port")==0 && i+1<argc) client.port = atoi(argv[++i]);
+        else if (strcmp(argv[i],"--port")==0 && i+1<argc) {
+            char* endptr = NULL;
+            long val = strtol(argv[++i], &endptr, 10);
+            if (endptr == argv[i] || *endptr != '\0' || val < 1 || val > 65535) {
+                fprintf(stderr, "Invalid port: %s. Using default %d.\n", argv[i], DEFAULT_PORT);
+                client.port = DEFAULT_PORT;
+            } else {
+                client.port = (int)val;
+            }
+        }
         else range = argv[i];
     }
     if (needs_login()) { fprintf(stderr, "No token. Run 'login' first.\n"); return 1; }
@@ -635,7 +653,16 @@ static void plan_show_status(char titles[][MAX_TITLE_LEN], int* counts, int n,
 static int cmd_plan(int argc, char** argv) {
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i], "--host") == 0 && i + 1 < argc) mbstowcs(client.host, argv[++i], 256);
-        else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc) client.port = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc) {
+            char* endptr = NULL;
+            long val = strtol(argv[++i], &endptr, 10);
+            if (endptr == argv[i] || *endptr != '\0' || val < 1 || val > 65535) {
+                fprintf(stderr, "Invalid port: %s. Using default %d.\n", argv[i], DEFAULT_PORT);
+                client.port = DEFAULT_PORT;
+            } else {
+                client.port = (int)val;
+            }
+        }
     }
 
     // State
