@@ -39,19 +39,20 @@ int main(void) {
     char* found = (char*)mem_find(buf, fsize, SESSION_ANCHOR, ANCHOR_SIZE);
     printf("SESSION_ANCHOR in copy: %s\n", found ? "FOUND" : "NOT FOUND");
 
-    // Test with a truly non-existent anchor
-    char* bad_anchor = "ZZZZ_THIS_SHOULD_NOT_BE_FOUND_ZZZ";
-    found = (char*)mem_find(buf, fsize, bad_anchor, 32);
-    printf("bad_anchor: %s\n", found ? "FOUND (ERROR)" : "not found (correct)");
+    // Test with a runtime-generated anchor (won't be in .rdata section)
+    char runtime_anchor[33];
+    for (int i = 0; i < 32; i++) runtime_anchor[i] = 'A' + (rand() % 26);
+    runtime_anchor[32] = 0;
+    found = (char*)mem_find(buf, fsize, runtime_anchor, 32);
+    printf("runtime_anchor: %s\n", found ? "FOUND (ERROR)" : "not found (correct)");
 
     free(buf);
 
-    // Now the key test: self_patch_any with a bad anchor
-    // It should print error and return (not exit)
-    printf("\nCalling self_patch_any with bad anchor...\n");
+    // Now the key test: self_patch_any with a runtime anchor (guaranteed not in binary)
+    printf("\nCalling self_patch_any with runtime-generated anchor...\n");
     char data[64] = {0};
-    strcpy(data, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-    self_patch_any(bad_anchor, data, 64, 1);
+    for (int i = 0; i < 63; i++) data[i] = 'X';
+    self_patch_any(runtime_anchor, data, 64, 1);
     printf("  -> Returned safely, .tmp never created (anchor not found).\n");
 
     // Test with real anchor — this WILL try to spawn.
