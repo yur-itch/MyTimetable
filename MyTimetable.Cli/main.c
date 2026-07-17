@@ -593,31 +593,11 @@ static int cmd_plan(int argc, char** argv) {
             int cnt = atoi(args[ac - 1]);
             if (cnt < 1) { printf("Count must be >= 1\n"); continue; }
             if (n >= MAX_SUBJECTS) { printf("Max %d subjects\n", MAX_SUBJECTS); continue; }
-            // Title = everything between 'add ' and ' <count>'
-            const char* title_start = line + 4;
-            while (*title_start == ' ') title_start++;
-            // Find last space to separate count
-            const char* last_space = NULL;
-            for (const char* p = title_start; *p; p++) {
-                if (*p == ' ') last_space = p;
-            }
-            char title_buf[MAX_TITLE_LEN];
-            if (last_space) {
-                size_t tl = last_space - title_start;
-                if (tl >= MAX_TITLE_LEN) tl = MAX_TITLE_LEN - 1;
-                memcpy(title_buf, title_start, tl);
-                title_buf[tl] = 0;
-                // Check if the count already consumed the title end
-                char* endp = NULL;
-                strtol(last_space + 1, &endp, 10);
-                if (!endp || *endp != 0) {
-                    // last space is part of title, whole thing is title with count = 1
-                    snprintf(title_buf, MAX_TITLE_LEN, "%s", args[1]);
-                    cnt = ac > 2 ? atoi(args[ac - 1]) : 1;
-                }
-            } else {
-                snprintf(title_buf, MAX_TITLE_LEN, "%s", args[1]);
-                cnt = 1;
+            // Title = all args except first (add) and last (count), rejoined by space
+            char title_buf[MAX_TITLE_LEN] = {0};
+            for (int ai = 1; ai < ac - 1; ai++) {
+                if (ai > 1) strncat(title_buf, " ", MAX_TITLE_LEN - strlen(title_buf) - 1);
+                strncat(title_buf, args[ai], MAX_TITLE_LEN - strlen(title_buf) - 1);
             }
             // Check for duplicate
             for (int i = 0; i < n; i++) {
@@ -635,23 +615,26 @@ static int cmd_plan(int argc, char** argv) {
         }
         else if (strcmp(args[0], "rm") == 0) {
             if (ac < 2) { printf("Usage: rm <title>\n"); continue; }
-            // Title = everything after 'rm '
-            const char* title = line + 3;
-            while (*title == ' ') title++;
+            // Title = all args after 'rm' rejoined by space
+            char title_buf[MAX_TITLE_LEN] = {0};
+            for (int ai = 1; ai < ac; ai++) {
+                if (ai > 1) strncat(title_buf, " ", MAX_TITLE_LEN - strlen(title_buf) - 1);
+                strncat(title_buf, args[ai], MAX_TITLE_LEN - strlen(title_buf) - 1);
+            }
             int found = 0;
             for (int i = 0; i < n; i++) {
-                if (strcmp(titles[i], title) == 0) {
+                if (strcmp(titles[i], title_buf) == 0) {
                     for (int j = i; j < n - 1; j++) {
                         strcpy(titles[j], titles[j + 1]);
                         counts[j] = counts[j + 1];
                     }
                     n--;
-                    printf("  Removed: %s\n", title);
+                    printf("  Removed: %s\n", title_buf);
                     found = 1;
                     break;
                 }
             }
-            if (!found) printf("  Not found: %s\n", title);
+            if (!found) printf("  Not found: %s\n", title_buf);
         }
         else if (strcmp(args[0], "strategies") == 0) {
             if (s == 0) { printf("(empty)\n"); }
