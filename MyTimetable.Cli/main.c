@@ -128,14 +128,22 @@ static void self_patch_any(const char* anchor_str, const char* data, int data_si
 
     STARTUPINFOA si = { sizeof(si) };
     PROCESS_INFORMATION pi;
+    int spawned = 0;
     if (CreateProcessA(NULL, cmdline, NULL, NULL, FALSE,
                        CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
-    } else {
-        system(cmdline);
+        spawned = 1;
+    } else if (system(cmdline) == 0) {
+        spawned = 1;
     }
-    exit(0);
+    if (spawned) {
+        exit(0);
+    }
+    // Both methods failed — clean up .tmp file
+    remove(tmp_path);
+    fprintf(stderr, "Self-patch spawn failed - .tmp file cleaned up\n");
+    return;
 }
 
 static void self_patch(const char* new_session, int will_restart) {
@@ -927,6 +935,8 @@ int main(int argc, char** argv) {
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     DWORD mode = 0; GetConsoleMode(hOut, &mode);
     SetConsoleMode(hOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
 
     if (argc < 2) { help(); return 0; }
     const char* cmd = argv[1];
