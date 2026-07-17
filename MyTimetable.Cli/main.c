@@ -604,10 +604,6 @@ static int cmd_schedule(int argc, char** argv) {
 }
 
 // ── Interactive planner ───────────────────────────────────────────
-#define MAX_SUBJECTS 32
-#define MAX_STRATEGIES 32
-#define MAX_TITLE_LEN 64
-
 static const char* ALL_STRATEGIES[] = {
     "gap", "emptyseed", "leading", "trailing",
     "roundrobin", "fairshare", "largest", "smallest",
