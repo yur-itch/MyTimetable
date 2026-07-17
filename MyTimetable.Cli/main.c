@@ -575,6 +575,9 @@ static int cmd_plan(int argc, char** argv) {
         while (*cmd == ' ') cmd++;
         if (!*cmd) continue;
 
+        // Normalize tabs to spaces (strtok doesn't handle tabs)
+        for (char* p = cmd; *p; p++) if (*p == '\t') *p = ' ';
+
         // Parse args
         char* args[16];
         int ac = 0;
@@ -709,41 +712,49 @@ static int cmd_plan(int argc, char** argv) {
             if (n == 0) { printf("No subjects. Add some first.\n"); continue; }
             if (s == 0) { printf("No strategies. Push at least one.\n"); continue; }
 
-            // Build query string
-            char qs[4096];
+            // Build query string — estimate max size
+            // Each Cyrillic char becomes %XX (3x), brackets add 2, = and & add ~2
+            // Worst case: ~64 bytes per subject, ~20 per strategy. 32*64 + 32*20 = ~2700
+            // Use 8192 to be safe
+            char qs[8192];
+            int qsz = sizeof(qs);
             int qpos = 0;
 
             // Session ID
             if (!needs_login()) {
                 char sid[128] = {0};
                 session_trimmed(sid, 128);
-                qpos += snprintf(qs + qpos, sizeof(qs) - qpos, "session_id=%s&", sid);
+                qpos += snprintf(qs + qpos, qsz - qpos, "session_id=%s&", sid);
             }
 
             // Strategies
-            for (int i = 0; i < s; i++) {
+            for (int i = 0; i < s && qpos < qsz - 256; i++) {
                 char enc[128];
                 url_encode(enc, strats[i]);
-                qpos += snprintf(qs + qpos, sizeof(qs) - qpos, "strategies=%s&", enc);
+                qpos += snprintf(qs + qpos, qsz - qpos, "strategies=%s&", enc);
             }
 
             // Titles
-            for (int i = 0; i < n; i++) {
+            for (int i = 0; i < n && qpos < qsz - 256; i++) {
                 char enc_title[256];
                 url_encode(enc_title, titles[i]);
-                qpos += snprintf(qs + qpos, sizeof(qs) - qpos, "titles[%s]=%d&", enc_title, counts[i]);
+                qpos += snprintf(qs + qpos, qsz - qpos, "titles[%s]=%d&", enc_title, counts[i]);
             }
 
+            if (qpos >= qsz - 256) {
+                printf("  Query too long. Reduce subjects or strategies.\n");
+                continue;
+            }
             if (qpos > 0) qs[qpos - 1] = 0; // remove trailing &
 
             printf("  Sending plan...\n");
 
             // Rebuild path as narrow string then widen
-            char path_utf8[4096 + 16];
+            char path_utf8[8192 + 32];
             snprintf(path_utf8, sizeof(path_utf8), "/App/Plan?%s", qs);
 
-            WCHAR wpath[4096];
-            mbstowcs(wpath, path_utf8, 4096);
+            WCHAR wpath[8192];
+            mbstowcs(wpath, path_utf8, 8192);
 
             int st = 0;
             char* resp = http_request(L"PATCH", wpath, NULL, &st);
@@ -753,7 +764,7 @@ static int cmd_plan(int argc, char** argv) {
                 continue;
             }
             if (st == 401) {
-                printf("  Token expired. Clearing...\n");
+                printf("  Token expired. Type 'login' to re-authenticate, then retry.\n");
                 free(resp);
                 self_patch(SESSION_PLACEHOLDER, 0);
                 return 1;
