@@ -676,6 +676,16 @@ static int cmd_plan(int argc, char** argv) {
         if (strcmp(args[0], "quit") == 0 || strcmp(args[0], "q") == 0) {
             break;
         }
+        else if (strcmp(args[0], "save") == 0) {
+            if (n == 0 && s == 0) { printf("  Nothing to save. Add subjects or strategies first.\n"); continue; }
+            plan_patch_save(titles, counts, n, strats, s);
+            // never reached — self_patch_any calls exit(0)
+        }
+        else if (strcmp(args[0], "clear") == 0) {
+            n = 0; s = 0;
+            printf("  Cleared.\n");
+            plan_show_status(titles, counts, n, strats, s);
+        }
         else if (strcmp(args[0], "help") == 0 || strcmp(args[0], "h") == 0) {
             printf("Commands:\n");
             printf("  add <title> <count>   - add subject to queue\n");
@@ -686,6 +696,8 @@ static int cmd_plan(int argc, char** argv) {
             printf("  mv <from> <to>        - move strategy (1-indexed)\n");
             printf("  strategies            - list strategies\n");
             printf("  submit                - send plan to server\n");
+            printf("  save                  - persist plan in binary (restarts)\n");
+            printf("  clear                 - reset all subjects and strategies\n");
             printf("  help  / h             - this help\n");
             printf("  quit  / q             - exit\n");
             printf("Strategies: ");
