@@ -1,7 +1,7 @@
 const CACHE = 'schedule-v3';
 
 self.addEventListener('install', e => {
-    e.waitUntil(caches.open(CACHE).then(c => c.add('/App')));
+    e.waitUntil(caches.open(CACHE).then(c => c.addAll(['/App', '/App/Plan'])));
     self.skipWaiting();
 });
 
@@ -22,10 +22,10 @@ self.addEventListener('fetch', e => {
         caches.open(CACHE).then(async cache => {
             try {
                 const r = await fetch(e.request);
-                cache.put('/App', r.clone()); // держим офлайн-копию свежей
+                cache.put(e.request, r.clone()); // держим офлайн-копию свежей
                 return r;
             } catch {
-                const cached = await cache.match('/App');
+                const cached = await cache.match(e.request);
                 if (cached) return cached;
                 throw new Error('offline and no cached page');
             }
