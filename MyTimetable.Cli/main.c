@@ -102,6 +102,7 @@ static void self_patch_any(const char* anchor_str, const char* data, int data_si
         char* d = esc_self;
         while (*s) {
             if (*s == '\\') *d++ = '\\';
+            if (*s == '&' || *s == '|' || *s == '^' || *s == '>' || *s == '<') *d++ = '^';
             *d++ = *s++;
         }
     }
