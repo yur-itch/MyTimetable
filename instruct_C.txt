@@ -1,0 +1,33 @@
+You are worker C, one of 4 parallel agents fixing bugs in MyTimetable.Cli/main.c. Your branch is fix-C-strtol, checked out in the worktree at C:\Users\PCyur\source\repos\MyTimetable-C.
+
+Your task: Replace atoi() with strtol() + endptr validation for port number parsing.
+
+Currently the code does:
+```c
+client.port = atoi(argv[++i]);
+```
+atoi("abc") returns 0 silently, producing port 0 which is invalid.
+
+File to edit: C:\Users\PCyur\source\repos\MyTimetable-C\MyTimetable.Cli\main.c
+
+Find all instances where client.port is assigned from argv (there are 2-3: in cmd_login and cmd_plan and cmd_schedule). Replace each:
+
+```c
+// old:
+client.port = atoi(argv[++i]);
+// new:
+char* endptr = NULL;
+long val = strtol(argv[++i], &endptr, 10);
+if (endptr == argv[i] || *endptr != '\0' || val < 1 || val > 65535) {
+    fprintf(stderr, "Invalid port: %s. Using default %d.\n", argv[i], DEFAULT_PORT);
+    client.port = DEFAULT_PORT;
+} else {
+    client.port = (int)val;
+}
+```
+
+Make sure the variable name doesn't conflict with other locals — use a block scope or unique name per call site.
+
+After editing, verify the file compiles conceptually, then write "DONE" to C:\Users\PCyur\source\repos\MyTimetable-C\.task-complete
+
+Do NOT touch any other file or branch. Only edit main.c in your worktree.

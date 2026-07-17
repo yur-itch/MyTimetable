@@ -1,0 +1,33 @@
+You are worker D, one of 4 parallel agents fixing bugs in MyTimetable.Cli/main.c. Your branch is fix-D-codepage, checked out in the worktree at C:\Users\PCyur\source\repos\MyTimetable-D.
+
+Your task: Two changes — add UTF-8 console codepage setup and .tmp file cleanup on self-patch failure.
+
+File to edit: C:\Users\PCyur\source\repos\MyTimetable-D\MyTimetable.Cli\main.c
+
+Change 1 — In main(), after the existing SetConsoleMode call, add:
+```c
+SetConsoleOutputCP(CP_UTF8);
+SetConsoleCP(CP_UTF8);
+```
+
+Change 2 — In self_patch_any, after the tmp file is written but before the spawn, add cleanup logic. If CreateProcessA AND system() both fail, the .tmp file is never cleaned up. Add fallback cleanup:
+
+Find the block:
+```c
+    STARTUPINFOA si = { sizeof(si) };
+    PROCESS_INFORMATION pi;
+    if (CreateProcessA(NULL, cmdline, NULL, NULL, FALSE,
+                       CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+    } else {
+        system(cmdline);
+    }
+    exit(0);
+```
+
+Replace with logic that removes the .tmp file if both methods fail, and only exits(0) if at least one succeeded. If both fail, print an error and return instead of exiting.
+
+After editing, verify the file compiles conceptually, then write "DONE" to C:\Users\PCyur\source\repos\MyTimetable-D\.task-complete
+
+Do NOT touch any other file or branch. Only edit main.c in your worktree.
