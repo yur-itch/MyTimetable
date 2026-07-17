@@ -561,6 +561,7 @@ static int cmd_plan(int argc, char** argv) {
     int  s = 0;
 
     printf("Planner interactive. Type 'help' for commands, 'quit' to exit.\n");
+    plan_show_status(titles, counts, n, strats, s);
 
     char line[512];
     while (1) {
