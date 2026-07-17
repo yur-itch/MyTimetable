@@ -520,7 +520,16 @@ static int cmd_login(int argc, char** argv) {
             if (mbstowcs(client.host, argv[++i], 256) == (size_t)-1)
                 wcscpy(client.host, DEFAULT_HOST);
         }
-        if (strcmp(argv[i],"--port")==0 && i+1<argc) client.port = atoi(argv[++i]);
+        if (strcmp(argv[i],"--port")==0 && i+1<argc) {
+            char* endptr = NULL;
+            long val = strtol(argv[++i], &endptr, 10);
+            if (endptr == argv[i] || *endptr != '\0' || val < 1 || val > 65535) {
+                fprintf(stderr, "Invalid port: %s. Using default %d.\n", argv[i], DEFAULT_PORT);
+                client.port = DEFAULT_PORT;
+            } else {
+                client.port = (int)val;
+            }
+        }
     }
     char* sid = do_login(user, pass);
     if (!sid) { printf("Login failed\n"); return 1; }
@@ -546,7 +555,16 @@ static int cmd_schedule(int argc, char** argv) {
             if (mbstowcs(client.host, argv[++i], 256) == (size_t)-1)
                 wcscpy(client.host, DEFAULT_HOST);
         }
-        else if (strcmp(argv[i],"--port")==0 && i+1<argc) client.port = atoi(argv[++i]);
+        else if (strcmp(argv[i],"--port")==0 && i+1<argc) {
+            char* endptr = NULL;
+            long val = strtol(argv[++i], &endptr, 10);
+            if (endptr == argv[i] || *endptr != '\0' || val < 1 || val > 65535) {
+                fprintf(stderr, "Invalid port: %s. Using default %d.\n", argv[i], DEFAULT_PORT);
+                client.port = DEFAULT_PORT;
+            } else {
+                client.port = (int)val;
+            }
+        }
         else range = argv[i];
     }
     if (needs_login()) { fprintf(stderr, "No token. Run 'login' first.\n"); return 1; }
@@ -647,7 +665,16 @@ static int cmd_plan(int argc, char** argv) {
             if (mbstowcs(client.host, argv[++i], 256) == (size_t)-1)
                 wcscpy(client.host, DEFAULT_HOST);
         }
-        else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc) client.port = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc) {
+            char* endptr = NULL;
+            long val = strtol(argv[++i], &endptr, 10);
+            if (endptr == argv[i] || *endptr != '\0' || val < 1 || val > 65535) {
+                fprintf(stderr, "Invalid port: %s. Using default %d.\n", argv[i], DEFAULT_PORT);
+                client.port = DEFAULT_PORT;
+            } else {
+                client.port = (int)val;
+            }
+        }
     }
 
     // State
