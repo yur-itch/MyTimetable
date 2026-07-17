@@ -50,6 +50,51 @@ app.MapPost("/api/logout", (LogoutRequest req) =>
     return Results.Ok(new { ok = true });
 });
 
+// ── Plan ──────────────────────────────────────────────────────────
+// GET /App/Plan — returns current queue (stored state) + strategies list
+app.MapGet("/App/Plan", () =>
+{
+    var queue = planQueue.ToDictionary(kv => kv.Key, kv => kv.Value);
+    return Results.Content(
+        $"<html><body><h1>Plan page</h1><pre>{{queue}}<br/></pre></body></html>",
+        "text/html");
+});
+
+// PATCH /App/Plan?strategies=gap&titles[Матан]=2&titles[Алгем]=1
+app.MapPatch("/App/Plan", (IQueryCollection query) =>
+{
+    if (!CheckAuth(query["session_id"])) return Results.Json(new { error = "unauthorized" }, statusCode: 401);
+
+    var strategies = query["strategies"].ToList();
+    var titles = new Dictionary<string, int>();
+    foreach (var kv in query)
+    {
+        if (kv.Key.StartsWith("titles[") && kv.Key.EndsWith("]"))
+        {
+            var name = kv.Key.Substring(7, kv.Key.Length - 8);
+            if (int.TryParse(kv.Value.FirstOrDefault(), out var count))
+                titles[name] = count;
+        }
+    }
+
+    planQueue.Clear();
+    foreach (var t in titles)
+        planQueue[t.Key] = t.Value;
+
+    var rng = seed ? new Random(42) : Random.Shared;
+    var success = new Dictionary<string, object>();
+    int failure = (int)(titles.Values.Sum() * 0.15); // ~15% не влезает
+
+    return Results.Ok(new { success = new { }, failure });
+});
+
+// POST /App/Reset
+app.MapPost("/App/Reset", () =>
+{
+    if (!CheckAuth(/* no session for reset */ null)) return Results.Json(new { error = "unauthorized" }, statusCode: 401);
+    return Results.Ok(new { cleared = new { custom = 5, deactivations = 3 } });
+});
+
 // ── Schedule ──────────────────────────────────────────────────────
 // GET /api/schedule?dateFrom=...&dateTo=...
 //     → 200 { "days": [...] }
