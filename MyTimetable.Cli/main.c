@@ -528,10 +528,10 @@ static int strategy_index(const char* name) {
     return -1;
 }
 
-static int cmd_plan(void) {
-    for (int i = 2; i < __argc; i++) {
-        if (strcmp(__argv[i], "--host") == 0 && i + 1 < __argc) mbstowcs(client.host, __argv[++i], 256);
-        else if (strcmp(__argv[i], "--port") == 0 && i + 1 < __argc) client.port = atoi(__argv[++i]);
+static int cmd_plan(int argc, char** argv) {
+    for (int i = 2; i < argc; i++) {
+        if (strcmp(argv[i], "--host") == 0 && i + 1 < argc) mbstowcs(client.host, argv[++i], 256);
+        else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc) client.port = atoi(argv[++i]);
     }
 
     // State
@@ -810,7 +810,7 @@ int main(int argc, char** argv) {
     if (strcmp(cmd,"login")==0) return cmd_login(argc,argv);
     if (strcmp(cmd,"logout")==0) return cmd_logout();
     if (strcmp(cmd,"schedule")==0) return cmd_schedule(argc,argv);
-    if (strcmp(cmd,"plan")==0) return cmd_plan();
+    if (strcmp(cmd,"plan")==0) return cmd_plan(argc,argv);
     if (strcmp(cmd,"proxy")==0) return cmd_proxy();
     if (strcmp(cmd,"help")==0) { help(); return 0; }
     fprintf(stderr,"Unknown: %s\n",cmd); help();
