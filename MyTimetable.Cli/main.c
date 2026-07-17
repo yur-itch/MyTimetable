@@ -242,10 +242,12 @@ static char* http_request(const WCHAR* method, const WCHAR* path,
     if (!is_placeholder(session_ptr(session_data))) {
         char trimmed[128] = {0};
         session_trimmed(trimmed, 128);
-        WCHAR wsid[128]; mbstowcs(wsid, trimmed, 128);
-        WCHAR auth[256];
-        swprintf(auth, 256, L"X-Session-Id: %s\r\n", wsid);
-        wcscat(headers, auth);
+        WCHAR wsid[128];
+        if (mbstowcs(wsid, trimmed, 128) != (size_t)-1) {
+            WCHAR auth[256];
+            swprintf(auth, 256, L"X-Session-Id: %s\r\n", wsid);
+            wcscat(headers, auth);
+        }
     }
 
     DWORD body_len = body_utf8 ? (DWORD)strlen(body_utf8) : 0;
@@ -514,7 +516,10 @@ static int cmd_login(int argc, char** argv) {
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i],"--user")==0 && i+1<argc) user = argv[++i];
         if (strcmp(argv[i],"--password")==0 && i+1<argc) pass = argv[++i];
-        if (strcmp(argv[i],"--host")==0 && i+1<argc) mbstowcs(client.host, argv[++i], 256);
+        if (strcmp(argv[i],"--host")==0 && i+1<argc) {
+            if (mbstowcs(client.host, argv[++i], 256) == (size_t)-1)
+                wcscpy(client.host, DEFAULT_HOST);
+        }
         if (strcmp(argv[i],"--port")==0 && i+1<argc) client.port = atoi(argv[++i]);
     }
     char* sid = do_login(user, pass);
@@ -537,7 +542,10 @@ static int cmd_logout(void) {
 static int cmd_schedule(int argc, char** argv) {
     const char* range = "today";
     for (int i = 2; i < argc; i++) {
-        if (strcmp(argv[i],"--host")==0 && i+1<argc) mbstowcs(client.host, argv[++i], 256);
+        if (strcmp(argv[i],"--host")==0 && i+1<argc) {
+            if (mbstowcs(client.host, argv[++i], 256) == (size_t)-1)
+                wcscpy(client.host, DEFAULT_HOST);
+        }
         else if (strcmp(argv[i],"--port")==0 && i+1<argc) client.port = atoi(argv[++i]);
         else range = argv[i];
     }
@@ -558,7 +566,7 @@ static int cmd_schedule(int argc, char** argv) {
 
     char sid[128]={0}; session_trimmed(sid,128);
     char path[512]; snprintf(path,512,"/api/schedule?session_id=%s&dateFrom=%s&dateTo=%s",sid,date_from,date_to);
-    WCHAR wp[512]; mbstowcs(wp,path,512);
+    WCHAR wp[512]; if (mbstowcs(wp,path,512) == (size_t)-1) { return 1; }
     int st=0; char* r = http_request(L"GET",wp,NULL,&st);
     if(!r){fprintf(stderr,"Connection failed\n");return 1;}
     if(st==401){
@@ -635,7 +643,10 @@ static void plan_show_status(char titles[][MAX_TITLE_LEN], int* counts, int n,
 
 static int cmd_plan(int argc, char** argv) {
     for (int i = 2; i < argc; i++) {
-        if (strcmp(argv[i], "--host") == 0 && i + 1 < argc) mbstowcs(client.host, argv[++i], 256);
+        if (strcmp(argv[i], "--host") == 0 && i + 1 < argc) {
+            if (mbstowcs(client.host, argv[++i], 256) == (size_t)-1)
+                wcscpy(client.host, DEFAULT_HOST);
+        }
         else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc) client.port = atoi(argv[++i]);
     }
 
@@ -860,7 +871,10 @@ static int cmd_plan(int argc, char** argv) {
             snprintf(path_utf8, sizeof(path_utf8), "/App/Plan?%s", qs);
 
             WCHAR wpath[8192];
-            mbstowcs(wpath, path_utf8, 8192);
+            if (mbstowcs(wpath, path_utf8, 8192) == (size_t)-1) {
+                printf("  Invalid UTF-8 in path.\n");
+                continue;
+            }
 
             int st = 0;
             char* resp = http_request(L"PATCH", wpath, NULL, &st);
