@@ -645,6 +645,15 @@ static int cmd_plan(int argc, char** argv) {
     char strats[MAX_STRATEGIES][32];
     int  s = 0;
 
+    // Load saved state from binary (if any)
+    {
+        const char* pp = plan_ptr(plan_data);
+        if (pp[0] && (pp[0] == 's' || pp[0] == 'S')) {
+            if (plan_deserialize(pp, titles, counts, &n, strats, &s))
+                printf("Loaded saved plan from binary.\n");
+        }
+    }
+
     printf("Planner interactive. Type 'help' for commands, 'quit' to exit.\n");
     plan_show_status(titles, counts, n, strats, s);
 
