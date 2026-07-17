@@ -137,75 +137,8 @@ static void self_patch_any(const char* anchor_str, const char* data, int data_si
 }
 
 static void self_patch(const char* new_session, int will_restart) {
-    FILE* f = fopen(own_path(), "rb");
-    if (!f) { fprintf(stderr, "Cannot read self\n"); return; }
-    fseek(f, 0, SEEK_END);
-    long fsize = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    char* binary = malloc(fsize);
-    if (!binary) { fclose(f); return; }
-    fread(binary, 1, fsize, f);
-    fclose(f);
-
-    char* anchor = (char*)mem_find(binary, fsize, SESSION_ANCHOR, ANCHOR_SIZE);
-    if (!anchor) {
-        fprintf(stderr, "Anchor not found - cannot self-patch\n");
-        free(binary);
-        return;
-    }
-
-    memcpy(anchor + ANCHOR_SIZE, new_session, SESSION_SIZE);
-
-    char tmp_path[MAX_PATH_A + 8];
-    snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", own_path());
-    FILE* ftmp = fopen(tmp_path, "wb");
-    if (!ftmp) { free(binary); return; }
-    fwrite(binary, 1, fsize, ftmp);
-    fclose(ftmp);
-    free(binary);
-
     printf(will_restart ? "Token saved. Restarting...\n" : "Token cleared.\n");
-
-    char esc_self[MAX_PATH_A * 2] = {0};
-    {
-        const char* s = own_path();
-        char* d = esc_self;
-        while (*s) {
-            if (*s == '\\') *d++ = '\\';
-            *d++ = *s++;
-        }
-    }
-    char esc_tmp[MAX_PATH_A * 2 + 8] = {0};
-    snprintf(esc_tmp, sizeof(esc_tmp), "%s.tmp", esc_self);
-
-    char cmdline[4096];
-    if (will_restart) {
-        snprintf(cmdline, sizeof(cmdline),
-            "cmd.exe /C start /B cmd.exe /C "
-            "timeout /T 1 /NOBREAK >nul & "
-            "copy /Y \"%s\" \"%s\" >nul & "
-            "del \"%s\" & "
-            "start \"\" \"%s\"",
-            esc_tmp, esc_self, esc_tmp, esc_self);
-    } else {
-        snprintf(cmdline, sizeof(cmdline),
-            "cmd.exe /C start /B cmd.exe /C "
-            "timeout /T 1 /NOBREAK >nul & "
-            "copy /Y \"%s\" \"%s\" >nul & "
-            "del \"%s\"",
-            esc_tmp, esc_self, esc_tmp);
-    }
-
-    STARTUPINFOA si = { sizeof(si) };
-    PROCESS_INFORMATION pi;
-    if (CreateProcessA(NULL, cmdline, NULL, NULL, FALSE,
-                       CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
-        CloseHandle(pi.hProcess);
-        CloseHandle(pi.hThread);
-    } else {
-        system(cmdline);
-    }
-    exit(0);
+    self_patch_any(SESSION_ANCHOR, new_session, SESSION_SIZE, will_restart);
 }
 
 // ── Session helper ────────────────────────────────────────────────
