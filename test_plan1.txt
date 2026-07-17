@@ -1,9 +1,0 @@
-add Матан 2
-add Алгем 1
-add История 1
-subjects
-push gap
-push roundrobin
-strategies
-submit
-quit

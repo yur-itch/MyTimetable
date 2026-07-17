@@ -528,6 +528,25 @@ static int strategy_index(const char* name) {
     return -1;
 }
 
+static void plan_show_status(char titles[][MAX_TITLE_LEN], int* counts, int n,
+                              char strats[][32], int s) {
+    // Subjects line
+    printf("  [");
+    if (n == 0) printf("no subjects");
+    for (int i = 0; i < n; i++) {
+        if (i > 0) printf(", ");
+        printf("%s x %d", titles[i], counts[i]);
+    }
+    // Strategies line
+    printf(" | ");
+    if (s == 0) printf("no strategies");
+    for (int i = 0; i < s; i++) {
+        if (i > 0) printf(" > ");
+        printf("%s", strats[i]);
+    }
+    printf("]\n");
+}
+
 static int cmd_plan(int argc, char** argv) {
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i], "--host") == 0 && i + 1 < argc) mbstowcs(client.host, argv[++i], 256);
