@@ -36,6 +36,10 @@ static char session_data[SESSION_DATA_LEN] =
 #define PLAN_TOTAL_LEN    (ANCHOR_SIZE + PLAN_DATA_SIZE)
 #define PLAN_PLACEHOLDER  "PLAN_EMPTY_PLACEHOLDER_FOR_SERIALIZED_STATE_HERE___" // ровно 64, padding
 
+#define MAX_SUBJECTS   32
+#define MAX_STRATEGIES 32
+#define MAX_TITLE_LEN  64
+
 #define plan_ptr(d)  ((d) + ANCHOR_SIZE)
 #define is_plan_placeholder(p) (memcmp((p), PLAN_PLACEHOLDER, PLAN_DATA_SIZE) == 0)
 
