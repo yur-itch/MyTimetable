@@ -630,7 +630,7 @@ static int cmd_plan(int argc, char** argv) {
             counts[n] = cnt;
             n++;
             printf("  Added: %s x %d\n", title_buf, cnt);
-            add_done: ;
+            add_done: plan_show_status(titles, counts, n, strats, s);
         }
         else if (strcmp(args[0], "rm") == 0) {
             if (ac < 2) { printf("Usage: rm <title>\n"); continue; }
@@ -650,6 +650,7 @@ static int cmd_plan(int argc, char** argv) {
                     n--;
                     printf("  Removed: %s\n", title_buf);
                     found = 1;
+                    plan_show_status(titles, counts, n, strats, s);
                     break;
                 }
             }
@@ -677,11 +678,13 @@ static int cmd_plan(int argc, char** argv) {
             strcpy(strats[s], sn);
             s++;
             printf("  Pushed: %s (pos %d)\n", sn, s);
+            plan_show_status(titles, counts, n, strats, s);
         }
         else if (strcmp(args[0], "pop") == 0) {
             if (s == 0) { printf("(empty)\n"); continue; }
             s--;
             printf("  Popped: %s\n", strats[s]);
+            plan_show_status(titles, counts, n, strats, s);
         }
         else if (strcmp(args[0], "mv") == 0) {
             if (ac < 3) { printf("Usage: mv <from> <to>\n"); continue; }
@@ -699,6 +702,7 @@ static int cmd_plan(int argc, char** argv) {
             }
             strcpy(strats[to], tmp);
             printf("  Moved %s from %d to %d\n", tmp, from + 1, to + 1);
+            plan_show_status(titles, counts, n, strats, s);
         }
         else if (strcmp(args[0], "submit") == 0) {
             if (n == 0) { printf("No subjects. Add some first.\n"); continue; }
