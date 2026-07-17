@@ -151,6 +151,78 @@ static void session_trimmed(char* out, size_t out_sz) {
     out[slen < out_sz - 1 ? slen : out_sz - 1] = '\0';
 }
 
+// ── Plan save/load ────────────────────────────────────────────────
+// Serialized format, null-terminated, stored in plan_data:
+// subjects:Матан=2\nsubjects:Алгем=1\nstrategies:gap\nstrategies:roundrobin\n
+
+static int plan_serialize(char* buf, int bufsz,
+                           char titles[][MAX_TITLE_LEN], int* counts, int n,
+                           char strats[][32], int s) {
+    int pos = 0;
+    for (int i = 0; i < n && pos < bufsz - 2; i++) {
+        pos += snprintf(buf + pos, bufsz - pos, "subjects:%s=%d\n", titles[i], counts[i]);
+    }
+    for (int i = 0; i < s && pos < bufsz - 2; i++) {
+        pos += snprintf(buf + pos, bufsz - pos, "strategies:%s\n", strats[i]);
+    }
+    if (pos < bufsz) buf[pos] = 0;
+    return pos;
+}
+
+static int plan_deserialize(const char* data,
+                             char titles[][MAX_TITLE_LEN], int* counts, int* n,
+                             char strats[][32], int* s) {
+    *n = 0; *s = 0;
+    if (!data || !*data) return 0;
+    if (memcmp(data, "subjects:", 9) != 0 && memcmp(data, "strategies:", 11) != 0) return 0;
+
+    char copy[PLAN_DATA_SIZE];
+    strncpy(copy, data, PLAN_DATA_SIZE - 1);
+    copy[PLAN_DATA_SIZE - 1] = 0;
+
+    char* line = strtok(copy, "\n");
+    while (line) {
+        if (strncmp(line, "subjects:", 9) == 0) {
+            const char* kv = line + 9;
+            const char* eq = strchr(kv, '=');
+            if (eq && *n < MAX_SUBJECTS) {
+                size_t tl = eq - kv;
+                if (tl >= MAX_TITLE_LEN) tl = MAX_TITLE_LEN - 1;
+                memcpy(titles[*n], kv, tl);
+                titles[*n][tl] = 0;
+                counts[*n] = atoi(eq + 1);
+                if (counts[*n] < 1) counts[*n] = 1;
+                (*n)++;
+            }
+        } else if (strncmp(line, "strategies:", 11) == 0) {
+            if (*s < MAX_STRATEGIES) {
+                strncpy(strats[*s], line + 11, 31);
+                strats[*s][31] = 0;
+                (*s)++;
+            }
+        }
+        line = strtok(NULL, "\n");
+    }
+    return 1;
+}
+
+static void plan_patch_save(char titles[][MAX_TITLE_LEN], int* counts, int n,
+                             char strats[][32], int s) {
+    char buf[PLAN_DATA_SIZE];
+    int len = plan_serialize(buf, sizeof(buf), titles, counts, n, strats, s);
+    if (len == 0) {
+        // Empty plan — restore placeholder
+        memcpy(buf, PLAN_PLACEHOLDER, PLAN_DATA_SIZE);
+        len = PLAN_DATA_SIZE;
+    } else {
+        // Pad remaining with nulls (data section must be same size)
+        for (int i = len; i < PLAN_DATA_SIZE; i++) buf[i] = 0;
+        len = PLAN_DATA_SIZE;
+    }
+    printf("Saving plan to binary...\n");
+    self_patch_any(PLAN_ANCHOR, buf, PLAN_DATA_SIZE, 1);
+}
+
 // ── HTTP (WinHTTP, no proxy) ──────────────────────────────────────
 typedef struct { WCHAR host[256]; int port; } Client;
 static Client client = { .host = L"localhost", .port = DEFAULT_PORT };
