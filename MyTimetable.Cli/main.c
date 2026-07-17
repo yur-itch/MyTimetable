@@ -682,7 +682,6 @@ static int cmd_plan(int argc, char** argv) {
             break;
         }
         else if (strcmp(args[0], "save") == 0) {
-            if (n == 0 && s == 0) { printf("  Nothing to save. Add subjects or strategies first.\n"); continue; }
             plan_patch_save(titles, counts, n, strats, s);
             // never reached — self_patch_any calls exit(0)
         }
