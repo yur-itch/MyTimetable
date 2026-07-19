@@ -20,10 +20,10 @@ app.MapGet("/", () => "MyTimetable Proxy running");
 app.MapPost("/Cli/login", (LoginRequest req) =>
 {
     if (req.Username == "admin" && req.Password == "admin")
-        return Results.Ok(new LoginResponse(MakeId(16), "admin", "Admin"));
+        return Results.Text(MakeId(16));
     if (req.Username == "viewer" && req.Password == "viewer")
-        return Results.Ok(new LoginResponse(MakeId(16), "viewer", "Viewer"));
-    return Results.Json(new { error = "invalid credentials" }, statusCode: 401);
+        return Results.Text(MakeId(16));
+    return Results.Text("invalid credentials", statusCode: 401);
 });
 
 app.MapGet("/Cli", async (HttpContext context) =>
