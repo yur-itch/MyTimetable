@@ -466,7 +466,7 @@ static int cmd_schedule(int argc, char** argv) {
         console_height = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
 
     int scroll_region_top = header_lines + 1;  // 1-indexed
-    int scroll_region_bot = console_height;
+    int scroll_region_bot = console_height - 1;
     int avail = scroll_region_bot - scroll_region_top + 1;
     if (avail < 1) avail = 10;
 
