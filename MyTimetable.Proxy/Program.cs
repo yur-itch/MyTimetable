@@ -163,11 +163,11 @@ static string RenderSchedule(int slotCount, int scrollTarget, List<Dictionary<st
         for (int i = 1; i <= slotCount; i++) { row.Append(" ║ "); var v = p[i] ?? "-"; row.Append(v.Length <= cw[i] ? v.PadRight(cw[i]) : v[..cw[i]]); }
         row.Append(" ║"); return row.ToString();
     }
-    sb.AppendLine(MakeBar("╔", "═", "╦", "╗"));
+    sb.AppendLine(MakeBar("╔═", "═", "═╦═", "═╗"));
     var hdr = new string[slotCount + 1]; hdr[0] = "Date";
     for (int s = 1; s <= slotCount; s++) hdr[s] = s.ToString();
     sb.AppendLine(MakeRow(hdr));
-    sb.AppendLine(MakeBar("╠", "═", "╬", "╣"));
+    sb.AppendLine(MakeBar("╠═", "═", "═╬═", "═╣"));
     foreach (var day in days)
     {
         var parts = new string[slotCount + 1]; parts[0] = (string)day["date"];
@@ -175,7 +175,7 @@ static string RenderSchedule(int slotCount, int scrollTarget, List<Dictionary<st
         for (int s = 0; s < slotCount; s++) parts[s + 1] = cells[s];
         sb.AppendLine(MakeRow(parts));
     }
-    sb.Append(MakeBar("╚", "═", "╩", "╝"));
+    sb.Append(MakeBar("╚═", "═", "═╩═", "═╝"));
     return sb.ToString();
 }
 
