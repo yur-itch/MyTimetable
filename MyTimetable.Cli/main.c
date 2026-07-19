@@ -486,14 +486,14 @@ static int cmd_schedule(int argc, char** argv) {
     char cmd_line[64];
     int running = 1;
     while (running) {
-        // Render visible window — explicit positioning, no \n to avoid edge scroll
+        // Render visible window
+        printf("\033[%d;0H", scroll_region_top);
         for (int i = start; i < end; i++) {
-            printf("\033[%d;0H", scroll_region_top + (i - start));
             int line_idx = header_lines + i;
             if (i == scroll_target)
-                printf("\033[7m%s\033[27m\033[K", lines[line_idx]);
+                printf("\033[7m%s\033[27m\033[K\n", lines[line_idx]);
             else
-                printf("%s\033[K", lines[line_idx]);
+                printf("%s\033[K\n", lines[line_idx]);
         }
 
         // Prompt at bottom
