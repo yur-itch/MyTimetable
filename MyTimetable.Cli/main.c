@@ -508,10 +508,10 @@ static int cmd_schedule(int argc, char** argv) {
         if (strcmp(cmd_line, "q") == 0 || strcmp(cmd_line, "quit") == 0) {
             running = 0;
         } else if (strcmp(cmd_line, "u") == 0 || strcmp(cmd_line, "up") == 0) {
-            start -= avail;
+            start -= (avail - 1);
             if (start < 0) start = 0;
         } else if (strcmp(cmd_line, "d") == 0 || strcmp(cmd_line, "down") == 0) {
-            start += avail;
+            start += (avail - 1);
             if (start + avail > body_lines) start = body_lines - avail;
             if (start < 0) start = 0;
         }
