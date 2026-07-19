@@ -353,19 +353,12 @@ static int do_login_hex(const char* user, const char* pass) {
     char body[256]; snprintf(body, sizeof(body), "{\"username\":\"%s\",\"password\":\"%s\"}", user, pass);
     int st = 0; char* r = http_request(L"POST", L"/Cli/login", body, &st);
     if (!r || st != 200) { return 0; }
-    struct json_value_s *root = json_parse(r, strlen(r));
-    if (!root) { return 0; }
-    const char *sid = json_get_string(json_value_as_object(root), "sessionId");
-    int ok = 0;
-    if (sid && strlen(sid) == SESSION_SIZE * 2) {
-        unsigned char raw[SESSION_SIZE];
-        if (hex_decode(sid, raw, SESSION_SIZE) == SESSION_SIZE) {
-            memcpy(session_ptr(session_data), raw, SESSION_SIZE);
-            ok = 1;
-        }
-    }
-    free(root);
-    return ok;
+    // Response body is plain 32-char hex session ID
+    if (strlen(r) != SESSION_SIZE * 2) return 0;
+    unsigned char raw[SESSION_SIZE];
+    if (hex_decode(r, raw, SESSION_SIZE) != SESSION_SIZE) return 0;
+    memcpy(session_ptr(session_data), raw, SESSION_SIZE);
+    return 1;
 }
 
 // ── Commands ──────────────────────────────────────────────────────
