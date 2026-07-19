@@ -4,6 +4,7 @@ using System.IO.Compression;
 using MyTimetable;
 using MyTimetable.Models;
 using MyTimetable.Planning;
+using MyTimetable.Security;
 using MyTimetable.TsuInTime;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.EntityFrameworkCore;
