@@ -494,6 +494,8 @@ static int cmd_schedule(int argc, char** argv) {
                 printf("\033[7m%s\033[27m\033[K\n", lines[line_idx]);
             else
                 printf("%s\033[K\n", lines[line_idx]);
+            // Prevent \n from scrolling at bottom edge
+            if (i == end - 1) printf("\033[K");
         }
 
         // Prompt at bottom
