@@ -447,12 +447,11 @@ static int cmd_schedule(int argc, char** argv) {
     int line_count = 0;
     char *p = data_copy;
     while (*p && line_count < 2048) {
-        while (*p == '\r') p++;
+        while (*p == '\r' || *p == '\n') p++;
         if (!*p) break;
         lines[line_count++] = p;
         while (*p && *p != '\n' && *p != '\r') p++;
-        if (*p == '\n') { *p = '\0'; p++; }
-        else if (*p == '\r') { *p = '\0'; p++; }
+        if (*p) { *p = '\0'; p++; }
     }
 
     if (line_count < 4) { fprintf(stderr, "Bad schedule data (%d lines)\n", line_count); free(root); free(lines); free(data_copy); return 1; }
