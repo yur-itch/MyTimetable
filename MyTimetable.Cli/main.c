@@ -486,14 +486,23 @@ static int cmd_schedule(int argc, char** argv) {
     char cmd_line[64];
     int running = 1;
     while (running) {
-        // Render visible window
+        // Render visible window — last row without \n to avoid edge scroll
         printf("\033[%d;0H", scroll_region_top);
-        for (int i = start; i < end; i++) {
+        for (int i = start; i < end - 1; i++) {
             int line_idx = header_lines + i;
             if (i == scroll_target)
                 printf("\033[7m%s\033[27m\033[K\n", lines[line_idx]);
             else
                 printf("%s\033[K\n", lines[line_idx]);
+        }
+        // Last line: no \n to avoid scroll region bottom edge trigger
+        {
+            int i = end - 1;
+            int line_idx = header_lines + i;
+            if (i == scroll_target)
+                printf("\033[7m%s\033[27m\033[K", lines[line_idx]);
+            else
+                printf("%s\033[K", lines[line_idx]);
         }
 
         // Prompt at bottom
