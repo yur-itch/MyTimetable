@@ -39,6 +39,9 @@ builder.Services.AddSingleton<IReadOnlyDictionary<string, IPlanningSelectorFacto
 builder.Services.AddSingleton<Planner>();
 builder.Services.AddSingleton<PlanPage>();
 builder.Services.AddSingleton<ScheduleData>();
+builder.Services.AddSingleton<CliRenderer>();
+builder.Services.AddSingleton<SessionIdProvider>();
+builder.Services.AddSingleton<AuthProvider>();
 builder.Services.AddSingleton<ViewRenderer>();
 builder.Services.AddSingleton<ScheduleBuilder>();
 builder.Services.AddSingleton<ChangesetApplier>();
