@@ -12,17 +12,19 @@ namespace MyTimetable
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ViewRenderer _renderer;
+        private readonly CliRenderer _cliRenderer;
         private readonly ScheduleBuilder _builder;
         private readonly ScheduleData _data;
         private readonly TimeProvider _time;
 
-        public CacheRebuilder(IServiceProvider serviceProvider, ViewRenderer renderer, ScheduleBuilder builder, ScheduleData data, TimeProvider time)
+        public CacheRebuilder(IServiceProvider serviceProvider, ViewRenderer renderer, ScheduleBuilder builder, ScheduleData data, TimeProvider time, CliRenderer cliRenderer)
         {
             _serviceProvider = serviceProvider;
             _renderer = renderer;
             _builder = builder;
             _data = data;
             _time = time;
+            _cliRenderer = cliRenderer;
         }
 
         // true — кэш пересобран и валиден; false — в БД нет данных, кэш помечен невалидным.
@@ -78,6 +80,11 @@ namespace MyTimetable
 
             string html = await _renderer.RenderViewToStringAsync("Get", view, actionContext);
             _data.ViewResult = Compression.Brotli(html);
+
+            // CLI view: prerendered table, brotli-compressed for GET /Cli
+            int cliScrollTarget = currentIdx >= 0 ? currentIdx : 0;
+            string cliJson = _cliRenderer.Render(view.SlotCount, cliScrollTarget, schedule);
+            _data.CliViewResult = Compression.Brotli(cliJson);
 
             _data.StateValid = true;
             return true;
