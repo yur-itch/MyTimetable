@@ -10,6 +10,7 @@ namespace MyTimetable
         private bool _stateValid = false;
         private readonly Lock _lock = new();
         private byte[] _brotliViewResult = { };
+        private byte[] _cliViewResult = { };
         public ConcurrentDictionary<DateOnly, string> PartialViewResult = new();
 
         public bool StateValid
@@ -22,6 +23,12 @@ namespace MyTimetable
         {
             get { lock (_lock) return _brotliViewResult; }
             set { lock (_lock) _brotliViewResult = value; }
+        }
+
+        public byte[] CliViewResult
+        {
+            get { lock (_lock) return _cliViewResult; }
+            set { lock (_lock) _cliViewResult = value; }
         }
     }
 }
