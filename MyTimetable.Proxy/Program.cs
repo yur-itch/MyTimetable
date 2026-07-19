@@ -120,16 +120,18 @@ static (int, int, List<Dictionary<string, object>>) GenerateScheduleData(Random 
 
         bool isWeekday = d.DayOfWeek != DayOfWeek.Saturday && d.DayOfWeek != DayOfWeek.Sunday;
         if (isWeekday && rng.NextDouble() <= 0.6)
-        int lessonCount = rng.Next(1, 5);
-        var used = new HashSet<int>();
-        for (int i = 0; i < lessonCount; i++)
         {
-            int num; do { num = rng.Next(1, slotCount + 1); } while (!used.Add(num));
-            var title = titles[rng.Next(titles.Length)];
-            var type = types[rng.Next(types.Length)];
-            var room = rooms[rng.Next(rooms.Length)];
-            var sn = ShortName(title);
-            cells[num - 1] = string.IsNullOrEmpty(room) ? $"{sn} {type[0]}" : $"{sn} {type[0]} [{room}]";
+            int lessonCount = rng.Next(1, 5);
+            var used = new HashSet<int>();
+            for (int i = 0; i < lessonCount; i++)
+            {
+                int num; do { num = rng.Next(1, slotCount + 1); } while (!used.Add(num));
+                var title = titles[rng.Next(titles.Length)];
+                var type = types[rng.Next(types.Length)];
+                var room = rooms[rng.Next(rooms.Length)];
+                var sn = ShortName(title);
+                cells[num - 1] = string.IsNullOrEmpty(room) ? $"{sn} {type[0]}" : $"{sn} {type[0]} [{room}]";
+            }
         }
         if (d == today) scrollTarget = dayIndex;
         days.Add(new Dictionary<string, object> { ["date"] = d.ToString("yyyy-MM-dd"), ["cells"] = cells });
