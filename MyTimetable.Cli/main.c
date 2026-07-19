@@ -9,31 +9,32 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "json.h"
 
 #define DEFAULT_HOST L"localhost"
 #define DEFAULT_PORT 8080
-#define BUFSIZE      65536
+#define BUFSIZE      262144
 #define MAX_PATH_A   512
 
 // ── Self-patching storage ─────────────────────────────────────────
-#define ANCHOR_SIZE      32
-#define SESSION_SIZE     64
+#define ANCHOR_SIZE      16
+#define SESSION_SIZE     16
 #define SESSION_DATA_LEN (ANCHOR_SIZE + SESSION_SIZE)
 
-#define SESSION_ANCHOR      "SELF_PATCH_MYTIMETABLE_ANCHOR__!"  // ровно 32
-#define SESSION_PLACEHOLDER "SESSION_EMPTY___64_BYTES_FOR_TOKEN_HERE_________________________" // ровно 64
+#define SESSION_ANCHOR      "SELF_PATCH_16_AN"
+#define SESSION_PLACEHOLDER "SES_EMPTY_16_B__"                   // ровно 16
 
 #define session_ptr(d)  ((d) + ANCHOR_SIZE)
 #define is_placeholder(p) (memcmp((p), SESSION_PLACEHOLDER, SESSION_SIZE) == 0)
 
-// Единый буфер 32+64 байт в .data секции
+// Единый буфер 16+16 байт в .data секции
 static char session_data[SESSION_DATA_LEN] =
     SESSION_ANCHOR SESSION_PLACEHOLDER;
 
 // ── Plan persistent storage ───────────────────────────────────────
-#define PLAN_ANCHOR      "PLAN_STATE_MYTIMETABLE_ANCHOR___!"  // ровно 32
-#define PLAN_DATA_SIZE    4096
-#define PLAN_TOTAL_LEN    (ANCHOR_SIZE + PLAN_DATA_SIZE)
+#define PLAN_ANCHOR "PLAN_ANCHOR_16__"
+#define PLAN_DATA_SIZE  4096
+#define PLAN_TOTAL_LEN  (ANCHOR_SIZE + PLAN_DATA_SIZE)
 #define MAX_SUBJECTS   32
 #define MAX_STRATEGIES 32
 #define MAX_TITLE_LEN  64
@@ -41,7 +42,6 @@ static char session_data[SESSION_DATA_LEN] =
 #define plan_ptr(d)  ((d) + ANCHOR_SIZE)
 #define is_plan_placeholder(p) ((p)[0] == 0)
 
-// First 32 bytes = PLAN_ANCHOR (found by self_patch_any), rest = payload (zeros = empty)
 static char plan_data[PLAN_TOTAL_LEN] = PLAN_ANCHOR;
 
 // ── Поиск подстроки в бинарных данных ────────────────────────────
@@ -84,48 +84,51 @@ static void self_patch_any(const char* anchor_str, const char* data, int data_si
         return;
     }
 
-    memcpy(anchor + ANCHOR_SIZE, data, data_size);
+    long payload_offset = (long)(anchor - binary) + ANCHOR_SIZE;
 
-    char tmp_path[MAX_PATH_A + 8];
-    snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", own_path());
-    FILE* ftmp = fopen(tmp_path, "wb");
-    if (!ftmp) { free(binary); return; }
-    fwrite(binary, 1, fsize, ftmp);
-    fclose(ftmp);
-    free(binary);
-
-    printf(will_restart ? "Saved. Restarting...\n" : "Cleared.\n");
-
-    char esc_self[MAX_PATH_A * 2] = {0};
+    // Escape path for PowerShell single quotes (double any ' inside)
+    char ps_path[MAX_PATH_A * 2] = {0};
     {
         const char* s = own_path();
-        char* d = esc_self;
+        char* d = ps_path;
         while (*s) {
-            if (*s == '\\') *d++ = '\\';
-            if (*s == '&' || *s == '|' || *s == '^' || *s == '>' || *s == '<') *d++ = '^';
+            if (*s == '\'') { *d++ = '\''; *d++ = '\''; }
             *d++ = *s++;
         }
     }
-    char esc_tmp[MAX_PATH_A * 2 + 8] = {0};
-    snprintf(esc_tmp, sizeof(esc_tmp), "%s.tmp", esc_self);
 
-    char cmdline[4096];
-    if (will_restart) {
-        snprintf(cmdline, sizeof(cmdline),
-            "cmd.exe /C start /B cmd.exe /C "
-            "timeout /T 1 /NOBREAK >nul & "
-            "copy /Y \"%s\" \"%s\" >nul & "
-            "del \"%s\" & "
-            "start \"\" \"%s\"",
-            esc_tmp, esc_self, esc_tmp, esc_self);
-    } else {
-        snprintf(cmdline, sizeof(cmdline),
-            "cmd.exe /C start /B cmd.exe /C "
-            "timeout /T 1 /NOBREAK >nul & "
-            "copy /Y \"%s\" \"%s\" >nul & "
-            "del \"%s\"",
-            esc_tmp, esc_self, esc_tmp);
+    printf(will_restart ? "Saved. Restarting...\n" : "Cleared.\n");
+    fflush(stdout);
+
+    // Base64-encode the payload
+    char b64[(PLAN_DATA_SIZE + 2) / 3 * 4 + 1];
+    static const char b64_table[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    int b64_pos = 0;
+    for (int i = 0; i < data_size; i += 3) {
+        int b = (unsigned char)data[i] << 16;
+        if (i + 1 < data_size) b |= (unsigned char)data[i+1] << 8;
+        if (i + 2 < data_size) b |= (unsigned char)data[i+2];
+        b64[b64_pos++] = b64_table[(b >> 18) & 0x3F];
+        b64[b64_pos++] = b64_table[(b >> 12) & 0x3F];
+        b64[b64_pos++] = (i + 1 < data_size) ? b64_table[(b >> 6) & 0x3F] : '=';
+        b64[b64_pos++] = (i + 2 < data_size) ? b64_table[b & 0x3F] : '=';
     }
+    b64[b64_pos] = 0;
+
+    char cmdline[8192];
+    snprintf(cmdline, sizeof(cmdline),
+        "powershell -NoProfile -Command \"&{"
+        "sleep 1; "
+        "$f=[IO.File]::Open('%s',[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None); "
+        "$f.Seek(%ld,0); "
+        "$b=[Convert]::FromBase64String('%s'); "
+        "$f.Write($b,0,$b.Length); "
+        "$f.Close(); "
+        "if(%d){Start-Process '%s'}}\"",
+        ps_path, payload_offset, b64, will_restart, ps_path);
+
+    free(binary);
 
     STARTUPINFOA si = { sizeof(si) };
     PROCESS_INFORMATION pi;
@@ -141,9 +144,7 @@ static void self_patch_any(const char* anchor_str, const char* data, int data_si
     if (spawned) {
         exit(0);
     }
-    // Both methods failed — clean up .tmp file
-    remove(tmp_path);
-    fprintf(stderr, "Self-patch spawn failed - .tmp file cleaned up\n");
+    fprintf(stderr, "Self-patch spawn failed\n");
     return;
 }
 
@@ -153,19 +154,27 @@ static void self_patch(const char* new_session, int will_restart) {
 }
 
 // ── Session helper ────────────────────────────────────────────────
-static void session_trimmed(char* out, size_t out_sz) {
-    char tmp[SESSION_SIZE + 1] = {0};
-    memcpy(tmp, session_ptr(session_data), SESSION_SIZE);
-    tmp[SESSION_SIZE] = '\0';
-    size_t slen = strnlen(tmp, SESSION_SIZE);
-    memcpy(out, tmp, slen < out_sz - 1 ? slen : out_sz - 1);
-    out[slen < out_sz - 1 ? slen : out_sz - 1] = '\0';
+static void session_hex(char* out, size_t out_sz) {
+    const unsigned char* p = (const unsigned char*)session_ptr(session_data);
+    for (int i = 0; i < SESSION_SIZE && i*2+2 < (int)out_sz; i++)
+        sprintf(out + i*2, "%02x", p[i]);
+    out[out_sz - 1] = '\0';
+}
+
+static int hex_decode(const char* hex, unsigned char* out, int out_sz) {
+    int len = 0;
+    while (*hex && *(hex+1) && len < out_sz) {
+        char hi = *hex++;
+        char lo = *hex++;
+        int h = (hi >= 'a') ? (hi - 'a' + 10) : (hi >= 'A') ? (hi - 'A' + 10) : (hi - '0');
+        int l = (lo >= 'a') ? (lo - 'a' + 10) : (lo >= 'A') ? (lo - 'A' + 10) : (lo - '0');
+        if (h < 0 || h > 15 || l < 0 || l > 15) return -1;
+        out[len++] = (unsigned char)((h << 4) | l);
+    }
+    return *hex && *(hex+1) ? -1 : len;
 }
 
 // ── Plan save/load ────────────────────────────────────────────────
-// Serialized format, null-terminated, stored in plan_data:
-// subjects:Матан=2\nsubjects:Алгем=1\nstrategies:gap\nstrategies:roundrobin\n
-
 static int plan_serialize(char* buf, int bufsz,
                            char titles[][MAX_TITLE_LEN], int* counts, int n,
                            char strats[][32], int s) {
@@ -222,17 +231,16 @@ static void plan_patch_save(char titles[][MAX_TITLE_LEN], int* counts, int n,
     char buf[PLAN_DATA_SIZE];
     int len = plan_serialize(buf, sizeof(buf), titles, counts, n, strats, s);
     if (len == 0 || (len == 1 && buf[0] == '\n')) {
-        // Empty plan — all zeros
         memset(buf, 0, PLAN_DATA_SIZE);
     } else {
-        // Pad remaining with nulls (data section must be same size)
         for (int i = len; i < PLAN_DATA_SIZE; i++) buf[i] = 0;
     }
     printf("Saving plan to binary...\n");
+    fflush(stdout);
     self_patch_any(PLAN_ANCHOR, buf, PLAN_DATA_SIZE, 1);
 }
 
-// ── HTTP (WinHTTP, no proxy) ──────────────────────────────────────
+// ── HTTP (WinHTTP, gzip auto-decompression) ───────────────────────
 typedef struct { WCHAR host[256]; int port; } Client;
 static Client client = { .host = L"localhost", .port = DEFAULT_PORT };
 
@@ -241,6 +249,9 @@ static char* http_request(const WCHAR* method, const WCHAR* path,
     HINTERNET hSession = WinHttpOpen(L"MyTimetable.CLI/1.0",
                                      WINHTTP_ACCESS_TYPE_NO_PROXY, NULL, NULL, 0);
     if (!hSession) return NULL;
+    // Enable gzip/deflate auto-decompression
+    DWORD decompress_flags = 0x03;  // GZIP | DEFLATE
+    WinHttpSetOption(hSession, 118 /* WINHTTP_OPTION_DECOMPRESSION */, &decompress_flags, sizeof(decompress_flags));
     HINTERNET hConnect = WinHttpConnect(hSession, client.host, (INTERNET_PORT)client.port, 0);
     if (!hConnect) { WinHttpCloseHandle(hSession); return NULL; }
     HINTERNET hRequest = WinHttpOpenRequest(hConnect, method, path, NULL, NULL, NULL, 0);
@@ -248,10 +259,10 @@ static char* http_request(const WCHAR* method, const WCHAR* path,
 
     WCHAR headers[512] = L"Content-Type: application/json\r\nAccept: application/json\r\n";
     if (!is_placeholder(session_ptr(session_data))) {
-        char trimmed[128] = {0};
-        session_trimmed(trimmed, 128);
-        WCHAR wsid[128];
-        if (mbstowcs(wsid, trimmed, 128) != (size_t)-1) {
+        char hex[64] = {0};
+        session_hex(hex, 64);
+        WCHAR wsid[64];
+        if (mbstowcs(wsid, hex, 64) != (size_t)-1) {
             WCHAR auth[256];
             swprintf(auth, 256, L"X-Session-Id: %s\r\n", wsid);
             wcscat(headers, auth);
@@ -270,7 +281,7 @@ static char* http_request(const WCHAR* method, const WCHAR* path,
                         NULL, &status, &status_len, NULL);
     if (status_out) *status_out = (int)status;
 
-    char* buf = malloc(BUFSIZE); if (!buf) { WinHttpCloseHandle(hRequest); WinHttpCloseHandle(hConnect); WinHttpCloseHandle(hSession); return NULL; }
+    static char buf[BUFSIZE];
     DWORD total = 0, read = 0;
     while (WinHttpReadData(hRequest, buf + total, BUFSIZE - total - 1, &read) && read > 0) {
         total += read; if (total >= BUFSIZE - 1) break;
@@ -280,48 +291,17 @@ static char* http_request(const WCHAR* method, const WCHAR* path,
     return buf;
 }
 
-// ── Minimal JSON ──────────────────────────────────────────────────
-static const char* js_ws(const char* p) {
-    while (p && *p && (unsigned char)*p <= ' ') p++;
-    return p;
+// ── JSON helpers (sheredom/json.h wrappers) ─────────────────────
+static struct json_value_s* json_get(struct json_object_s *obj, const char *key) {
+    if (!obj) return NULL;
+    for (struct json_object_element_s *e = obj->start; e; e = e->next)
+        if (strcmp(e->name->string, key) == 0) return e->value;
+    return NULL;
 }
-static char* js_range(const char* s, const char* e) {
-    char* r = malloc(e - s + 1); memcpy(r, s, e - s); r[e - s] = 0; return r;
-}
-static char* js_str(const char* p, const char** end) {
-    p = js_ws(p); if (!p || *p != '"') return NULL;
-    p++; const char* s = p;
-    while (*p && *p != '"') { if (*p == '\\') p++; p++; }
-    if (*p != '"') return NULL; if (end) *end = p + 1; return js_range(s, p);
-}
-static char* js_val(const char* p, const char** end) {
-    p = js_ws(p); if (!p || !*p) return NULL;
-    if (*p == '"') return js_str(p, end);
-    if (*p == '{' || *p == '[') {
-        const char* s = p; int d = 1; p++;
-        while (*p && d > 0) {
-            if (*p == '"') { p++; while (*p && *p != '"') { if (*p == '\\') p++; p++; } }
-            if (*p == '{' || *p == '[') d++; if (*p == '}' || *p == ']') d--;
-            if (d > 0) p++;
-        }
-        if (d == 0) p++; if (end) *end = p; return js_range(s, p);
-    }
-    const char* s = p;
-    while (*p && *p != ',' && *p != '}' && *p != ']' && (unsigned char)*p > ' ') p++;
-    if (end) *end = p; return js_range(s, p);
-}
-static char* js_obj(const char* p, const char* key) {
-    p = js_ws(p); if (!p || *p != '{') return NULL; p++;
-    size_t klen = strlen(key);
-    while (1) {
-        p = js_ws(p); if (!p || *p == '}') return NULL; if (*p != '"') return NULL;
-        p++; const char* ks = p; while (*p && *p != '"') { if (*p == '\\') p++; p++; }
-        if (*p != '"') return NULL; size_t l = p - ks; p++;
-        p = js_ws(p); if (*p != ':') return NULL; p++;
-        if (l == klen && strncmp(ks, key, klen) == 0) return js_val(p, &p);
-        const char* d = NULL; js_val(p, &d); if (!d) return NULL; p = d;
-        p = js_ws(p); if (*p == ',') p++; else if (*p == '}') return NULL;
-    }
+static const char* json_get_string(struct json_object_s *obj, const char *key) {
+    struct json_value_s *v = json_get(obj, key);
+    struct json_string_s *s = v ? json_value_as_string(v) : NULL;
+    return s ? s->string : NULL;
 }
 
 // ── Display helpers ───────────────────────────────────────────────
@@ -341,153 +321,11 @@ static int vis_len(const char* s) {
     int n = 0;
     while (*s) {
         if (*s == 0x1b) { while (*s && *s != 'm') s++; if (*s) s++; }
-        else if ((*s & 0xc0) == 0x80) { s++; } // continuation byte, skip
+        else if ((*s & 0xc0) == 0x80) { s++; }
         else { n++; s++; }
     }
     return n;
 }
-
-static void fmt_slot(const char* slot_json, char* out, int sz) {
-    out[0] = 0;
-    char *ns=js_obj(slot_json,"number"), *def=js_obj(slot_json,"default");
-    char *cust=js_obj(slot_json,"custom"), *hid=js_obj(slot_json,"hidden");
-    (void)ns;
-    int h = hid && strcmp(hid,"true")==0;
-    if (def && strcmp(def,"null")!=0) {
-        char *t=js_obj(def,"title"), *ty=js_obj(def,"lesson_type"), *rm=js_obj(def,"room");
-        const char* sn = short_name(t);
-        char tc = ty ? ty[0] : '?';
-        if (h) snprintf(out,sz,"%s %c",sn,tc);
-        else {
-            snprintf(out,sz,"%s %c",sn,tc);
-            if (rm && rm[0]) { size_t bl=strlen(out); snprintf(out+bl,sz-bl," [%s]",rm); }
-        }
-        free(t); free(ty); free(rm);
-    } else if (cust && strcmp(cust,"null")!=0) {
-        snprintf(out,sz,"!self");
-    }
-    free(ns); free(def); free(cust); free(hid);
-    if (!out[0]) snprintf(out,sz,"-");
-}
-
-static char** parse_cells(const char* slots_json) {
-    char** c = calloc(6, sizeof(char*));
-    if (!c) return NULL;
-    const char* p = js_ws(slots_json); if (*p == '[') p++;
-    while (1) {
-        p = js_ws(p); if (!p || *p == ']' || !*p) break; if (*p != '{') { p++; continue; }
-        const char* se = NULL; char* slot = js_val(p, &se); if (!slot) break;
-        char* ns = js_obj(slot,"number");
-        int n = ns ? atoi(ns) : 0;
-        if (n >= 1 && n <= 6) {
-            if (c[n-1]) free(c[n-1]);
-            c[n-1] = malloc(128); c[n-1][0] = 0;
-            fmt_slot(slot, c[n-1], 128);
-        }
-        free(ns); free(slot);
-        p = se ? se : p+1; p = js_ws(p); if (*p == ',') p++;
-    }
-    return c;
-}
-
-static void free_cells(char** c) {
-    if (!c) return; for (int i=0;i<6;i++) free(c[i]); free(c);
-}
-
-static int copy_visible(char* dst, const char* src, int max_vis) {
-    int copied = 0;
-    while (*src && copied < max_vis) {
-        if (*src == 0x1b) {
-            src++;
-            while (*src && *src != 'm') src++;
-            if (*src) src++;
-        } else if ((*src & 0xc0) == 0x80) {
-            *dst++ = *src++; // UTF-8 continuation byte: copy but don't count
-        } else {
-            *dst++ = *src++;
-            copied++;
-        }
-    }
-    return copied;
-}
-
-// ── Table renderer with runtime verification ──────────────────────
-static void print_checked(const char* buf, int expected, const char* tag) {
-    int got = vis_len(buf);
-    if (got != expected)
-        fprintf(stderr, "[%s vis=%d != exp=%d]\n", tag, got, expected);
-    printf("%s\n", buf);
-}
-
-
-static void build_bar(char* buf, int full, int* pp, int l1,int l2,int l3, int r1,int r2,int r3, int j1,int j2,int j3, int h1,int h2,int h3) {
-    int pos=0, pi=1;
-    for(int v=0;v<full;v++){
-        if(v==0){buf[pos++]=l1;buf[pos++]=l2;buf[pos++]=l3;}
-        else if(v==full-1){buf[pos++]=r1;buf[pos++]=r2;buf[pos++]=r3;}
-        else if(pi<8&&v==pp[pi]){buf[pos++]=j1;buf[pos++]=j2;buf[pos++]=j3;pi++;}
-        else{buf[pos++]=h1;buf[pos++]=h2;buf[pos++]=h3;}
-    }
-    buf[pos]=0;
-}
-
-
-static void render_schedule(int n, char** dates, char*** cells) {
-    int cw[7] = {10,10,10,10,10,10,10};
-    for (int d=0; d<n; d++) {
-        int dl = vis_len(dates[d]); if (dl > cw[0]) cw[0] = dl;
-        for (int s=0; s<6; s++) {
-            int vl = cells[d][s] ? vis_len(cells[d][s]) : 0;
-            if (vl > cw[s+1]) cw[s+1] = vl;
-        }
-    }
-    int full = 22;
-    for (int i=0; i<7; i++) full += cw[i];
-
-    // pipe visual positions for bar building
-    int pp[8]; pp[0] = 0;
-    int acc = 0;
-    for (int bi=0; bi<6; bi++) { acc += cw[bi]; pp[bi+1] = acc + 3*(bi+1); }
-    pp[7] = full - 1;
-
-    char row[8192];
-    int p;
-
-    build_bar(row, full, pp, 0xE2,0x95,0x94, 0xE2,0x95,0x97, 0xE2,0x95,0xA6, 0xE2,0x95,0x90); print_checked(row,full,"bar");
-
-    // header row
-    p = 0; row[p++] = 0xE2; row[p++] = 0x95; row[p++] = 0x91; row[p++] = 32;
-    for (int i=0; i<cw[0]-4; i++) row[p++] = 32;
-    row[p++] = 68; row[p++] = 97; row[p++] = 116; row[p++] = 101;
-    for (int s=1; s<=6; s++) {
-        row[p++] = 32; row[p++] = 0xE2; row[p++] = 0x95; row[p++] = 0x91; row[p++] = 32;
-        char h[8]; int nlen = snprintf(h,8,"%d",s);
-        memcpy(row+p, h, nlen); p += nlen;
-        for (int i=nlen; i<cw[s]; i++) row[p++] = 32;
-    }
-    row[p++] = 32; row[p++] = 0xE2; row[p++] = 0x95; row[p++] = 0x91;
-    row[p] = 0; print_checked(row, full, "hdr");
-
-    build_bar(row, full, pp, 0xE2,0x95,0xA0, 0xE2,0x95,0xA3, 0xE2,0x95,0xAC, 0xE2,0x94,0x80); print_checked(row,full,"bar");
-
-    for (int d=0; d<n; d++) {
-        p = 0; row[p++] = 0xE2; row[p++] = 0x95; row[p++] = 0x91; row[p++] = 32;
-        int dl = strlen(dates[d]); memcpy(row+p, dates[d], dl); p += dl;
-        for (int i=dl; i<cw[0]; i++) row[p++] = 32;
-        for (int s=0; s<6; s++) {
-            row[p++] = 32; row[p++] = 0xE2; row[p++] = 0x95; row[p++] = 0x91; row[p++] = 32;
-            int vlen = cells[d][s] ? vis_len(cells[d][s]) : 0;
-            int blen = cells[d][s] ? (int)strlen(cells[d][s]) : 0;
-            if (blen > 0) { memcpy(row+p, cells[d][s], blen); p += blen; }
-            for (int i=vlen; i<cw[s+1]; i++) row[p++] = 32;
-        }
-        row[p++] = 32; row[p++] = 0xE2; row[p++] = 0x95; row[p++] = 0x91;
-        row[p] = 0; print_checked(row, full, "row");
-    }
-
-    build_bar(row, full, pp, 0xE2,0x95,0x9A, 0xE2,0x95,0x9D, 0xE2,0x95,0xA9, 0xE2,0x95,0x90); print_checked(row,full,"bar");
-}
-
 
 // ── URL encoding ─────────────────────────────────────────────────
 static int url_enc_char(char* d, unsigned char c) {
@@ -511,11 +349,23 @@ static int url_encode(char* dst, const char* src) {
 // ── Проверка сессии ──────────────────────────────────────────────
 static int needs_login(void) { return is_placeholder(session_ptr(session_data)); }
 
-static char* do_login(const char* user, const char* pass) {
+static int do_login_hex(const char* user, const char* pass) {
     char body[256]; snprintf(body, sizeof(body), "{\"username\":\"%s\",\"password\":\"%s\"}", user, pass);
-    int st = 0; char* r = http_request(L"POST", L"/api/login", body, &st);
-    if (!r || st != 200) { free(r); return NULL; }
-    char* sid = js_obj(r, "sessionId"); free(r); return sid;
+    int st = 0; char* r = http_request(L"POST", L"/Cli/login", body, &st);
+    if (!r || st != 200) { return 0; }
+    struct json_value_s *root = json_parse(r, strlen(r));
+    if (!root) { return 0; }
+    const char *sid = json_get_string(json_value_as_object(root), "sessionId");
+    int ok = 0;
+    if (sid && strlen(sid) == SESSION_SIZE * 2) {
+        unsigned char raw[SESSION_SIZE];
+        if (hex_decode(sid, raw, SESSION_SIZE) == SESSION_SIZE) {
+            memcpy(session_ptr(session_data), raw, SESSION_SIZE);
+            ok = 1;
+        }
+    }
+    free(root);
+    return ok;
 }
 
 // ── Commands ──────────────────────────────────────────────────────
@@ -539,14 +389,9 @@ static int cmd_login(int argc, char** argv) {
             }
         }
     }
-    char* sid = do_login(user, pass);
-    if (!sid) { printf("Login failed\n"); return 1; }
+    if (!do_login_hex(user, pass)) { printf("Login failed\n"); return 1; }
     printf("Logged in as '%s'\nPatching token into binary...\n", user);
-    char new_64[SESSION_SIZE] = {0};
-    size_t sl = strlen(sid);
-    memcpy(new_64, sid, sl > SESSION_SIZE ? SESSION_SIZE : sl);
-    free(sid);
-    self_patch(new_64, 1);
+    self_patch(session_ptr(session_data), 1);
     return 0;
 }
 
@@ -557,7 +402,6 @@ static int cmd_logout(void) {
 }
 
 static int cmd_schedule(int argc, char** argv) {
-    const char* range = "today";
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i],"--host")==0 && i+1<argc) {
             if (mbstowcs(client.host, argv[++i], 256) == (size_t)-1)
@@ -573,64 +417,121 @@ static int cmd_schedule(int argc, char** argv) {
                 client.port = (int)val;
             }
         }
-        else range = argv[i];
     }
     if (needs_login()) { fprintf(stderr, "No token. Run 'login' first.\n"); return 1; }
 
-    char date_from[16]={0}, date_to[16]={0};
-    if (strcmp(range,"today")==0) {
-        time_t t=time(NULL); struct tm tm; localtime_s(&tm,&t);
-        snprintf(date_from,16,"%04d-%02d-%02d",tm.tm_year+1900,tm.tm_mon+1,tm.tm_mday);
-        strcpy(date_to,date_from);
-    } else if (strcmp(range,"week")==0) {
-        time_t t=time(NULL); struct tm tm; localtime_s(&tm,&t);
-        int w=tm.tm_wday; if(w==0)w=7; tm.tm_mday-=(w-1); mktime(&tm);
-        snprintf(date_from,16,"%04d-%02d-%02d",tm.tm_year+1900,tm.tm_mon+1,tm.tm_mday);
-        tm.tm_mday+=6; mktime(&tm);
-        snprintf(date_to,16,"%04d-%02d-%02d",tm.tm_year+1900,tm.tm_mon+1,tm.tm_mday);
-    } else { strcpy(date_from,range); strcpy(date_to,range); }
-
-    char sid[128]={0}; session_trimmed(sid,128);
-    char path[512]; snprintf(path,512,"/api/schedule?session_id=%s&dateFrom=%s&dateTo=%s",sid,date_from,date_to);
-    WCHAR wp[512]; if (mbstowcs(wp,path,512) == (size_t)-1) { return 1; }
-    int st=0; char* r = http_request(L"GET",wp,NULL,&st);
-    if(!r){fprintf(stderr,"Connection failed\n");return 1;}
-    if(st==401){
-        fprintf(stderr,"Token expired. Clearing...\n");
-        free(r);
-        self_patch(SESSION_PLACEHOLDER,0);
+    // GET /Cli — whole year (gzip-compressed, WinHTTP auto-decompresses)
+    int st = 0;
+    char* raw = http_request(L"GET", L"/Cli", NULL, &st);
+    if (!raw) { fprintf(stderr, "Connection failed\n"); return 1; }
+    if (st == 401) {
+        fprintf(stderr, "Token expired. Clearing...\n");
+        self_patch(SESSION_PLACEHOLDER, 0);
         return 1;
     }
-    if(st!=200){fprintf(stderr,"Error %d\n",st);free(r);return 1;}
+    if (st != 200) { fprintf(stderr, "Error %d\n", st); return 1; }
 
-    printf("Schedule:\n");
-    char* days=js_obj(r,"days");
-    if(!days){printf("No schedule data\n");free(r);return 1;}
-    const char* p=js_ws(days); if(*p=='[')p++;
-    int max_days=100, dc=0;
-    char** dates=malloc(max_days*sizeof(char*));
-    char*** cells=malloc(max_days*sizeof(char**));
-    if(!dates||!cells){free(days);free(r);return 1;}
-    while(1){
-        p=js_ws(p); if(!p||*p==']'||!*p)break; if(*p!='{'){p++;continue;}
-        const char* de=NULL; char* day=js_val(p,&de); if(!day)break;
-        char* d=js_obj(day,"date"); char* s=js_obj(day,"slots");
-        if(d&&s){
-            dates[dc]=d; cells[dc]=parse_cells(s); free(s);
-            dc++;
-            if(dc>=max_days)break;
-            free(day); p=de?de:p+1; p=js_ws(p); if(*p==',')p++;
-            continue;
+    // Parse JSON (already decompressed by WinHTTP)
+    struct json_value_s *root = json_parse(raw, strlen(raw));
+    if (!root) { fprintf(stderr, "Bad JSON from server\n"); return 1; }
+
+    struct json_object_s *root_obj = json_value_as_object(root);
+    const char *data_text = json_get_string(root_obj, "data");
+    struct json_value_s *st_v = json_get(root_obj, "scrollTarget");
+    struct json_number_s *st_n = st_v ? json_value_as_number(st_v) : NULL;
+    int scroll_target = st_n ? atoi(st_n->number) : 0;
+
+    if (!data_text) { fprintf(stderr, "No schedule data\n"); free(root); return 1; }
+
+    // Split rendered text into lines
+    size_t data_len = strlen(data_text);
+    char *data_copy = malloc(data_len + 1);
+    if (!data_copy) { free(root); return 1; }
+    strcpy(data_copy, data_text);
+
+    char **lines = malloc(sizeof(char*) * 2048);
+    if (!lines) { free(data_copy); free(root); return 1; }
+    int line_count = 0;
+    char *p = data_copy;
+    while (*p && line_count < 2048) {
+        while (*p == '\r') p++;
+        if (!*p) break;
+        lines[line_count++] = p;
+        while (*p && *p != '\n' && *p != '\r') p++;
+        if (*p == '\n') { *p = '\0'; p++; }
+        else if (*p == '\r') { *p = '\0'; p++; }
+    }
+
+    if (line_count < 4) { fprintf(stderr, "Bad schedule data (%d lines)\n", line_count); free(root); free(lines); free(data_copy); return 1; }
+
+    int header_lines = 3;
+    int body_lines = line_count - header_lines;
+
+    // Console dimensions
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    int console_height = 40;
+    if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi))
+        console_height = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+
+    int scroll_region_top = header_lines + 1;  // 1-indexed
+    int scroll_region_bot = console_height;
+    int avail = scroll_region_bot - scroll_region_top + 1;
+    if (avail < 1) avail = 10;
+
+    // Initial viewport: center scroll_target
+    int start = scroll_target - avail / 2;
+    if (start < 0) start = 0;
+    int end = start + avail;
+    if (end > body_lines) { end = body_lines; start = end - avail; if (start < 0) start = 0; }
+
+    // Setup scroll region
+    printf("\033[2J\033[0;0H");
+    for (int i = 0; i < header_lines; i++)
+        printf("%s\033[K\n", lines[i]);
+    printf("\033[%d;%dr", scroll_region_top, scroll_region_bot);
+
+    // Interactive loop
+    char cmd_line[64];
+    int running = 1;
+    while (running) {
+        // Render visible window
+        printf("\033[%d;0H", scroll_region_top);
+        for (int i = start; i < end; i++) {
+            int line_idx = header_lines + i;
+            if (i == scroll_target)
+                printf("\033[7m%s\033[27m\033[K\n", lines[line_idx]);
+            else
+                printf("%s\033[K\n", lines[line_idx]);
         }
-        free(d);free(s);free(day); p=de?de:p+1; p=js_ws(p); if(*p==',')p++;
+
+        // Prompt at bottom
+        printf("\033[%d;0H\033[K[ u=up  d=down  q=quit ] ", console_height);
+        fflush(stdout);
+
+        if (!fgets(cmd_line, sizeof(cmd_line), stdin)) break;
+        size_t llen = strlen(cmd_line);
+        while (llen > 0 && (cmd_line[llen - 1] == '\n' || cmd_line[llen - 1] == '\r'))
+            cmd_line[--llen] = 0;
+
+        if (strcmp(cmd_line, "q") == 0 || strcmp(cmd_line, "quit") == 0) {
+            running = 0;
+        } else if (strcmp(cmd_line, "u") == 0 || strcmp(cmd_line, "up") == 0) {
+            start -= avail;
+            if (start < 0) start = 0;
+        } else if (strcmp(cmd_line, "d") == 0 || strcmp(cmd_line, "down") == 0) {
+            start += avail;
+            if (start + avail > body_lines) start = body_lines - avail;
+            if (start < 0) start = 0;
+        }
+        end = start + avail;
+        if (end > body_lines) end = body_lines;
     }
-    if(dc>0){
-        render_schedule(dc,dates,cells);
-        for(int i=0;i<dc;i++){free(dates[i]);free_cells(cells[i]);}
-    }else{
-        printf("No lessons in this period\n");
-    }
-    free(dates);free(cells);free(days);free(r);
+
+    // Cleanup: reset scroll region, clear screen, move cursor home
+    printf("\033[r\033[2J\033[0;0H");
+    fflush(stdout);
+
+    free(root); free(lines); free(data_copy);
     return 0;
 }
 
@@ -650,14 +551,12 @@ static int strategy_index(const char* name) {
 
 static void plan_show_status(char titles[][MAX_TITLE_LEN], int* counts, int n,
                               char strats[][32], int s) {
-    // Subjects line
     printf("  [");
     if (n == 0) printf("no subjects");
     for (int i = 0; i < n; i++) {
         if (i > 0) printf(", ");
         printf("%s x %d", titles[i], counts[i]);
     }
-    // Strategies line
     printf(" | ");
     if (s == 0) printf("no strategies");
     for (int i = 0; i < s; i++) {
@@ -685,6 +584,41 @@ static int cmd_plan(int argc, char** argv) {
         }
     }
 
+    // Check for subcommands
+    {
+        const char* sub = NULL;
+        for (int i = 2; i < argc; i++) {
+            if (strcmp(argv[i], "--host") == 0) { i++; continue; }
+            if (strcmp(argv[i], "--port") == 0) { i++; continue; }
+            sub = argv[i];
+            break;
+        }
+
+        if (sub) {
+            if (strcmp(sub, "status") == 0 || strcmp(sub, "show") == 0) {
+                char t[MAX_SUBJECTS][MAX_TITLE_LEN];
+                int  c[MAX_SUBJECTS];
+                int  n = 0;
+                char st[MAX_STRATEGIES][32];
+                int  s = 0;
+                const char* pp = plan_ptr(plan_data);
+                if (pp[0] && (pp[0] == 's' || pp[0] == 'S'))
+                    plan_deserialize(pp, t, c, &n, st, &s);
+                printf("Saved plan state:\n");
+                plan_show_status(t, c, n, st, s);
+                return 0;
+            }
+            if (strcmp(sub, "clear") == 0 || strcmp(sub, "reset") == 0) {
+                printf("Clearing saved plan state...\n");
+                char dummy_titles[1][MAX_TITLE_LEN];
+                int  dummy_counts[1];
+                char dummy_strats[1][32];
+                plan_patch_save(dummy_titles, dummy_counts, 0, dummy_strats, 0);
+                // never reached — self_patch_any calls exit(0)
+            }
+        }
+    }
+
     // State
     char titles[MAX_SUBJECTS][MAX_TITLE_LEN];
     int  counts[MAX_SUBJECTS];
@@ -692,7 +626,7 @@ static int cmd_plan(int argc, char** argv) {
     char strats[MAX_STRATEGIES][32];
     int  s = 0;
 
-    // Load saved state from binary (if any)
+    // Load saved state from binary
     {
         const char* pp = plan_ptr(plan_data);
         if (pp[0] && (pp[0] == 's' || pp[0] == 'S')) {
@@ -708,7 +642,6 @@ static int cmd_plan(int argc, char** argv) {
     while (1) {
         printf("plan> "); fflush(stdout);
         if (!fgets(line, sizeof(line), stdin)) { printf("\n"); break; }
-        // strip trailing newline
         size_t llen = strlen(line);
         while (llen > 0 && (line[llen - 1] == '\n' || line[llen - 1] == '\r')) line[--llen] = 0;
 
@@ -716,7 +649,7 @@ static int cmd_plan(int argc, char** argv) {
         while (*cmd == ' ') cmd++;
         if (!*cmd) continue;
 
-        // Normalize tabs to spaces (strtok doesn't handle tabs)
+        // Normalize tabs to spaces
         for (char* p = cmd; *p; p++) if (*p == '\t') *p = ' ';
 
         // Parse args
@@ -768,13 +701,11 @@ static int cmd_plan(int argc, char** argv) {
             int cnt = atoi(args[ac - 1]);
             if (cnt < 1) { printf("Count must be >= 1\n"); continue; }
             if (n >= MAX_SUBJECTS) { printf("Max %d subjects\n", MAX_SUBJECTS); continue; }
-            // Title = all args except first (add) and last (count), rejoined by space
             char title_buf[MAX_TITLE_LEN] = {0};
             for (int ai = 1; ai < ac - 1; ai++) {
                 if (ai > 1) strncat(title_buf, " ", MAX_TITLE_LEN - strlen(title_buf) - 1);
                 strncat(title_buf, args[ai], MAX_TITLE_LEN - strlen(title_buf) - 1);
             }
-            // Check for duplicate
             for (int i = 0; i < n; i++) {
                 if (strcmp(titles[i], title_buf) == 0) {
                     counts[i] += cnt;
@@ -790,7 +721,6 @@ static int cmd_plan(int argc, char** argv) {
         }
         else if (strcmp(args[0], "rm") == 0) {
             if (ac < 2) { printf("Usage: rm <title>\n"); continue; }
-            // Title = all args after 'rm' rejoined by space
             char title_buf[MAX_TITLE_LEN] = {0};
             for (int ai = 1; ai < ac; ai++) {
                 if (ai > 1) strncat(title_buf, " ", MAX_TITLE_LEN - strlen(title_buf) - 1);
@@ -864,55 +794,34 @@ static int cmd_plan(int argc, char** argv) {
             if (n == 0) { printf("No subjects. Add some first.\n"); continue; }
             if (s == 0) { printf("No strategies. Push at least one.\n"); continue; }
 
-            // Build query string — estimate max size
-            // Each Cyrillic char becomes %XX (3x), brackets add 2, = and & add ~2
-            // Worst case: ~64 bytes per subject, ~20 per strategy. 32*64 + 32*20 = ~2700
-            // Use 8192 to be safe
-            char qs[8192];
-            int qsz = sizeof(qs);
-            int qpos = 0;
-
-            // Session ID
-            if (!needs_login()) {
-                char sid[128] = {0};
-                session_trimmed(sid, 128);
-                qpos += snprintf(qs + qpos, qsz - qpos, "session_id=%s&", sid);
+            // Build JSON body: {"titles":{...},"strategies":[...]}
+            char body[8192];
+            int pos = 0;
+            pos += snprintf(body + pos, sizeof(body) - pos, "{\"titles\":{");
+            for (int i = 0; i < n && pos < (int)sizeof(body) - 256; i++) {
+                if (i > 0) pos += snprintf(body + pos, sizeof(body) - pos, ",");
+                pos += snprintf(body + pos, sizeof(body) - pos, "\"");
+                for (const char* tc = titles[i]; *tc && pos < (int)sizeof(body) - 256; tc++) {
+                    if (*tc == '"') body[pos++] = '\\';
+                    body[pos++] = *tc;
+                }
+                pos += snprintf(body + pos, sizeof(body) - pos, "\":%d", counts[i]);
             }
-
-            // Strategies
-            for (int i = 0; i < s && qpos < qsz - 256; i++) {
-                char enc[128];
-                url_encode(enc, strats[i]);
-                qpos += snprintf(qs + qpos, qsz - qpos, "strategies=%s&", enc);
+            pos += snprintf(body + pos, sizeof(body) - pos, "},\"strategies\":[");
+            for (int i = 0; i < s && pos < (int)sizeof(body) - 256; i++) {
+                if (i > 0) pos += snprintf(body + pos, sizeof(body) - pos, ",");
+                pos += snprintf(body + pos, sizeof(body) - pos, "\"%s\"", strats[i]);
             }
+            pos += snprintf(body + pos, sizeof(body) - pos, "]}");
 
-            // Titles
-            for (int i = 0; i < n && qpos < qsz - 256; i++) {
-                char enc_title[256];
-                url_encode(enc_title, titles[i]);
-                qpos += snprintf(qs + qpos, qsz - qpos, "titles[%s]=%d&", enc_title, counts[i]);
-            }
-
-            if (qpos >= qsz - 256) {
-                printf("  Query too long. Reduce subjects or strategies.\n");
+            if (pos >= (int)sizeof(body) - 256) {
+                printf("  Payload too large. Reduce subjects or strategies.\n");
                 continue;
             }
-            if (qpos > 0) qs[qpos - 1] = 0; // remove trailing &
 
             printf("  Sending plan...\n");
-
-            // Rebuild path as narrow string then widen
-            char path_utf8[8192 + 32];
-            snprintf(path_utf8, sizeof(path_utf8), "/App/Plan?%s", qs);
-
-            WCHAR wpath[8192];
-            if (mbstowcs(wpath, path_utf8, 8192) == (size_t)-1) {
-                printf("  Invalid UTF-8 in path.\n");
-                continue;
-            }
-
             int st = 0;
-            char* resp = http_request(L"PATCH", wpath, NULL, &st);
+            char* resp = http_request(L"PATCH", L"/Planner", body, &st);
 
             if (!resp) {
                 printf("  Connection failed.\n");
@@ -920,28 +829,28 @@ static int cmd_plan(int argc, char** argv) {
             }
             if (st == 401) {
                 printf("  Token expired. Type 'login' to re-authenticate, then retry.\n");
-                free(resp);
                 self_patch(SESSION_PLACEHOLDER, 0);
                 return 1;
             }
             if (st != 200) {
                 printf("  Error %d: %s\n", st, resp);
-                free(resp);
                 continue;
             }
 
-            // Parse response
-            char* success = js_obj(resp, "success");
-            char* failure_str = js_obj(resp, "failure");
-            int failure = failure_str ? atoi(failure_str) : 0;
-            int placed = 0;
-            for (int i = 0; i < n; i++) placed += counts[i];
-            placed -= failure;
+            struct json_value_s *jroot = json_parse(resp, strlen(resp));
+            int failure = 0, success = 0;
+            if (jroot) {
+                struct json_object_s *jobj = json_value_as_object(jroot);
+                struct json_value_s *succ_v = json_get(jobj, "success");
+                struct json_value_s *fail_v = json_get(jobj, "failure");
+                struct json_number_s *succ_n = succ_v ? json_value_as_number(succ_v) : NULL;
+                struct json_number_s *fail_n = fail_v ? json_value_as_number(fail_v) : NULL;
+                success = succ_n ? atoi(succ_n->number) : 0;
+                failure = fail_n ? atoi(fail_n->number) : 0;
+                free(jroot);
+            }
 
-            printf("  Result: placed %d lessons, failed %d\n", placed, failure);
-            free(success);
-            free(failure_str);
-            free(resp);
+            printf("  Result: placed %d lessons, failed %d\n", success, failure);
         }
         else {
             printf("Unknown: %s. Type 'help'.\n", args[0]);
@@ -964,8 +873,10 @@ static void help(void) {
            "Usage:\n"
            "  mytimetable login [--user <u>] [--password <p>] [--host <h>] [--port <p>]\n"
            "  mytimetable logout\n"
-           "  mytimetable schedule [today|week|<date>]\n"
-           "  mytimetable plan\n"
+           "  mytimetable schedule                 full-year schedule, scrollable\n"
+           "  mytimetable plan                      interactive planner\n"
+           "  mytimetable plan status|show          show saved plan state\n"
+           "  mytimetable plan clear|reset           clear saved plan state\n"
            "  mytimetable proxy\n"
            "  mytimetable help\n\n"
            "Token stored INSIDE the .exe file. No config files.\n"
