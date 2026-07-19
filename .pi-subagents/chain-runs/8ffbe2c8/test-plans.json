@@ -1,0 +1,137 @@
+[
+  {
+    "name": "EmptyDaySeedSelector",
+    "sourceFile": "MyTimetable/Planning/EmptyDaySeedSelector.cs",
+    "testFile": "TestMyTimetable/Planning/EmptyDaySeedSelector.cs",
+    "testClassName": "TestEmptyDaySeedSelector",
+    "strategyType": "slot",
+    "tests": [
+      "Plan_EmptyQueue_YieldsNothing: empty queue and empty days produce no placements",
+      "Plan_NoEmptyDays_YieldsNothing: all days have at least one occupied slot so nothing placed",
+      "Plan_FewerLessonsThanEmptyDays_PlacesOnePerEmptyDay: 2 lessons, 3 empty days => only 2 placed",
+      "Plan_MoreLessonsThanEmptyDays_PlacesOnePerEmptyDay: 10 lessons, 3 empty days => only 3 placed",
+      "Plan_AllDaysEmpty_PlacesOnePerDayTillQueueExhausted: 3 lessons, 5 fully empty days => 3 placed",
+      "Plan_AllDaysNonEmpty_YieldsNothing: no completely empty day found => nothing placed"
+    ]
+  },
+  {
+    "name": "FairShareSelector",
+    "sourceFile": "MyTimetable/Planning/FairShareSelector.cs",
+    "testFile": "TestMyTimetable/Planning/FairShareSelector.cs",
+    "testClassName": "TestFairShareSelector",
+    "strategyType": "subject",
+    "tests": [
+      "Plan_EmptyQueue_YieldsNothing: empty queue produces no placements",
+      "Plan_SingleSubject_PlacesAll: single subject fills all available slots",
+      "Plan_TwoSubjectsEqualProportions_AlternatesFairly: 50/50 split yields alternating pattern",
+      "Plan_TwoSubjectsUnequalProportions_ApproximatesRatio: 2:1 split yields Math,Math,Physics pattern",
+      "Plan_ThreeSubjectsProportional_MatchesDesiredDistribution: complex multi-subject proportional check",
+      "Plan_SubjectExhaustedInAvailable_SkippedGracefully: zero remaining subjects not picked",
+      "Plan_ProportionsAlignExactly_PerfectMatch: queue proportions exactly achievable slot count"
+    ]
+  },
+  {
+    "name": "LargestQueueFirstSelector",
+    "sourceFile": "MyTimetable/Planning/LargestQueueFirstSelector.cs",
+    "testFile": "TestMyTimetable/Planning/LargestQueueFirstSelector.cs",
+    "testClassName": "TestLargestQueueFirstSelector",
+    "strategyType": "subject",
+    "tests": [
+      "Plan_EmptyQueue_YieldsNothing: empty queue returns nothing",
+      "Plan_SingleSubject_PlacesAllRemaining: single subject fills entire fillable pool",
+      "Plan_TwoSubjectsDifferentCounts_PicksLargerFirst: subject with larger remaining count picked first",
+      "Plan_MultipleSubjects_DescendingOrderByCount: subjects placed in descending remaining count order",
+      "Plan_Ties_PicksFirstByEnumerationOrder: equal counts returns first key in Available order"
+    ]
+  },
+  {
+    "name": "LeadingChunkGrowthSelector",
+    "sourceFile": "MyTimetable/Planning/LeadingChunkGrowthSelector.cs",
+    "testFile": "TestMyTimetable/Planning/LeadingChunkGrowthSelector.cs",
+    "testClassName": "TestLeadingChunkGrowthSelector",
+    "strategyType": "slot",
+    "tests": [
+      "Plan_NoDaysWithPrecedingSpace_YieldsNothing: no day has space before first chunk",
+      "Plan_SingleDaySingleChunk_PlacesBeforeChunk: grows shortest chunk backwards by one slot",
+      "Plan_SingleDayMultiplePlacements_FillsBackwards: multiple placements fill slots before chunk sequentially",
+      "Plan_MultipleDays_ShortestChunkPlacedFirst: day with shorter first chunk gets placement first",
+      "Plan_QueueExhaustedMidPlacement_StopsEarly: fewer lessons than qualifying slots",
+      "Plan_FirstChunkAtSlot1_NoPlacement: chunk starts at slot 1 so no space before it",
+      "Plan_MultipleDaysTieByLength_OrderedByDate: equal chunk lengths tie-broken by date"
+    ]
+  },
+  {
+    "name": "RandomSelector",
+    "sourceFile": "MyTimetable/Planning/RandomSelector.cs",
+    "testFile": "TestMyTimetable/Planning/RandomSelector.cs",
+    "testClassName": "TestRandomSelector",
+    "strategyType": "subject",
+    "tests": [
+      "Plan_EmptyQueue_YieldsNothing: empty queue returns nothing",
+      "Plan_SingleSubject_AlwaysReturnsThatSubject: single subject ignores randomness",
+      "Plan_SeededRandom_DeterministicOrder: same seed produces same sequence",
+      "Plan_DifferentSeed_ProducesDifferentOrder: different seed may produce different first pick",
+      "Plan_MultipleSubjects_SeededRandom_ConsistentSequence: full Plan() result deterministic with seed"
+    ]
+  },
+  {
+    "name": "RoundRobinSelector",
+    "sourceFile": "MyTimetable/Planning/RoundRobinSelector.cs",
+    "testFile": "TestMyTimetable/Planning/RoundRobinSelector.cs",
+    "testClassName": "TestRoundRobinSelector",
+    "strategyType": "subject",
+    "tests": [
+      "Plan_EmptyQueue_YieldsNothing: empty queue returns nothing",
+      "Plan_SingleSubject_AlwaysReturnsSameSubject: single subject fills all slots",
+      "Plan_TwoSubjects_AlternatesInOrder: Math,Physics,Math,Physics round-robin cycle",
+      "Plan_ThreeSubjects_CyclesInConstructionOrder: Math,Physics,Chem repeated cycle",
+      "Plan_SubjectExhaustedMidCycle_Skipped: exhausted subject skipped and remaining continue",
+      "Plan_UnevenCounts_DoesNotWrapToExhausted: correct cycle with subjects having different remaining counts"
+    ]
+  },
+  {
+    "name": "SmallestQueueFirstSelector",
+    "sourceFile": "MyTimetable/Planning/SmallestQueueFirstSelector.cs",
+    "testFile": "TestMyTimetable/Planning/SmallestQueueFirstSelector.cs",
+    "testClassName": "TestSmallestQueueFirstSelector",
+    "strategyType": "subject",
+    "tests": [
+      "Plan_EmptyQueue_YieldsNothing: empty queue returns nothing",
+      "Plan_SingleSubject_PlacesAllRemaining: single subject fills entire fillable pool",
+      "Plan_TwoSubjectsDifferentCounts_PicksSmallerFirst: subject with smaller remaining count picked first",
+      "Plan_MultipleSubjects_AscendingOrderByCount: subjects placed in ascending remaining count order",
+      "Plan_Ties_PicksFirstByEnumerationOrder: equal counts returns first key in Available order"
+    ]
+  },
+  {
+    "name": "TrailingChunkGrowthSelector",
+    "sourceFile": "MyTimetable/Planning/TrailingChunkGrowthSelector.cs",
+    "testFile": "TestMyTimetable/Planning/TrailingChunkGrowthSelector.cs",
+    "testClassName": "TestTrailingChunkGrowthSelector",
+    "strategyType": "slot",
+    "tests": [
+      "Plan_NoDaysWithTrailingSpace_YieldsNothing: no day has space after last chunk",
+      "Plan_SingleDaySingleChunk_PlacesAfterChunk: grows shortest chunk forwards by one slot",
+      "Plan_SingleDayMultiplePlacements_FillsForwards: multiple placements fill slots after chunk sequentially",
+      "Plan_MultipleDays_ShortestChunkPlacedFirst: day with shorter last chunk gets placement first",
+      "Plan_QueueExhaustedMidPlacement_StopsEarly: fewer lessons than qualifying slots",
+      "Plan_LastChunkAtSlot6_NoPlacement: chunk ends at slotCount so no trailing space",
+      "Plan_MultipleDaysTieByLength_OrderedByDate: equal chunk lengths tie-broken by date"
+    ]
+  },
+  {
+    "name": "WeightedRandomSelector",
+    "sourceFile": "MyTimetable/Planning/WeightedRandomSelector.cs",
+    "testFile": "TestMyTimetable/Planning/WeightedRandomSelector.cs",
+    "testClassName": "TestWeightedRandomSelector",
+    "strategyType": "subject",
+    "tests": [
+      "Plan_EmptyQueue_YieldsNothing: empty queue returns nothing",
+      "Plan_SingleSubject_AlwaysReturnsThatSubject: single subject ignores randomness",
+      "Plan_EqualWeights_SeededRandom_Deterministic: equal weights with seeded random gives deterministic sequence",
+      "Plan_UnequalWeights_HeavierMoreLikely: heavier subject picked first with seeded roll in its range",
+      "Plan_ZeroWeightSubject_NotPicked: subject with zero remaining is excluded from Available",
+      "Plan_SeededRandom_ProducesConsistentSequence: full Plan() result deterministic with seed"
+    ]
+  }
+]

@@ -1,0 +1,60 @@
+## API Contract
+
+### Controller: Cli
+
+Base path: /Cli
+All responses except login require header: X-Session-Id: <sessionId>
+Auth failure → HTTP 401
+
+POST /Cli/login
+  Body (JSON): { "username": string, "password": string }
+  Ok (200): { "sessionId": string }    // 32 hex chars (16 raw bytes)
+  Fail (401): (empty body or any)
+
+GET /Cli
+  No query params. Returns the entire schedule for the whole academic year.
+  Response body is Brotli-compressed (Content-Encoding: br).
+  After decompression, JSON:
+  {
+    "slotCount": int,        // number of lesson slots per day, usually 6
+    "scrollTarget": int,     // 0-based index of today in the day list
+    "data": string           // prerendered Unicode box-drawing table
+  }
+
+### Controller: Planner
+
+Base path: /Planner
+
+PATCH /Planner
+  Header: X-Session-Id: <sessionId>
+  Body (JSON):
+  {
+    "titles": { "<subject>": <count>, ... },    // Dictionary<string, int>
+    "strategies": [ "<strategy>", ... ]          // List<string>, ordered
+  }
+  Ok (200): { "success": int, "failure": int }
+  Fail (401): (empty)
+
+Valid strategies (order matters, composable, no-op if impossible):
+  gap, emptyseed, leading, trailing, roundrobin,
+  fairshare, largest, smallest, random, weighted
+
+## Required Features
+
+1. Login           — POST /Cli/login, bake session into binary
+2. Get schedule    — GET /Cli, decompress, display table, interactive scroll
+3. Plan stuff      — interactive REPL (add subjects, push/pop/mv strategies)
+4. Reset planning  — client-side only, clear subjects & strategies
+5. Submit plan     — PATCH /Planner, show success/failure counts
+6. Logout          — overwrite baked session, restart binary
+
+## Viewport Behavior
+
+- Top: table header (3 lines: top bar, header row, separator)
+- Below: table body spanning console height minus header
+- Table is prerendered by server; CLI only handles scrolling
+- On first render: scrollTarget centered in viewport (or as close as possible)
+- Interactive input loop after display:
+    u / up     → scroll up one page (page-up)
+    d / down   → scroll down one page (page-down)
+    q / quit   → exit schedule view

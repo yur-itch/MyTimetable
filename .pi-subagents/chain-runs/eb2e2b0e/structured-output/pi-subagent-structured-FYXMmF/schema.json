@@ -1,0 +1,1 @@
+{"type":"object","properties":{"strategies":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"sourceFile":{"type":"string"},"testFile":{"type":"string"},"testClassName":{"type":"string"},"tests":{"type":"array","items":{"type":"string"}}}}}}}

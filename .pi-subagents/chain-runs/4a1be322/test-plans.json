@@ -1,0 +1,56 @@
+[
+  {
+    "name": "EmptyDaySeedSelector",
+    "testFile": "TestMyTimetable/Planning/EmptyDaySeedSelector.cs",
+    "testClassName": "TestEmptyDaySeedSelector",
+    "tests": "Plan_EmptyQueue_YieldsNothing: empty queue, some empty days → no placements\nPlan_NoEmptyDays_YieldsNothing: fillable has no completely empty days (every day has at least one occupied slot in 1..slotCount) → no placements\nPlan_SingleEmptyDay_SingleSubject_PlacesOneLesson: one empty day, queue has 1 lesson → places that lesson in slot 1 of that day\nPlan_MultipleEmptyDays_FewerSubjects_StopsWhenQueueExhausted: 3 empty days but only 2 lessons in queue → only 2 placements, 3rd empty day untouched\nPlan_MultipleEmptyDays_MoreSubjects_OnlyEmptyDaysSeeded: 2 empty days, queue has 4 lessons → only 2 placements (one per empty day)\nPlan_MultipleEmptyDays_MultipleSubjects_RoundRobinPick: several empty days, multiple subjects → subject order follows RoundRobinPicker over queue keys\nPlan_DaysWithOccupiedSlots_OnlyEmptyDaysSelected: mix of empty days and days with some occupied slots → only fully empty days receive seeds\nPlan_CustomSlotCount_Respected: slotCount=8 makes a day with slots 1-6 all free still empty if slotCount=8 but slots 7-8 not in fillable → day considered non-empty because implied occupied"
+  },
+  {
+    "name": "FairShareSelector",
+    "testFile": "TestMyTimetable/Planning/FairShareSelector.cs",
+    "testClassName": "TestFairShareSelector",
+    "tests": "Plan_EmptyQueue_YieldsNothing: empty queue → no placements\nPlan_SingleSubject_AlwaysPicked: one subject with count N → all N placements pick that subject\nPlan_TwoSubjectsEqualProportions_Alternates: 50/50 split (Math=2, Physics=2) → alternates Math, Physics, Math, Physics maintaining exact proportions\nPlan_TwoSubjectsUnequalProportions_MaintainsRatio: 2:1 ratio (Math=4, Physics=2) → picks in pattern that keeps squared deviation minimized, verifying fairness\nPlan_ThreeSubjects_VaryingProportions_FairDistribution: Math=3, Physics=2, Chem=1 → verify order follows fairness (closest to desired proportions at each step)\nPlan_QueueTotalZero_DesiredAllZero_Works: queue values sum to 0 (all zeros) → CaptureDesired produces all-zero proportions, should run without exception"
+  },
+  {
+    "name": "RandomSelector",
+    "testFile": "TestMyTimetable/Planning/RandomSelector.cs",
+    "testClassName": "TestRandomSelector",
+    "tests": "Plan_EmptyQueue_YieldsNothing: empty queue → no placements\nPlan_SingleSubject_AlwaysPicked: one subject with count N → all N placements pick that same subject\nPlan_MultipleSubjects_SeededRandom_Deterministic: multiple subjects, seeded Random(42) → same sequence every time\nPlan_MultipleSubjects_SeededRandom_Distribution: multiple subjects with equal counts, seeded Random → basic verification that output falls within expected range\nPlan_QueueExhausted_Stops: queue has subjects but fewer slots than total queue count → Plan stops when slots exhausted, checks partial placement"
+  },
+  {
+    "name": "RoundRobinSelector",
+    "testFile": "TestMyTimetable/Planning/RoundRobinSelector.cs",
+    "testClassName": "TestRoundRobinSelector",
+    "tests": "Plan_EmptyQueue_YieldsNothing: empty queue → no placements\nPlan_SingleSubject_AlwaysPicked: one subject with count N → all N placements pick that subject\nPlan_MultipleSubjects_EqualCounts_CyclesInOrder: Math=3, Physics=3, Chem=3 → cycles Math→Physics→Chem→Math→Physics→Chem→... with exact order matching Queue.Keys\nPlan_MultipleSubjects_UnequalCounts_CyclesSkippingExhausted: Math=1, Physics=3, Chem=1 → after Math and Chem exhaust, Physics takes remaining slots alone\nPlan_ThreeSubjects_OneExhausted_SkipsCorrectly: Math=2, Physics=1, Chem=2 → Physics exhausts early, cycle skips it\nPlan_OrderPreserved_FromQueueKeys: order of cycling equals insertion order of Dictionary keys (captured at construction)"
+  },
+  {
+    "name": "LargestQueueFirstSelector",
+    "testFile": "TestMyTimetable/Planning/LargestQueueFirstSelector.cs",
+    "testClassName": "TestLargestQueueFirstSelector",
+    "tests": "Plan_EmptyQueue_YieldsNothing: empty queue → no placements\nPlan_SingleSubject_AlwaysPicked: one subject with count N → all N placements pick that subject\nPlan_TwoSubjects_DifferentCounts_PicksLarger: Math=5, Physics=2 → always picks Math first since it has larger remaining count\nPlan_TwoSubjects_EqualCounts_TieBreak: Math=3, Physics=3 → MaxBy returns last element with max value (Physics if Physics appears second in iteration)\nPlan_MultipleSubjects_CountsDecrease_OrderedByRemaining: Math=3, Physics=5, Chem=1 → picks Physics→Math→... as counts change after each placement"
+  },
+  {
+    "name": "SmallestQueueFirstSelector",
+    "testFile": "TestMyTimetable/Planning/SmallestQueueFirstSelector.cs",
+    "testClassName": "TestSmallestQueueFirstSelector",
+    "tests": "Plan_EmptyQueue_YieldsNothing: empty queue → no placements\nPlan_SingleSubject_AlwaysPicked: one subject with count N → all N placements pick that subject\nPlan_TwoSubjects_DifferentCounts_PicksSmaller: Math=5, Physics=2 → always picks Physics first since it has smaller remaining count\nPlan_TwoSubjects_EqualCounts_TieBreak: Math=3, Physics=3 → MinBy returns last element with min value (Physics if Physics appears second)\nPlan_MultipleSubjects_CountsChange_OrderedByRemaining: Math=3, Physics=1, Chem=2 → picks Physics→Chem→Math→... as counts equalize after decrements"
+  },
+  {
+    "name": "LeadingChunkGrowthSelector",
+    "testFile": "TestMyTimetable/Planning/LeadingChunkGrowthSelector.cs",
+    "testClassName": "TestLeadingChunkGrowthSelector",
+    "tests": "Plan_EmptyQueue_YieldsNothing: empty queue → no placements\nPlan_NoDaysWithRoomBeforeFirstChunk_YieldsNothing: all first chunks start at slot 1 (no room before them) → no placements\nPlan_SingleDay_FirstChunkHasRoom_GrowsBackwards: single day, first chunk starts at slot 3 → places in slot 2, then slot 1\nPlan_MultipleDays_SmallestFirstChunkChosenFirst: two days, day1 first chunk length=2, day2 first chunk length=1 → picks day2 first (smaller chunk)\nPlan_DayWithRoom_MultiplePlacements_FillsTowardStart: single day with room for 3 slots before first chunk → places 3 times, filling slots backwards (2→1 or 4→3→2 depending on chunk position)\nPlan_MultipleSubjects_RoundRobinPick: multiple subjects → subject order follows RoundRobinPicker\nPlan_AllDaysFilled_StopsWhenNoRoom: after filling all room, subsequent TakeSlot returns null → Plan stops\nPlan_EmptyDaysSkipped: days with no occupied slots (first chunk is null) are skipped and not enqueued"
+  },
+  {
+    "name": "TrailingChunkGrowthSelector",
+    "testFile": "TestMyTimetable/Planning/TrailingChunkGrowthSelector.cs",
+    "testClassName": "TestTrailingChunkGrowthSelector",
+    "tests": "Plan_EmptyQueue_YieldsNothing: empty queue → no placements\nPlan_NoDaysWithRoomAfterLastChunk_YieldsNothing: all last chunks end at slotCount (no room after them) → no placements\nPlan_SingleDay_LastChunkHasRoom_GrowsForward: single day, last chunk ends at slot 4, slotCount=6 → places in slot 5, then slot 6\nPlan_MultipleDays_SmallestLastChunkChosenFirst: two days, day1 last chunk length=2, day2 last chunk length=1 → picks day2 first (smaller chunk)\nPlan_DayWithRoom_MultiplePlacements_FillsTowardEnd: single day with room for 2 slots after last chunk → fills slot by slot toward end\nPlan_MultipleSubjects_RoundRobinPick: multiple subjects → subject order follows RoundRobinPicker\nPlan_AllDaysFilled_StopsWhenNoRoom: after all trailing room consumed, TakeSlot returns null\nPlan_CustomSlotCount_LastChunkEndComparedCorrectly: slotCount=10, last chunk ends at 8, room exists → places in slot 9, then slot 10"
+  },
+  {
+    "name": "WeightedRandomSelector",
+    "testFile": "TestMyTimetable/Planning/WeightedRandomSelector.cs",
+    "testClassName": "TestWeightedRandomSelector",
+    "tests": "Plan_EmptyQueue_YieldsNothing: empty queue → no placements\nPlan_SingleSubject_AlwaysPicked: one subject with count N → all N placements pick that subject\nPlan_TwoSubjects_EqualCounts_SeededRandom_Deterministic: two subjects with equal weights, seeded Random(42) → same sequence every time\nPlan_TwoSubjects_UnequalCounts_WeightedDistribution: Math=4, Physics=1 → with seeded Random, Physics has ~20% chance, Math ~80%, verify deterministic output matches expected sequence\nPlan_QueueExhausted_Stops: queue subjects all placed → Plan stops when no more subjects available\nPlan_SeededRandom_DeterministicSequence: multiple subjects with different weights, seeded Random → full deterministic sequence verified against expected order"
+  }
+]

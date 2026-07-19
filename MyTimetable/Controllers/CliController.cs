@@ -1,0 +1,114 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using MyTimetable.Entities;
+using MyTimetable.Models;
+using MyTimetable.Security;
+
+namespace MyTimetable.Controllers
+{
+    [Route("[controller]")]
+    public sealed class CliController : Controller
+    {
+        private readonly AppDbContext _db;
+        private readonly ScheduleData _data;
+        private readonly CacheRebuilder _rebuilder;
+        private readonly SessionIdProvider _sessGen;
+        private readonly AuthProvider _auth;
+
+        public CliController(ScheduleData data, AppDbContext db, CacheRebuilder rebuilder, SessionIdProvider sessionIdProvider, AuthProvider authProvider)
+        {
+            _data = data;
+            _db = db;
+            _rebuilder = rebuilder;
+            _sessGen = sessionIdProvider;
+            _auth = authProvider;
+        }
+
+        [HttpGet]
+        public IActionResult Get(string? sessionId)
+        {
+            if (!_auth.IsViewer(sessionId))
+            {
+                return Unauthorized("No viewing rights for this page");
+            }
+            // Кэш всегда тёплый (прогрев на старте + пересборка на каждый Hide/Unhide).
+            // Невалиден только если показывать нечего: пустая БД и API не засеял.
+            if (!_data.StateValid)
+            {
+                return StatusCode(503, "Расписание временно недоступно");
+            }
+            Response.Headers.ContentEncoding = "br";
+            return File(_data.CliViewResult, "application/json; charset=utf-8");
+        }
+
+        [HttpGet("login")]
+        public IActionResult Login(string username, string password)
+        {
+            if (!_auth.CanLogIn(username, password)) {
+                return Unauthorized("No user with this data");
+            }
+            string sessionID = _sessGen.Generate();
+            return Ok(sessionID);
+        }
+
+        // [HttpPatch("Hide")]
+        // public async Task<IActionResult> Hide(DateOnly date, int lessonNumber)
+        // {
+        //     DefaultLessonEntry? lesson = await _db.DefaultLessons.FindAsync(new object[] { date, lessonNumber });
+        //     if (lesson == null)
+        //     {
+        //         return NotFound();
+        //     }
+
+        //     LessonDeactivation? deactivation = await _db.Deactivations.FindAsync(new object[] { date, lessonNumber });
+        //     if (deactivation == null)
+        //     {
+        //         LessonDeactivation newDeactivation = new LessonDeactivation()
+        //         {
+        //             Date = date,
+        //             Number = lessonNumber
+        //         };
+        //         await _db.Deactivations.AddAsync(newDeactivation);
+        //         await _db.SaveChangesAsync();
+        //         await _rebuilder.Rebuild(_db, [date]); // держим кэш всегда тёплым — пересобираем сразу
+        //     }
+        //     return PartialFor(date);
+        // }
+
+        // [HttpPatch("Unhide")]
+        // public async Task<IActionResult> Unhide(DateOnly date, int lessonNumber)
+        // {
+        //     DefaultLessonEntry? lesson = await _db.DefaultLessons.FindAsync(new object[] { date, lessonNumber });
+        //     if (lesson == null)
+        //     {
+        //         return NotFound();
+        //     }
+
+        //     LessonDeactivation? deactivation = await _db.Deactivations.FindAsync(new object[] { date, lessonNumber });
+        //     if (deactivation != null)
+        //     {
+        //         _db.Deactivations.Remove(deactivation);
+        //         await _db.SaveChangesAsync();
+        //         await _rebuilder.Rebuild(_db, [date]); // держим кэш всегда тёплым — пересобираем сразу
+        //     }
+        //     return PartialFor(date);
+        // }
+
+        // // Сброс для отладки: сносит всё, что наставил планировщик/пользователь (кастомные уроки и скрытия),
+        // // и сразу пересобирает кэш из очищенной БД. Дефолтные уроки не трогаем — это данные API.
+        // // Только в Development: в проде эндпоинта нет (404), чтобы не снести данные случайным запросом.
+        // [HttpPost("Reset")]
+        // public async Task<IActionResult> Reset([FromServices] IHostEnvironment env)
+        // {
+        //     if (!env.IsDevelopment())
+        //     {
+        //         return NotFound();
+        //     }
+        //     int custom = await _db.CustomLessons.ExecuteDeleteAsync();
+        //     int deactivations = await _db.Deactivations.ExecuteDeleteAsync();
+        //     await _rebuilder.Rebuild(_db); // полная пересборка из очищенного состояния
+        //     return Ok(new { cleared = new { custom, deactivations } });
+        // }
+
+    }
+}

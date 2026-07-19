@@ -1,0 +1,87 @@
+using Microsoft.AspNetCore.Mvc;
+using MyTimetable.Models;
+using MyTimetable.Planning;
+
+namespace MyTimetable.Controllers
+{
+    [Route("[controller]")]
+    public sealed class PlannerController : Controller
+    {
+        private readonly AppDbContext _db;
+        private readonly ScheduleData _data;
+        private readonly CacheRebuilder _rebuilder;
+        private readonly Planner _planner;
+        private readonly ScheduleBuilder _builder;
+        private readonly ChangesetApplier _applier;
+        private readonly TimeProvider _time;
+        private readonly IReadOnlyDictionary<string, IPlanningSelectorFactory> _strategies;
+        private readonly PlanPage _planPage;
+
+        public PlannerController(ScheduleData data, AppDbContext db, CacheRebuilder rebuilder, Planner planner,
+            ScheduleBuilder scheduleBuilder, ChangesetApplier applier, TimeProvider time,
+            IReadOnlyDictionary<string, IPlanningSelectorFactory> strategies, PlanPage planPage)
+        {
+            _data = data;
+            _db = db;
+            _rebuilder = rebuilder;
+            _planner = planner;
+            _builder = scheduleBuilder;
+            _applier = applier;
+            _time = time;
+            _strategies = strategies;
+            _planPage = planPage;
+        }
+
+        [HttpPatch]
+        public async Task<IActionResult> Plan([FromQuery] Dictionary<string, int> titles, [FromQuery] List<string> strategies)
+        {
+            _planner.LoadQueue(titles);
+            CalendarSchedule days = await _builder.LoadFromDb(_db, DateOnly.FromDateTime(_time.GetLocalNow().DateTime), _builder.YearEnd);
+            ScheduleChangeset schedule = new();
+            List<IPlanningSelectorFactory> factories = new();
+            foreach (var strategy in strategies)
+            {
+                if (!_strategies.TryGetValue(strategy, out var selectorFactory))
+                {
+                    return BadRequest($"strategy '{strategy}' does not exist");
+                }
+                factories.Add(selectorFactory);
+            }
+            PlanningSelectorFactory factory = new((dict, slots) => new CompositePlanningSelector(dict, slots, factories));
+            List<DateOnly> dates = _planner.Plan(factory, days, schedule);
+            await _applier.Apply(_db, schedule);
+            await _db.SaveChangesAsync();
+            await _rebuilder.Rebuild(_db, dates);
+            await _planPage.Rebuild(_planner.Queue);
+            Dictionary<DateOnly, string> rendered = dates.ToDictionary(x => x, x => _data.PartialViewResult[x]);
+            var response = new { success = rendered, failure = _planner.Queue.Values.Sum() };
+            return Ok(response);
+        }
+
+        [HttpGet]
+        public IActionResult Plan()
+            => Content(_planPage.Html, "text/html; charset=utf-8");
+
+        [HttpGet("Conflicts")]
+        public async Task<IActionResult> Conflicts()
+        {
+            CalendarSchedule schedule = await _builder.LoadFromDb(_db, DateOnly.FromDateTime(_time.GetLocalNow().DateTime), _builder.YearEnd);
+            List<Slot> conflicts = _planner.GetConflictingSlots(schedule).ToList();
+            return Ok(conflicts);
+        }
+
+        [HttpPatch("ResolveConflicts")]
+        public async Task<IActionResult> ResolveConflicts()
+        {
+            CalendarSchedule schedule = await _builder.LoadFromDb(_db, DateOnly.FromDateTime(_time.GetLocalNow().DateTime), _builder.YearEnd);
+            ScheduleChangeset changeset = new();
+            var dates = _planner.ResolveConflicts(schedule, changeset);
+            await _applier.Apply(_db, changeset);
+            await _db.SaveChangesAsync();
+            await _rebuilder.Rebuild(_db, dates);
+            await _planPage.Rebuild(_planner.Queue);
+            Dictionary<DateOnly, string> rendered = dates.ToDictionary(x => x, x => _data.PartialViewResult[x]);
+            return Ok(new { success = rendered });
+        }
+    }
+}
