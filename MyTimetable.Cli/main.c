@@ -467,7 +467,7 @@ static int cmd_schedule(int argc, char** argv) {
 
     int scroll_region_top = header_lines + 1;  // 1-indexed
     int scroll_region_bot = console_height - 1;
-    int avail = scroll_region_bot - scroll_region_top + 1;
+    int avail = scroll_region_bot - scroll_region_top;  // -1 to avoid edge scroll
     if (avail < 1) avail = 10;
 
     // Initial viewport: center scroll_target
