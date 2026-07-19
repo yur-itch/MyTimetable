@@ -115,10 +115,11 @@ static (int, int, List<Dictionary<string, object>>) GenerateScheduleData(Random 
 
     for (var d = from; d <= to; d = d.AddDays(1))
     {
-        if (d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday) continue;
-        if (rng.NextDouble() > 0.6) continue;
         var cells = new string[slotCount];
         for (int s = 0; s < slotCount; s++) cells[s] = "-";
+
+        bool isWeekday = d.DayOfWeek != DayOfWeek.Saturday && d.DayOfWeek != DayOfWeek.Sunday;
+        if (isWeekday && rng.NextDouble() <= 0.6)
         int lessonCount = rng.Next(1, 5);
         var used = new HashSet<int>();
         for (int i = 0; i < lessonCount; i++)
