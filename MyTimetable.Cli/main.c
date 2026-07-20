@@ -836,34 +836,32 @@ static int cmd_plan(int argc, char** argv) {
             if (n == 0) { printf("No subjects. Add some first.\n"); continue; }
             if (s == 0) { printf("No strategies. Push at least one.\n"); continue; }
 
-            // Build JSON body: {"titles":{...},"strategies":[...]}
-            char body[8192];
+            // Build query string: /Planner?titles[Encoded]=N&...&strategies[0]=S&...
+            char qs[4096];
             int pos = 0;
-            pos += snprintf(body + pos, sizeof(body) - pos, "{\"titles\":{");
-            for (int i = 0; i < n && pos < (int)sizeof(body) - 256; i++) {
-                if (i > 0) pos += snprintf(body + pos, sizeof(body) - pos, ",");
-                pos += snprintf(body + pos, sizeof(body) - pos, "\"");
-                for (const char* tc = titles[i]; *tc && pos < (int)sizeof(body) - 256; tc++) {
-                    if (*tc == '"') body[pos++] = '\\';
-                    body[pos++] = *tc;
-                }
-                pos += snprintf(body + pos, sizeof(body) - pos, "\":%d", counts[i]);
+            pos += snprintf(qs + pos, sizeof(qs) - pos, "/Planner?");
+            for (int i = 0; i < n && pos < (int)sizeof(qs) - 512; i++) {
+                if (i > 0) pos += snprintf(qs + pos, sizeof(qs) - pos, "&");
+                pos += snprintf(qs + pos, sizeof(qs) - pos, "titles[");
+                pos += url_encode(qs + pos, titles[i]);
+                pos += snprintf(qs + pos, sizeof(qs) - pos, "]=%d", counts[i]);
             }
-            pos += snprintf(body + pos, sizeof(body) - pos, "},\"strategies\":[");
-            for (int i = 0; i < s && pos < (int)sizeof(body) - 256; i++) {
-                if (i > 0) pos += snprintf(body + pos, sizeof(body) - pos, ",");
-                pos += snprintf(body + pos, sizeof(body) - pos, "\"%s\"", strats[i]);
+            for (int i = 0; i < s && pos < (int)sizeof(qs) - 512; i++) {
+                pos += snprintf(qs + pos, sizeof(qs) - pos, "&strategies[%d]=", i);
+                pos += url_encode(qs + pos, strats[i]);
             }
-            pos += snprintf(body + pos, sizeof(body) - pos, "]}");
 
-            if (pos >= (int)sizeof(body) - 256) {
+            if (pos >= (int)sizeof(qs) - 512) {
                 printf("  Payload too large. Reduce subjects or strategies.\n");
                 continue;
             }
 
+            WCHAR wpath[4096];
+            mbstowcs(wpath, qs, 4096);
+
             printf("  Sending plan...\n");
             int st = 0;
-            char* resp = http_request(L"PATCH", L"/Planner", body, &st, NULL);
+            char* resp = http_request(L"PATCH", wpath, NULL, &st, NULL);
 
             if (!resp) {
                 printf("  Connection failed.\n");
