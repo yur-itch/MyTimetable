@@ -9,6 +9,7 @@ namespace MyTimetable.Security
     {
         private readonly AppDbContext _db;
         private readonly IPasswordHasher<User> _passwordHasher;
+        private readonly TimeProvider time;
 
         public AuthProvider(AppDbContext db, IPasswordHasher<User> passwordHasher)
         {
@@ -70,7 +71,7 @@ namespace MyTimetable.Security
         }
 
         public async Task Register(string username, string password) {
-            var user = new User { Username = username };
+            var user = new User { Username = username, CreatedAt =  };
             user.Password = _passwordHasher.HashPassword(user, password);
 
             // Save to database - salt is embedded in PasswordHash string

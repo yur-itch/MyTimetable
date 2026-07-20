@@ -1,5 +1,5 @@
 // MyTimetable.CLI — самопатчащийся single-binary auth-клиент.
-// Сборка (из MyTimetable.Cli/):
+// Сборка (из MyTimetable.Cli/ dir):
 //   gcc main.c ../brotli_src/c/dec/*.c ../brotli_src/c/common/*.c \
 //       -I ../brotli_src/c/include -lwinhttp -o mytimetable.exe -O2
 
