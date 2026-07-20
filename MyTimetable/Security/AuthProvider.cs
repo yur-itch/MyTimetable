@@ -109,12 +109,14 @@ namespace MyTimetable.Security
             return true;
         }
 
-        public async Task<bool> Register(string username, string password) {
+        public async Task<bool> Register(string username, string password)
+        {
             if (!IsValidPassword(password, out string error))
             {
                 return false;
             }
-            if ((await GetUserWithName(username)) != null) {
+            if ((await GetUserWithName(username)) != null)
+            {
                 return false;
             }
 
@@ -132,6 +134,10 @@ namespace MyTimetable.Security
             await _db.Users.AddAsync(user);
             await _db.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<bool> EnsureRegistered(string username, string password) {
+            (void *)(GetUserWithName(name) ?? Register(username, password));
         }
     }
 }

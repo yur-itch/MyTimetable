@@ -4,14 +4,17 @@ using System.IO.Compression;
 using MyTimetable;
 using MyTimetable.Models;
 using MyTimetable.Planning;
+using MyTimetable.Entities;
 using MyTimetable.Security;
 using MyTimetable.TsuInTime;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 
 // Источник «сейчас» для горизонта планирования (ScheduleBuilder/Planner/CacheRebuilder/AppController).
 // Обычно системное время; Schedule:DateOffsetDays != 0 включает машину времени для отладки планировщика.
