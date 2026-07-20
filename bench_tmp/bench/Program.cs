@@ -44,7 +44,7 @@ static void Bench(string label, CompressionLevel level, byte[] data)
     {
         var output = new MemoryStream();
         var sw = Stopwatch.StartNew();
-        using (var bs = new BrotliStream(output, level, leaveOpen: false))
+        using (var bs = new BrotliStream(output, level, leaveOpen: true))
             bs.Write(data);
         sw.Stop();
         if (i == 0) outLen = (int)output.Length;
