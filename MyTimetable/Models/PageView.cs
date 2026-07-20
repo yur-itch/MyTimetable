@@ -13,6 +13,6 @@ namespace MyTimetable.Models
     public sealed record TableView {
         public required int SlotCount { get; init; }
         public required string ScrollTarget { get; init; }
-        public required IReadOnlyList<string> Days { get; init; }
+        public required string Table { get; init; }
     }
 }
