@@ -19,8 +19,7 @@ namespace MyTimetable
             modelBuilder.Entity<DefaultLessonEntry>().HasKey(l => new { l.Date, l.LessonNumber });
             modelBuilder.Entity<CustomLessonEntry>().HasKey(l => new { l.Date, l.LessonNumber });
             modelBuilder.Entity<LessonDeactivation>().HasKey(l => new { l.Date, l.Number });
-            modelBuilder.Entity<User>().HasIndex(u => u.Username).IsUnique();
-            modelBuilder.Entity<Session>().HasIndex(s => s.UserId);
+            modelBuilder.Entity<Session>().HasIndex(s => s.Username);
         }
     }
 }

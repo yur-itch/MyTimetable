@@ -25,9 +25,9 @@ namespace MyTimetable.Controllers
         }
 
         [HttpGet]
-        public IActionResult Get(string? sessionId)
+        public async Task<IActionResult> Get(string? sessionId)
         {
-            if (!_auth.IsViewer(sessionId))
+            if (!await _auth.IsViewer(sessionId))
             {
                 return Unauthorized("No viewing rights for this page");
             }
@@ -42,9 +42,9 @@ namespace MyTimetable.Controllers
         }
 
         [HttpGet("login")]
-        public IActionResult Login(string username, string password)
+        public async Task<IActionResult> Login(string username, string password)
         {
-            if (!_auth.CanLogIn(username, password)) {
+            if (!await _auth.CanLogIn(username, password)) {
                 return Unauthorized("No user with this data");
             }
             string sessionID = _sessGen.Generate();
