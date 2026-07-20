@@ -41,14 +41,16 @@ namespace MyTimetable.Controllers
             return File(_data.CliViewResult, "application/json; charset=utf-8");
         }
 
-        [HttpGet("login")]
-        public async Task<IActionResult> Login(string username, string password)
+        public record LoginRequest(string Username, string Password);
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginRequest req)
         {
-            if (!await _auth.CanLogIn(_db, username, password)) {
+            if (!await _auth.CanLogIn(_db, req.Username, req.Password)) {
                 return Unauthorized("No user with this data");
             }
             string sessionID = _sessGen.Generate();
-            await _auth.AddSessionFor(_db, sessionID, username);
+            await _auth.AddSessionFor(_db, sessionID, req.Username);
             await _db.SaveChangesAsync();
 
             return Ok(sessionID);
