@@ -128,7 +128,7 @@ namespace MyTimetable.Security
             unsafe {
                 expired = created.Add(Unsafe.As<ConstTimeSpan, TimeSpan>(ref expiresIn));
             }
-            await db.Sessions.AddAsync(new Session { Username = username, StartedAt = created, ExpiresAt = expired });
+            await db.Sessions.AddAsync(new Session { Id = session, Username = username, StartedAt = created, ExpiresAt = expired });
         }
     }
 }

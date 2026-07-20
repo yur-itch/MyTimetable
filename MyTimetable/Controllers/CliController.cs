@@ -48,6 +48,8 @@ namespace MyTimetable.Controllers
                 return Unauthorized("No user with this data");
             }
             string sessionID = _sessGen.Generate();
+            await _auth.AddSessionFor(_db, sessionID, username);
+            await _db.SaveChangesAsync();
 
             return Ok(sessionID);
         }
