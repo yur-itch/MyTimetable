@@ -1,5 +1,7 @@
 // MyTimetable.CLI — самопатчащийся single-binary auth-клиент.
-// Сборка: gcc main.c -lwinhttp -o mytimetable.exe -O2
+// Сборка:
+//   gcc main.c ../brotli_src/c/dec/*.c ../brotli_src/c/common/*.c \
+//       -I ../brotli_src/c/include -lwinhttp -o mytimetable.exe -O2
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -10,6 +12,7 @@
 #include <string.h>
 #include <time.h>
 #include "json.h"
+#include <brotli/decode.h>
 
 #define DEFAULT_HOST L"localhost"
 #define DEFAULT_PORT 8080
@@ -256,7 +259,8 @@ typedef struct { WCHAR host[256]; int port; } Client;
 static Client client = { .host = L"localhost", .port = DEFAULT_PORT };
 
 static char* http_request(const WCHAR* method, const WCHAR* path,
-                          const char* body_utf8, int* status_out) {
+                          const char* body_utf8, int* status_out,
+                          char content_encoding_out[32]) {
     HINTERNET hSession = WinHttpOpen(L"MyTimetable.CLI/1.0",
                                      WINHTTP_ACCESS_TYPE_NO_PROXY, NULL, NULL, 0);
     if (!hSession) return NULL;
@@ -292,6 +296,18 @@ static char* http_request(const WCHAR* method, const WCHAR* path,
                         NULL, &status, &status_len, NULL);
     if (status_out) *status_out = (int)status;
 
+    if (content_encoding_out) content_encoding_out[0] = '\0';
+    if (content_encoding_out) {
+        WCHAR ce[64] = {0};
+        DWORD ce_sz = sizeof(ce);
+        if (WinHttpQueryHeaders(hRequest, WINHTTP_QUERY_CONTENT_ENCODING,
+                                WINHTTP_HEADER_NAME_BY_INDEX, ce, &ce_sz,
+                                WINHTTP_NO_HEADER_INDEX)) {
+            wcstombs(content_encoding_out, ce, 31);
+            content_encoding_out[31] = '\0';
+        }
+    }
+
     static char buf[BUFSIZE];
     DWORD total = 0, read = 0;
     while (WinHttpReadData(hRequest, buf + total, BUFSIZE - total - 1, &read) && read > 0) {
@@ -299,6 +315,19 @@ static char* http_request(const WCHAR* method, const WCHAR* path,
     }
     buf[total] = '\0';
     WinHttpCloseHandle(hRequest); WinHttpCloseHandle(hConnect); WinHttpCloseHandle(hSession);
+
+    // Brotli decompression: if server sent Content-Encoding: br,
+    // WinHTTP doesn't decode it, so we do it manually.
+    if (content_encoding_out && strcmp(content_encoding_out, "br") == 0 && total > 0) {
+        static char decomp_buf[BUFSIZE];
+        size_t decomp_sz = BUFSIZE - 1;
+        BrotliDecoderResult r = BrotliDecoderDecompress(
+            total, (const uint8_t*)buf, &decomp_sz, (uint8_t*)decomp_buf);
+        if (r == BROTLI_DECODER_RESULT_SUCCESS) {
+            decomp_buf[decomp_sz] = '\0';
+            return decomp_buf;
+        }
+    }
     return buf;
 }
 
@@ -362,7 +391,7 @@ static int needs_login(void) { return is_placeholder(session_ptr(session_data));
 
 static int do_login_hex(const char* user, const char* pass) {
     char body[256]; snprintf(body, sizeof(body), "{\"username\":\"%s\",\"password\":\"%s\"}", user, pass);
-    int st = 0; char* r = http_request(L"POST", L"/Cli/login", body, &st);
+    int st = 0; char* r = http_request(L"POST", L"/Cli/login", body, &st, NULL);
     if (!r || st != 200) { return 0; }
     // Response body is plain 32-char hex session ID
     if (strlen(r) != SESSION_SIZE * 2) return 0;
@@ -424,9 +453,10 @@ static int cmd_schedule(int argc, char** argv) {
     }
     if (needs_login()) { fprintf(stderr, "No token. Run 'login' first.\n"); return 1; }
 
-    // GET /Cli — whole year (gzip-compressed, WinHTTP auto-decompresses)
+    // GET /Cli — brotli-compressed, decompressed inside http_request
     int st = 0;
-    char* raw = http_request(L"GET", L"/Cli", NULL, &st);
+    char ce[32];
+    char* raw = http_request(L"GET", L"/Cli", NULL, &st, ce);
     if (!raw) { fprintf(stderr, "Connection failed\n"); return 1; }
     if (st == 401) {
         fprintf(stderr, "Token expired. Clearing...\n");
@@ -833,7 +863,7 @@ static int cmd_plan(int argc, char** argv) {
 
             printf("  Sending plan...\n");
             int st = 0;
-            char* resp = http_request(L"PATCH", L"/Planner", body, &st);
+            char* resp = http_request(L"PATCH", L"/Planner", body, &st, NULL);
 
             if (!resp) {
                 printf("  Connection failed.\n");
