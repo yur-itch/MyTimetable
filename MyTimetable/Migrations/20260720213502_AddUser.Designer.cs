@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MyTimetable.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260720195134_AddSession")]
-    partial class AddSession
+    [Migration("20260720213502_AddUser")]
+    partial class AddUser
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -99,23 +99,21 @@ namespace MyTimetable.Migrations
                     b.Property<DateTime>("StartedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer");
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("Username");
 
                     b.ToTable("Sessions");
                 });
 
             modelBuilder.Entity("MyTimetable.Entities.User", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    b.Property<string>("Username")
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -130,14 +128,7 @@ namespace MyTimetable.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Username")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Username")
-                        .IsUnique();
+                    b.HasKey("Username");
 
                     b.ToTable("Users");
                 });

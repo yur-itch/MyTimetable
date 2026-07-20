@@ -40,7 +40,7 @@ namespace MyTimetable.Migrations
 
                     b.HasKey("Date", "LessonNumber");
 
-                    b.ToTable("CustomLessons");
+                    b.ToTable("CustomLessons", (string)null);
                 });
 
             modelBuilder.Entity("MyTimetable.Entities.DefaultLessonEntry", b =>
@@ -69,7 +69,7 @@ namespace MyTimetable.Migrations
 
                     b.HasKey("Date", "LessonNumber");
 
-                    b.ToTable("DefaultLessons");
+                    b.ToTable("DefaultLessons", (string)null);
                 });
 
             modelBuilder.Entity("MyTimetable.Entities.LessonDeactivation", b =>
@@ -82,7 +82,7 @@ namespace MyTimetable.Migrations
 
                     b.HasKey("Date", "Number");
 
-                    b.ToTable("Deactivations");
+                    b.ToTable("Deactivations", (string)null);
                 });
 
             modelBuilder.Entity("MyTimetable.Entities.Session", b =>
@@ -96,23 +96,21 @@ namespace MyTimetable.Migrations
                     b.Property<DateTime>("StartedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer");
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("Username");
 
-                    b.ToTable("Sessions");
+                    b.ToTable("Sessions", (string)null);
                 });
 
             modelBuilder.Entity("MyTimetable.Entities.User", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    b.Property<string>("Username")
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -127,16 +125,9 @@ namespace MyTimetable.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Username")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.HasKey("Username");
 
-                    b.HasKey("Id");
-
-                    b.HasIndex("Username")
-                        .IsUnique();
-
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 #pragma warning restore 612, 618
         }

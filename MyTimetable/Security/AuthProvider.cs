@@ -11,14 +11,16 @@ namespace MyTimetable.Security
         private readonly IPasswordHasher<User> _passwordHasher;
         private readonly TimeProvider time;
 
-        public AuthProvider(AppDbContext db, IPasswordHasher<User> passwordHasher)
+        public AuthProvider(AppDbContext db, IPasswordHasher<User> passwordHasher, TimeProvider timeProvider)
         {
             _db = db;
             _passwordHasher = passwordHasher;
+            time = timeProvider;
         }
 
         private async Task<User?> GetUserWithSession(string? session)
         {
+            if (string.IsNullOrEmpty(session)) return null;
             Session? dbSess = await _db.Sessions.FindAsync(session);
             if (dbSess == null)
             {
@@ -31,17 +33,11 @@ namespace MyTimetable.Security
         private async Task<User?> GetUserWithName(string name)
             => await _db.Users.Where(x => x.Username == name).FirstOrDefaultAsync();
 
-        public async Task<bool> IsViewer(string? session) {
-            User? user = await GetUserWithSession(session);
-            if (user == null) return false;
-            return user.IsViewer;
-        }
+        public async Task<bool> IsViewer(string? session)
+            => (await GetUserWithSession(session))?.IsViewer ?? false;
 
-        public async Task<bool> IsEditor(string? session) {
-            User? user = await GetUserWithSession(session);
-            if (user == null) return false;
-            return user.IsEditor;
-        }
+        public async Task<bool> IsEditor(string? session)
+            => (await GetUserWithSession(session))?.IsEditor ?? false;
 
         public async Task<bool> CanLogIn(string username, string password)
         {
@@ -60,7 +56,7 @@ namespace MyTimetable.Security
                     return true;
 
                 case PasswordVerificationResult.SuccessRehashNeeded:
-                    user.Password = _passwordHasher.HashPassword(user, plainPassword);
+                    user.Password = _passwordHasher.HashPassword(user, password);
                     await _db.SaveChangesAsync();
                     return true;
 
@@ -70,13 +66,72 @@ namespace MyTimetable.Security
             }
         }
 
-        public async Task Register(string username, string password) {
-            var user = new User { Username = username, CreatedAt =  };
+        private static bool IsValidPassword(string password, out string errorMessage)
+        {
+            errorMessage = "";
+
+            if (string.IsNullOrEmpty(password))
+            {
+                errorMessage = "Password cannot be empty.";
+                return false;
+            }
+
+            if (password.Length < 8)
+            {
+                errorMessage = "Password must be at least 8 characters.";
+                return false;
+            }
+
+            if (!password.Any(char.IsUpper))
+            {
+                errorMessage = "Password must have at least one uppercase letter.";
+                return false;
+            }
+
+            if (!password.Any(char.IsLower))
+            {
+                errorMessage = "Password must have at least one lowercase letter.";
+                return false;
+            }
+
+            if (!password.Any(char.IsDigit))
+            {
+                errorMessage = "Password must have at least one number.";
+                return false;
+            }
+
+            if (!password.Any(c => !char.IsLetterOrDigit(c)))
+            {
+                errorMessage = "Password must have at least one special character.";
+                return false;
+            }
+
+            return true;
+        }
+
+        public async Task<bool> Register(string username, string password) {
+            if (!IsValidPassword(password, out string error))
+            {
+                return false;
+            }
+            if ((await GetUserWithName(username)) != null) {
+                return false;
+            }
+
+            var user = new User
+            {
+                Username = username,
+                CreatedAt = time.GetUtcNow().UtcDateTime,
+                IsEditor = false,
+                IsViewer = true,
+                Password = ""
+            };
+
             user.Password = _passwordHasher.HashPassword(user, password);
 
-            // Save to database - salt is embedded in PasswordHash string
             await _db.Users.AddAsync(user);
             await _db.SaveChangesAsync();
+            return true;
         }
     }
 }
