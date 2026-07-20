@@ -45,6 +45,7 @@ builder.Services.AddSingleton<PlanPage>();
 builder.Services.AddSingleton<ScheduleData>();
 builder.Services.AddSingleton<CliRenderer>();
 builder.Services.AddSingleton<SessionIdProvider>();
+builder.Services.AddScoped<AuthProvider>();
 builder.Services.AddSingleton<ViewRenderer>();
 builder.Services.AddSingleton<ScheduleBuilder>();
 builder.Services.AddSingleton<ChangesetApplier>();
