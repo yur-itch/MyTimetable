@@ -66,7 +66,7 @@ static const char* own_path(void) {
 }
 
 // ── Self-patch ────────────────────────────────────────────────────
-static void self_patch_any(const char* anchor_str, const char* data, int data_size, int will_restart) {
+static void self_patch_any(const char* anchor_str, const char* data, int data_size, int will_restart, const char* restart_args) {
     FILE* f = fopen(own_path(), "rb");
     if (!f) { fprintf(stderr, "Cannot read self\n"); return; }
     fseek(f, 0, SEEK_END);
@@ -100,6 +100,17 @@ static void self_patch_any(const char* anchor_str, const char* data, int data_si
     printf(will_restart ? "Saved. Restarting...\n" : "Cleared.\n");
     fflush(stdout);
 
+    // Escape restart_args for PowerShell single quotes
+    char restart_esc[256] = "";
+    if (restart_args) {
+        const char* s = restart_args;
+        char* d = restart_esc;
+        while (*s && d - restart_esc < 250) {
+            if (*s == '\'') { *d++ = '\''; *d++ = '\''; }
+            *d++ = *s++;
+        }
+    }
+
     // Base64-encode the payload
     char b64[(PLAN_DATA_SIZE + 2) / 3 * 4 + 1];
     static const char b64_table[] =
@@ -125,8 +136,8 @@ static void self_patch_any(const char* anchor_str, const char* data, int data_si
         "$b=[Convert]::FromBase64String('%s'); "
         "$f.Write($b,0,$b.Length); "
         "$f.Close(); "
-        "if(%d){Start-Process '%s'}}\"",
-        ps_path, payload_offset, b64, will_restart, ps_path);
+        "if(%d){Start-Process '%s' -ArgumentList '%s'}}\"",
+        ps_path, payload_offset, b64, will_restart, ps_path, restart_esc);
 
     free(binary);
 
@@ -148,9 +159,9 @@ static void self_patch_any(const char* anchor_str, const char* data, int data_si
     return;
 }
 
-static void self_patch(const char* new_session, int will_restart) {
+static void self_patch(const char* new_session, int will_restart, const char* restart_args) {
     printf(will_restart ? "Token saved. Restarting...\n" : "Token cleared.\n");
-    self_patch_any(SESSION_ANCHOR, new_session, SESSION_SIZE, will_restart);
+    self_patch_any(SESSION_ANCHOR, new_session, SESSION_SIZE, will_restart, restart_args);
 }
 
 // ── Session helper ────────────────────────────────────────────────
@@ -237,7 +248,7 @@ static void plan_patch_save(char titles[][MAX_TITLE_LEN], int* counts, int n,
     }
     printf("Saving plan to binary...\n");
     fflush(stdout);
-    self_patch_any(PLAN_ANCHOR, buf, PLAN_DATA_SIZE, 1);
+    self_patch_any(PLAN_ANCHOR, buf, PLAN_DATA_SIZE, 1, "plan");
 }
 
 // ── HTTP (WinHTTP, gzip auto-decompression) ───────────────────────
@@ -384,13 +395,13 @@ static int cmd_login(int argc, char** argv) {
     }
     if (!do_login_hex(user, pass)) { printf("Login failed\n"); return 1; }
     printf("Logged in as '%s'\nPatching token into binary...\n", user);
-    self_patch(session_ptr(session_data), 1);
+    self_patch(session_ptr(session_data), 1, "schedule");
     return 0;
 }
 
 static int cmd_logout(void) {
     printf("Clearing baked-in token...\n");
-    self_patch(SESSION_PLACEHOLDER, 0);
+    self_patch(SESSION_PLACEHOLDER, 0, NULL);
     return 0;
 }
 
@@ -419,7 +430,7 @@ static int cmd_schedule(int argc, char** argv) {
     if (!raw) { fprintf(stderr, "Connection failed\n"); return 1; }
     if (st == 401) {
         fprintf(stderr, "Token expired. Clearing...\n");
-        self_patch(SESSION_PLACEHOLDER, 0);
+        self_patch(SESSION_PLACEHOLDER, 0, NULL);
         return 1;
     }
     if (st != 200) { fprintf(stderr, "Error %d\n", st); return 1; }
@@ -830,7 +841,7 @@ static int cmd_plan(int argc, char** argv) {
             }
             if (st == 401) {
                 printf("  Token expired. Type 'login' to re-authenticate, then retry.\n");
-                self_patch(SESSION_PLACEHOLDER, 0);
+                self_patch(SESSION_PLACEHOLDER, 0, NULL);
                 return 1;
             }
             if (st != 200) {
