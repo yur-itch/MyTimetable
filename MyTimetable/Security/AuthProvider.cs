@@ -69,7 +69,7 @@ namespace MyTimetable.Security
             }
         }
 
-        public Register(string username, string password) {
+        public async Task Register(string username, string password) {
             var user = new User { Username = username };
             user.Password = _passwordHasher.HashPassword(user, password);
 
