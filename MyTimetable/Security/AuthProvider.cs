@@ -1,9 +1,16 @@
+global using ConstTimeSpan = System.UInt64;
+
 using MyTimetable.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
+using System.Runtime.CompilerServices;
 
 namespace MyTimetable.Security
 {
+    public static class SessionExpirationTime {
+        public const ConstTimeSpan TwentyMinutes = 12000000000;
+    }
+
     public sealed class AuthProvider
     {
         private readonly IPasswordHasher<User> _passwordHasher;
@@ -113,6 +120,15 @@ namespace MyTimetable.Security
             await db.Users.AddAsync(user);
             await db.SaveChangesAsync();
             return user;
+        }
+
+        public async Task AddSessionFor(AppDbContext db, string session, string username, ConstTimeSpan expiresIn = SessionExpirationTime.TwentyMinutes) {
+            DateTime created = time.GetUtcNow().UtcDateTime;
+            DateTime expired;
+            unsafe {
+                expired = created.Add(Unsafe.As<ConstTimeSpan, TimeSpan>(ref expiresIn));
+            }
+            await db.Sessions.AddAsync(new Session { Username = username, StartedAt = created, ExpiresAt = expired });
         }
     }
 }

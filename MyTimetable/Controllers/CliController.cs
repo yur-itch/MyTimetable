@@ -52,6 +52,27 @@ namespace MyTimetable.Controllers
             return Ok(sessionID);
         }
 
+        public record RegisterRequest(string Username, string Password);
+
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterRequest req)
+        {
+            if (string.IsNullOrWhiteSpace(req.Username))
+                return BadRequest("Username is required.");
+            if (string.IsNullOrWhiteSpace(req.Password))
+                return BadRequest("Password is required.");
+
+            User? user = await _auth.Register(_db, req.Username, req.Password);
+            if (user == null)
+                return Conflict("Username already exists or password does not meet requirements.");
+
+            string sessionID = _sessGen.Generate();
+            await _auth.AddSessionFor(_db, sessionID, req.Username);
+            await _db.SaveChangesAsync();
+
+            return Ok(sessionID);
+        }
+
         // [HttpPatch("Hide")]
         // public async Task<IActionResult> Hide(DateOnly date, int lessonNumber)
         // {

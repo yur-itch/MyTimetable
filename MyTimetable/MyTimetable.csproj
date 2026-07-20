@@ -21,4 +21,7 @@
 	<ItemGroup>
 		<InternalsVisibleTo Include="TestMyTimetable" />
 	</ItemGroup>
+	<PropertyGroup>
+    	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	</PropertyGroup>
 </Project>
