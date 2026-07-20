@@ -109,23 +109,23 @@ namespace MyTimetable.Security
             return true;
         }
 
-        public async Task<bool> Register(string username, string password)
+        public async Task<User?> Register(string username, string password, bool isViewer = true, bool isEditor = false)
         {
             if (!IsValidPassword(password, out string error))
             {
-                return false;
+                return null;
             }
             if ((await GetUserWithName(username)) != null)
             {
-                return false;
+                return null;
             }
 
             var user = new User
             {
                 Username = username,
                 CreatedAt = time.GetUtcNow().UtcDateTime,
-                IsEditor = false,
-                IsViewer = true,
+                IsEditor = isEditor,
+                IsViewer = isViewer,
                 Password = ""
             };
 
@@ -133,11 +133,7 @@ namespace MyTimetable.Security
 
             await _db.Users.AddAsync(user);
             await _db.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<bool> EnsureRegistered(string username, string password) {
-            (void *)(GetUserWithName(name) ?? Register(username, password));
+            return user;
         }
     }
 }

@@ -45,7 +45,6 @@ builder.Services.AddSingleton<PlanPage>();
 builder.Services.AddSingleton<ScheduleData>();
 builder.Services.AddSingleton<CliRenderer>();
 builder.Services.AddSingleton<SessionIdProvider>();
-builder.Services.AddSingleton<AuthProvider>();
 builder.Services.AddSingleton<ViewRenderer>();
 builder.Services.AddSingleton<ScheduleBuilder>();
 builder.Services.AddSingleton<ChangesetApplier>();
@@ -70,6 +69,11 @@ using (var scope = app.Services.CreateScope())
 {
     var sp = scope.ServiceProvider;
     sp.GetRequiredService<AppDbContext>().Database.Migrate();
+
+    // Seed default users
+    var auth = sp.GetRequiredService<AuthProvider>();
+    await auth.Register("admin", "123456Qq!", isViewer: true, isEditor: true);
+    await auth.Register("user", "123456Qq!", isViewer: true, isEditor: false);
 
     // Пререндерим страницу планирования из текущей (на старте пустой) очереди. Дальше её пересобирают
     // эндпоинты планирования и снятия конфликтов при каждом изменении очереди (PlanPage.Rebuild).
