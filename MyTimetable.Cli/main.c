@@ -401,6 +401,28 @@ static int do_login_hex(const char* user, const char* pass) {
     return 1;
 }
 
+static int do_register_hex(const char* user, const char* pass, char* err_buf, int err_sz) {
+    char body[256]; snprintf(body, sizeof(body), "{\"username\":\"%s\",\"password\":\"%s\"}", user, pass);
+    int st = 0; char* r = http_request(L"POST", L"/Cli/register", body, &st, NULL);
+    if (!r) { snprintf(err_buf, err_sz, "Connection failed"); return 0; }
+    if (st != 200) {
+        snprintf(err_buf, err_sz, "Server error %d: %s", st, r);
+        return 0;
+    }
+    // Response body is plain 32-char hex session ID
+    if (strlen(r) != SESSION_SIZE * 2) {
+        snprintf(err_buf, err_sz, "Bad token from server");
+        return 0;
+    }
+    unsigned char raw[SESSION_SIZE];
+    if (hex_decode(r, raw, SESSION_SIZE) != SESSION_SIZE) {
+        snprintf(err_buf, err_sz, "Invalid token format");
+        return 0;
+    }
+    memcpy(session_ptr(session_data), raw, SESSION_SIZE);
+    return 1;
+}
+
 // ── Commands ──────────────────────────────────────────────────────
 static int cmd_login(int argc, char** argv) {
     const char* user = "admin", *pass = "admin";
@@ -424,6 +446,40 @@ static int cmd_login(int argc, char** argv) {
     }
     if (!do_login_hex(user, pass)) { printf("Login failed\n"); return 1; }
     printf("Logged in as '%s'\nPatching token into binary...\n", user);
+    self_patch(session_ptr(session_data), 1, "schedule");
+    return 0;
+}
+
+static int cmd_register(int argc, char** argv) {
+    const char* user = NULL, *pass = NULL;
+    for (int i = 2; i < argc; i++) {
+        if (strcmp(argv[i],"--user")==0 && i+1<argc) user = argv[++i];
+        if (strcmp(argv[i],"--password")==0 && i+1<argc) pass = argv[++i];
+        if (strcmp(argv[i],"--host")==0 && i+1<argc) {
+            if (mbstowcs(client.host, argv[++i], 256) == (size_t)-1)
+                wcscpy(client.host, DEFAULT_HOST);
+        }
+        if (strcmp(argv[i],"--port")==0 && i+1<argc) {
+            char* endptr = NULL;
+            long val = strtol(argv[++i], &endptr, 10);
+            if (endptr == argv[i] || *endptr != '\0' || val < 1 || val > 65535) {
+                fprintf(stderr, "Invalid port: %s. Using default %d.\n", argv[i], DEFAULT_PORT);
+                client.port = DEFAULT_PORT;
+            } else {
+                client.port = (int)val;
+            }
+        }
+    }
+    if (!user || !pass) {
+        fprintf(stderr, "Usage: mytimetable register --user <username> --password <password>\n");
+        return 1;
+    }
+    char err[512] = {0};
+    if (!do_register_hex(user, pass, err, sizeof(err))) {
+        printf("Registration failed: %s\n", err);
+        return 1;
+    }
+    printf("Registered as '%s'\nPatching token into binary...\n", user);
     self_patch(session_ptr(session_data), 1, "schedule");
     return 0;
 }
@@ -912,6 +968,7 @@ static void help(void) {
     printf("MyTimetable CLI - self-patching single-binary auth\n\n"
            "Usage:\n"
            "  mytimetable login [--user <u>] [--password <p>] [--host <h>] [--port <p>]\n"
+           "  mytimetable register [--user <u>] [--password <p>] [--host <h>] [--port <p>]\n"
            "  mytimetable logout\n"
            "  mytimetable schedule                 full-year schedule, scrollable\n"
            "  mytimetable plan                      interactive planner\n"
@@ -934,6 +991,7 @@ int main(int argc, char** argv) {
     if (argc < 2) { help(); return 0; }
     const char* cmd = argv[1];
     if (strcmp(cmd,"login")==0) return cmd_login(argc,argv);
+    if (strcmp(cmd,"register")==0) return cmd_register(argc,argv);
     if (strcmp(cmd,"logout")==0) return cmd_logout();
     if (strcmp(cmd,"schedule")==0) return cmd_schedule(argc,argv);
     if (strcmp(cmd,"plan")==0) return cmd_plan(argc,argv);
