@@ -48,6 +48,7 @@ static void Bench(string label, CompressionLevel level, byte[] data)
             bs.Write(data);
         sw.Stop();
         if (i == 0) outLen = (int)output.Length;
+        output.Dispose();
         long ms = sw.ElapsedMilliseconds;
         total += ms;
         if (ms < min) min = ms;
