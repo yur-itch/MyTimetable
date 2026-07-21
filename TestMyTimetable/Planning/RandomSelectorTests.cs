@@ -29,7 +29,9 @@ public class TestRandomSelector
     {
         var queue = new Dictionary<string, int> { ["Math"] = 4 };
         var sel = new RandomSelector(queue, Slots(4));
-        sel.Plan().Select(p => p.Lesson.Title).Should().AllBe("Math");
+        var result = sel.Plan().ToList();
+        result.Should().HaveCount(4);
+        result.Should().OnlyContain(p => p.Lesson.Title == "Math");
     }
 
     [Fact]
@@ -51,14 +53,11 @@ public class TestRandomSelector
     [Fact]
     public void Plan_SeededRandom_GivesDeterministicOutput()
     {
-        // С фиксированным Random(42) результат предсказуем
         var queue = new Dictionary<string, int> { ["A"] = 5, ["B"] = 5 };
         var sel = new RandomSelector(queue, Slots(10), new Random(42));
-        var titles = sel.Plan().Select(p => p.Lesson.Title).ToList();
-
-        // Просто проверяем, что все 10 слотов заполнены и только A/B
-        titles.Should().HaveCount(10);
-        titles.Should().OnlyContain(t => t == "A" || t == "B");
+        var result = sel.Plan().ToList();
+        result.Should().HaveCount(10);
+        result.Should().OnlyContain(p => p.Lesson.Title is "A" or "B");
     }
 
     [Fact]
@@ -76,16 +75,13 @@ public class TestRandomSelector
     public void Plan_DifferentSeeds_ProduceDifferentSequences()
     {
         var queue = new Dictionary<string, int> { ["A"] = 10, ["B"] = 10 };
-        var sel1 = new RandomSelector(queue, Slots(10), new Random(42));
-        var sel2 = new RandomSelector(queue, Slots(10), new Random(9999));
-
-        seq1 = sel1.Plan().Select(p => p.Lesson.Title).ToList();
-        seq2 = sel2.Plan().Select(p => p.Lesson.Title).ToList();
+        var seq1 = new RandomSelector(queue, Slots(10), new Random(42))
+            .Plan().Select(p => p.Lesson.Title).ToList();
+        var seq2 = new RandomSelector(queue, Slots(10), new Random(9999))
+            .Plan().Select(p => p.Lesson.Title).ToList();
 
         seq1.Should().NotEqual(seq2, "разные seed'ы должны давать разные последовательности");
     }
-
-    private List<string>? seq1, seq2; // для хранения промежуточных результатов
 
     [Fact]
     public void Plan_OutputHasCorrectProperties()

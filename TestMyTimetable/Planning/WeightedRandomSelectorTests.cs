@@ -29,7 +29,9 @@ public class TestWeightedRandomSelector
     {
         var queue = new Dictionary<string, int> { ["Math"] = 4 };
         var sel = new WeightedRandomSelector(queue, Slots(4));
-        sel.Plan().Select(p => p.Lesson.Title).Should().AllBe("Math");
+        var result = sel.Plan().ToList();
+        result.Should().HaveCount(4);
+        result.Should().OnlyContain(p => p.Lesson.Title == "Math");
     }
 
     [Fact]
@@ -62,7 +64,6 @@ public class TestWeightedRandomSelector
     [Fact]
     public void Plan_SeededRandom_AllItemsGetPickedEventually()
     {
-        // 100 слотов, 5 предметов по 20 — при большом количестве все должны появиться
         var queue = new Dictionary<string, int>
         {
             ["A"] = 20, ["B"] = 20, ["C"] = 20, ["D"] = 20, ["E"] = 20
@@ -76,15 +77,11 @@ public class TestWeightedRandomSelector
     [Fact]
     public void Plan_WeightsAffectDistribution()
     {
-        // A=1, B=100: B сильно доминирует
-        // С фиксированным seed'ом проверим, что B выбирается чаще A
         var queue = new Dictionary<string, int> { ["A"] = 1, ["B"] = 100 };
         var sel = new WeightedRandomSelector(queue, Slots(101), new Random(42));
         var titles = sel.Plan().Select(p => p.Lesson.Title).ToList();
 
-        // A должна быть выбрана хотя бы раз
         titles.Should().Contain("A");
-        // B должна быть выбрана много раз
         titles.Count(t => t == "B").Should().BeGreaterThan(titles.Count(t => t == "A"));
     }
 

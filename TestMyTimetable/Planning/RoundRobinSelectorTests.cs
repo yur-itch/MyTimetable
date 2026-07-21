@@ -51,8 +51,6 @@ public class TestRoundRobinSelector
         var sel = new RoundRobinSelector(queue, Slots(4));
         var titles = sel.Plan().Select(p => p.Lesson.Title).ToList();
 
-        // A=1,B=3 → A, B
-        // A exhausted: B, B, B
         titles.Should().Equal(["A", "B", "B", "B"]);
     }
 
@@ -77,31 +75,18 @@ public class TestRoundRobinSelector
     {
         var queue = new Dictionary<string, int> { ["Math"] = 4 };
         var sel = new RoundRobinSelector(queue, Slots(4));
-        sel.Plan().Select(p => p.Lesson.Title).Should().AllBe("Math");
-    }
-
-    [Fact]
-    public void Plan_PicksUpWhereLeftOffAcrossInterleavedCalls()
-    {
-        // Это тест на то, что внутренняя позиция жива между вызовами Plan.
-        // RoundRobinSelector пересоздаётся на каждый Plan, поэтому этот тест
-        // проверяет только последовательность внутри одного вызова Plan().
-        var queue = new Dictionary<string, int> { ["A"] = 2, ["B"] = 2 };
-        var sel = new RoundRobinSelector(queue, Slots(4));
-        var titles = sel.Plan().Select(p => p.Lesson.Title).ToList();
-
-        titles.Should().Equal(["A", "B", "A", "B"]);
+        var result = sel.Plan().ToList();
+        result.Should().HaveCount(4);
+        result.Should().OnlyContain(p => p.Lesson.Title == "Math");
     }
 
     [Fact]
     public void Plan_OrderFixedFromConstructorSnapshot()
     {
-        // Снимок очереди делается в конструкторе.
         var queue = new Dictionary<string, int> { ["Second"] = 2, ["First"] = 2 };
         var sel = new RoundRobinSelector(queue, Slots(4));
         var titles = sel.Plan().Select(p => p.Lesson.Title).ToList();
 
-        // Порядок — по Keys из снимка (словарь сохраняет порядок вставки)
         titles.Should().Equal(["Second", "First", "Second", "First"]);
     }
 
