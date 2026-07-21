@@ -62,7 +62,7 @@ namespace MyTimetable
             var slots = GetFillableSlots(schedule).ToList();
             var selector = selectorFactory.Create(_queue, slots);
             HashSet<DateOnly> dates = new();
-            foreach (PlannedSlot planned in selector.Plan())
+            foreach (PlannedSlot planned in selector.Plan(AcceptProposal))
             {
                 SetCustom(schedule, planned, changeset);
                 _queue[planned.Lesson.Title]--;
@@ -70,6 +70,9 @@ namespace MyTimetable
             }
             return dates.ToList();
         }
+
+        private ProposeResult AcceptProposal(Slot slot, string title)
+            => new(true, true);  // no rules yet — accept everything
 
         // Единственная точка изменения кастомного урока: разом обновляет рабочую модель (чтобы следующий
         // расчёт fillable/conflict видел уже принятое решение) и changeset (для последующего сохранения).
