@@ -94,9 +94,10 @@ The copy approach keeps selectors as pure algorithms and planner-level policy in
 ## Pluggable picker & slotter
 
 Selectors are decomposed into two concerns, each with an interface and multiple
-implementations. Every selector accepts optional `IPicker?` / `ISlotter?` and defaults
-to its natural implementation. Users can compose custom combinations without writing
-new classes.
+implementations. Every selector accepts optional `IPickerFactory?` / `ISlotterFactory?`
+and defaults to its natural implementation. The selector owns creation of its components
+from its own queue/Fillable snapshots — users compose via factories, never pre-constructed
+instances.
 
 ### Interfaces
 
@@ -155,11 +156,26 @@ Pickers and slotters are split into peek/commit:
 `EmptyDaySeedSelector`, `GapClosingSelector`, `LeadingChunkGrowthSelector`,
 `TrailingChunkGrowthSelector`.
 
+### Factory adapters
+
+Following the same pattern as `PlanningSelectorFactory`:
+
+```csharp
+public interface IPickerFactory {
+    IPicker Create(Dictionary<string, int> queue);
+}
+public interface ISlotterFactory {
+    ISlotter Create(List<Slot> fillable);
+}
+```
+
+Adapters: `PickerFactory(Func<queue, IPicker>)` and `SlotterFactory(Func<fillable, ISlotter>)`.
+
 Example of custom composition:
 
 ```csharp
-new LeadingChunkGrowthSelector(queue, fillable,
-    picker: new FairSharePicker(queue));
+new LeadingChunkGrowthSelector(queue, fillable, slotCount: 6,
+    pickerFactory: new PickerFactory(q => new FairSharePicker(q)));
 ```
 
 ### Why classes, not delegates
@@ -244,6 +260,10 @@ MyTimetable/Planning/
 ├── IPlanningSelector.cs
 ├── IPlanningSelectorFactory.cs
 ├── PlanningSelectorFactory.cs
+├── PickerFactory.cs
+├── SlotterFactory.cs
+├── IPickerFactory.cs
+├── ISlotterFactory.cs
 ├── CompositePlanningSelector.cs
 ├── ProposeResult.cs
 ├── DayLayout.cs                    (Day, Chunk, GetDays, FirstChunk, LastChunk)
