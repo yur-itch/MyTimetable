@@ -14,7 +14,7 @@ public sealed class FairSharePicker : IPicker
             : queue.ToDictionary(kv => kv.Key, kv => (double)kv.Value / total);
     }
 
-    public string? Pick(Dictionary<string, int> queue)
+    public string? Peek(Dictionary<string, int> queue)
     {
         var available = queue.Where(kv => kv.Value > 0).ToList();
         if (available.Count == 0) return null;
@@ -31,9 +31,13 @@ public sealed class FairSharePicker : IPicker
             }
         }
 
-        _placed[best] = _placed.GetValueOrDefault(best) + 1;
-        _placedTotal++;
         return best;
+    }
+
+    public void Commit(string title)
+    {
+        _placed[title] = _placed.GetValueOrDefault(title) + 1;
+        _placedTotal++;
     }
 
     private double DistanceAfterPlacing(string candidate)
