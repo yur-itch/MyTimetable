@@ -2,7 +2,9 @@
 
 ## Status
 
-Draft. Two goals defined below. Implementation not started.
+- Goal 1 (justified streaming): **not started**.
+- Goal 2 (picker/slotter extraction): **done** — 11 implementation classes extracted, 10 selectors
+  wired, all 449 tests pass.
 
 ---
 
@@ -64,26 +66,46 @@ for each slot:
 
 Pickers and slotters become first-class, composable building blocks.
 
+### Implemented interfaces
+
 ```csharp
-interface IPicker {
-    string? Pick(IReadOnlyDictionary<string, int> queue, HashSet<string> excluded);
+public interface IPicker {
+    string? Pick(Dictionary<string, int> queue);
 }
 
-interface ISlotter {
-    Slot? NextSlot(List<Slot> fillable);
+public interface ISlotter {
+    Slot? NextSlot();  // owns its fillable reference / precomputed enumerator
 }
 ```
 
-Existing logic gets extracted into named implementations:
+Note: no `excluded` parameter yet — that arrives with Goal 1.
+
+### Extracted classes (all in `MyTimetable/Planning/`)
 
 | Picker | Slotter |
 |--------|---------|
-| RoundRobinPicker | SequentialSlotter |
-| LargestQueueFirstPicker | GapClosingSlotter |
-| SmallestQueueFirstPicker | LeadingChunkSlotter |
-| FairSharePicker | TrailingChunkSlotter |
-| RandomPicker | EmptyDaySeedSlotter |
-| WeightedRandomPicker | |
+| `LargestQueueFirstPicker` | `SequentialSlotter` |
+| `SmallestQueueFirstPicker` | `GapClosingSlotter` |
+| `RoundRobinPicker` (reworked) | `LeadingChunkGrowthSlotter` |
+| `FairSharePicker` | `TrailingChunkGrowthSlotter` |
+| `RandomPicker` | `EmptyDaySeedSlotter` |
+| `WeightedRandomPicker` | |
+
+### Selector wiring
+
+Every selector accepts optional `IPicker?` and/or `ISlotter?` in its constructor.
+If not provided, it falls back to the "natural" implementation (e.g.
+`LargestQueueFirstSelector` defaults to `LargestQueueFirstPicker`).
+
+- **Picker-only selectors** (default sequential slotter): `LargestQueueFirstSelector`,
+  `SmallestQueueFirstSelector`, `RoundRobinSelector`, `FairShareSelector`,
+  `RandomSelector`, `WeightedRandomSelector`.
+- **Dual selectors** (custom slotter + default round-robin picker): `EmptyDaySeedSelector`,
+  `GapClosingSelector`, `LeadingChunkGrowthSelector`, `TrailingChunkGrowthSelector`.
+
+`RoundRobinPicker.Pick()` now takes `Dictionary<string, int>` as a parameter instead
+of storing the queue reference internally. This makes the dependency explicit and
+allows all pickers to share the same interface shape. |
 
 ### Non-decomposable strategies
 
@@ -112,6 +134,17 @@ slot after a rejection. This requires mutable internal state scoped to the Plan(
 
 Delegates cannot carry this state cleanly — closures capturing mutable state are just
 classes by another name and harder to test. Classes are the correct choice.
+
+### Files changed
+
+| Action | File |
+|--------|------|
+| New | `IPicker.cs`, `ISlotter.cs` |
+| New | `LargestQueueFirstPicker.cs`, `SmallestQueueFirstPicker.cs`, `FairSharePicker.cs`, `RandomPicker.cs`, `WeightedRandomPicker.cs` |
+| New | `SequentialSlotter.cs`, `GapClosingSlotter.cs`, `LeadingChunkGrowthSlotter.cs`, `TrailingChunkGrowthSlotter.cs`, `EmptyDaySeedSlotter.cs` |
+| Rewritten | `RoundRobinPicker.cs` (implements `IPicker`, `Pick()` takes queue param) |
+| Rewritten | `LargestQueueFirstSelector.cs`, `SmallestQueueFirstSelector.cs`, `RoundRobinSelector.cs`, `FairShareSelector.cs`, `RandomSelector.cs`, `WeightedRandomSelector.cs`, `EmptyDaySeedSelector.cs`, `GapClosingSelector.cs`, `LeadingChunkGrowthSelector.cs`, `TrailingChunkGrowthSelector.cs` |
+| Updated | `RoundRobinPickerTests.cs`, `GapClosingSelectorTests.cs` (was `GapClosingSelector.cs`, renamed) |
 
 ### Intent
 
