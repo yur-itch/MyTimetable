@@ -1,12 +1,4 @@
-# Planning Subsystem — Architecture & Design Decisions
-
-## Status
-
-- **Goal 2 (picker/slotter extraction): done.** 11 implementation classes extracted,
-  10 selectors wired, all 449 tests pass.
-- **Goal 1 (justified streaming): not started.**
-
----
+# Planning Subsystem — Architecture & Design
 
 ## Architecture overview
 
@@ -16,7 +8,7 @@ User input (subjects + counts)
         ▼
    Planner._queue         ← source of truth for "what still needs placement"
         │
-        │ Create(snapshot of queue, snapshot of fillable slots)
+        │ Create(snapshot)
         ▼
    IPlanningSelector      ← pure-ish algorithm: (queue, slots) → placements[]
         │
@@ -30,29 +22,18 @@ User input (subjects + counts)
 | Type | Role | Location |
 |------|------|----------|
 | `Planner` | Orchestrator. Owns `_queue`. Calls `ResolveConflicts`, `Plan`. | `MyTimetable/Planner.cs` |
-| `IPlanningSelector` | Interface: `Plan()` → `IEnumerable<PlannedSlot>`. | `Planning/IPlanningSelector.cs` |
+| `IPlanningSelector` | `Plan()` → `IEnumerable<PlannedSlot>`. | `Planning/IPlanningSelector.cs` |
 | `IPlanningSelectorFactory` | Creates selectors from `(queue, fillable)`. | `Planning/IPlanningSelectorFactory.cs` |
 | `PlanningSelectorBase` | Abstract base. Copies queue & fillable. Runs `TakeSlot`/`PickSubject` loop. | `Planning/PlanningSelectorBase.cs` |
-| `CompositePlanningSelector` | Chains multiple factories sequentially. Each inner selector gets remaining queue & slots. | `Planning/CompositePlanningSelector.cs` |
+| `CompositePlanningSelector` | Chains multiple factories sequentially. Each inner selector gets the remaining queue & slots. | `Planning/CompositePlanningSelector.cs` |
 | `DayLayout` | Static helpers: group slots into days, find first/last occupied chunks. | `Planning/DayLayout.cs` |
 | `PlanningSelectorFactory` | Adapter: `Func<queue, fillable, IPlanningSelector>` → `IPlanningSelectorFactory`. | `Planning/PlanningSelectorFactory.cs` |
 
 ---
 
-## Design decision 1: Copy-based selectors (paradigm 2)
+## Copy-based selectors
 
-### The two paradigms considered
-
-| | Paradigm 1 (reference) | Paradigm 2 (copy — chosen) |
-|---|---|---|
-| Selector sees | Live queue via shared reference | Frozen snapshot copied in constructor |
-| Planner rejects a placement | Selector sees unchanged queue, retries | Selector has already advanced past it |
-| Testability | Requires planner mock or queue lifecycle | Pure in/out, no external state |
-| Composability | Must pass reference down tree | Each level gets its own snapshot |
-
-### Why copies
-
-The base class constructor copies both inputs:
+The base class copies both inputs in its constructor:
 
 ```csharp
 protected PlanningSelectorBase(Dictionary<string, int> queue, List<Slot> fillable)
@@ -72,25 +53,19 @@ This means:
 4. **Isolation for compositing.** `CompositePlanningSelector` gives each inner factory
    a snapshot of what's left after previous factories consumed their share.
 
-### The streaming question
-
-Selectors stream via `IEnumerable<PlannedSlot>`, but since the planner never injects
-feedback mid-stream (paradigm 2), `List<PlannedSlot>` would behave identically.
-The streaming is kept because Goal 1 plans to make it functional — the planner will
-be able to reject placements and the selector will retry with a different subject
-for the same slot.
+The alternative — giving selectors a live reference to the planner's queue — would
+allow mid-stream retry on rejection, but at the cost of requiring every selector's
+internal state to be rewindable (transaction log or re-run). The copy approach keeps
+selectors as pure algorithms and planner-level policy in the planner.
 
 ---
 
-## Design decision 2: Pluggable picker & slotter
+## Pluggable picker & slotter
 
-### Motivation
-
-- `RoundRobinPicker` was already a standalone class reused by 4 strategies.
-- All other picker/slotter logic was inlined per selector.
-- Users could not mix pickers and slotters without writing new selector classes.
-- The developer was dissatisfied with RoundRobin and FairShare as the only
-  default pickers for slot-oriented strategies.
+Selectors are decomposed into two concerns, each with an interface and multiple
+implementations. Every selector accepts optional `IPicker?` / `ISlotter?` and defaults
+to its natural implementation. Users can compose custom combinations without writing
+new classes.
 
 ### Interfaces
 
@@ -106,9 +81,7 @@ public interface ISlotter {
 }
 ```
 
-No `excluded` parameter yet — that arrives with Goal 1 (justified streaming).
-
-### Extracted pickers (`Planning/Pickers/`)
+### Pickers (`Planning/Pickers/`)
 
 | Class | Algorithm | State |
 |-------|-----------|-------|
@@ -119,7 +92,7 @@ No `excluded` parameter yet — that arrives with Goal 1 (justified streaming).
 | `RandomPicker` | Uniform random | `Random` instance |
 | `WeightedRandomPicker` | Roulette-wheel proportional to remaining | `Random` instance |
 
-### Extracted slotters (`Planning/Slotters/`)
+### Slotters (`Planning/Slotters/`)
 
 | Class | Algorithm | State |
 |-------|-----------|-------|
@@ -131,18 +104,15 @@ No `excluded` parameter yet — that arrives with Goal 1 (justified streaming).
 
 ### Selector wiring
 
-Every selector accepts optional `IPicker?` and/or `ISlotter?` in its constructor.
-If not provided, it falls back to the natural implementation.
-
-**Picker-only selectors** (use default `SequentialSlotter`):
+**Picker-only** (use default `SequentialSlotter`):
 `LargestQueueFirstSelector`, `SmallestQueueFirstSelector`, `RoundRobinSelector`,
 `FairShareSelector`, `RandomSelector`, `WeightedRandomSelector`.
 
-**Dual selectors** (custom slotter, default `RoundRobinPicker`):
+**Dual** (custom slotter, default `RoundRobinPicker`):
 `EmptyDaySeedSelector`, `GapClosingSelector`, `LeadingChunkGrowthSelector`,
 `TrailingChunkGrowthSelector`.
 
-Example of custom composition (zero user-written classes):
+Example of custom composition:
 
 ```csharp
 new LeadingChunkGrowthSelector(queue, fillable,
@@ -151,46 +121,32 @@ new LeadingChunkGrowthSelector(queue, fillable,
 
 ### Why classes, not delegates
 
-In paradigm 2 (no feedback), pickers and slotters could be pure functions —
-delegates would work:
+Pickers and slotters are classes rather than delegates because justified streaming
+(see below) will require them to defer state commits across rejection-retry cycles:
 
-```csharp
-delegate string? Picker(IReadOnlyDictionary<string, int> queue);
-delegate Slot? Slotter(List<Slot> fillable);
-```
+- RoundRobin must not advance `_position` on a rejected pick.
+- FairShare must not increment `_placed` on a rejected pick.
+- Chunk-growth heap must not dequeue until the slot is accepted.
 
-With justified streaming (Goal 1), the picker may be asked "try again" for the
-same slot after a rejection. This requires mutable internal state scoped to the
-`Plan()` call:
-
-- RoundRobin must defer `_position` advance until acceptance.
-- FairShare must defer `_placed` update until acceptance.
-- Chunk-growth heap must defer dequeue until acceptance.
-- The exclusion set for the current slot survives across retries.
-
-Delegates cannot carry this state cleanly — closures with mutable captures are
-classes by another name and harder to test. Classes are the correct choice.
+Delegates cannot carry this mutable, call-scoped state cleanly.
 
 ### Non-decomposable strategies
 
 Some strategies cannot separate picking from slotting (e.g. entropy-based
 optimization where slot choice depends on subject and vice versa). These
-continue to implement `IPlanningSelector` directly. Two code paths is acceptable.
+implement `IPlanningSelector` directly. Two code paths is acceptable.
 
 ---
 
-## Goal 1: Justified streaming (future)
+## Future: Justified streaming
 
-### Current state
+Currently selectors stream via `IEnumerable<PlannedSlot>`, but the planner never
+injects feedback mid-stream — the `IEnumerable` is structurally unnecessary;
+`List<PlannedSlot>` would behave identically.
 
-The planner never injects feedback mid-stream. Selectors operate on a frozen snapshot.
-The `IEnumerable` streaming is structurally decorative.
-
-### Target
-
-The planner can reject a placement (e.g. "no Math on Saturday"), and the selector
-adapts on the fly — retrying the same slot with a different subject — without
-rebuilding internal state from scratch.
+The plan is to make streaming functional: the planner can reject a placement
+(e.g. "no Math on Saturday"), and the selector retries the same slot with a
+different subject without rebuilding internal state.
 
 ### Protocol sketch
 
@@ -261,8 +217,6 @@ MyTimetable/Planning/
 └── TrailingChunkGrowthSelector.cs
 ```
 
-## Test project
-
 ```
 TestMyTimetable/Planning/
 ├── CompositePlanningSelectorTests.cs
@@ -286,5 +240,4 @@ TestMyTimetable/Planning/
 ## Intent
 
 This is a learning exercise, not a commercial requirement. The goal is to work through
-design trade-offs and see where they lead. Composing strategies from parts should require
-zero user-written code.
+design trade-offs and see where they lead.
