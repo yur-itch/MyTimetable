@@ -103,8 +103,8 @@ namespace MyTimetable.Controllers
             await _rebuilder.Rebuild(_db, dates);
             await _planPage.Rebuild(_planner.Queue);
             if (fromCli) {
-                Response.Headers.Append("Content-Encoding", "br");
-                return Ok(_data.CliViewResult);
+                Response.Headers.ContentEncoding = "br";
+                return File(_data.CliViewResult, "application/json; charset=utf-8");
             } else {
                 Dictionary<DateOnly, string> rendered = dates.ToDictionary(x => x, x => _data.PartialViewResult[x]);
                 var response = new { success = rendered, failure = _planner.Queue.Values.Sum() };
