@@ -44,22 +44,64 @@ namespace MyTimetable.Planning
         // пуста): Plan на этом заканчивает, симметрично null из TakeSlot.
         protected abstract string? PickSubject();
 
-        // Цикл: тянем слот и предмет, любой null означает конец. Никаких предварительных проверок —
-        // оба условия остановки выражены одинаково через null.
-        public IEnumerable<PlannedSlot> Plan()
+        // Основной цикл с обратной связью от планировщика.
+        // Планировщик через accept говорит, OK ли слот и OK ли предмет.
+        // Селектор механически реагирует на два бита:
+        //   (T,T) — размещение принято: коммитим слот и предмет, выдаём PlannedSlot.
+        //   (T,F) — слот подходит, но предмет нет: пробуем другой предмет в тот же слот.
+        //   (F,T) — предмет подходит, но слот нет: держим предмет, берём другой слот.
+        //   (F,F) — не подходит ни то, ни другое: оба новые.
+        public IEnumerable<PlannedSlot> Plan(Func<Slot, string, ProposeResult> accept)
         {
+            Slot? slot = TakeSlot();
+            if (slot is null) yield break;
+            string? title = PickSubject();
+            if (title is null) yield break;
+
+            bool newSlot = false;
+            bool newSubject = false;
+
             while (true)
             {
-                Slot? slot = TakeSlot();
-                if (slot is null) yield break;
-                string? title = PickSubject();
-                if (title is null) yield break;
-                Queue[title]--;
-                yield return new PlannedSlot
+                if (newSlot)
                 {
-                    Slot = slot,
-                    Lesson = new CustomLesson { LessonType = "PRACTICE", Title = title }
-                };
+                    slot = TakeSlot();
+                    if (slot is null) yield break;
+                    newSlot = false;
+                }
+                if (newSubject)
+                {
+                    title = PickSubject();
+                    if (title is null) yield break;
+                    newSubject = false;
+                }
+
+                ProposeResult result = accept(slot, title);
+
+                if (result.SlotOK && result.SubjectOK)
+                {
+                    Queue[title]--;
+                    yield return new PlannedSlot
+                    {
+                        Slot = slot,
+                        Lesson = new CustomLesson { LessonType = "PRACTICE", Title = title }
+                    };
+                    newSlot = true;
+                    newSubject = true;
+                }
+                else if (result.SlotOK && !result.SubjectOK)
+                {
+                    newSubject = true;
+                }
+                else if (!result.SlotOK && result.SubjectOK)
+                {
+                    newSlot = true;
+                }
+                else
+                {
+                    newSlot = true;
+                    newSubject = true;
+                }
             }
         }
     }
