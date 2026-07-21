@@ -9,11 +9,14 @@ public sealed class SequentialSlotter : ISlotter
     public SequentialSlotter(List<Slot> fillable)
         => _fillable = fillable;
 
-    public Slot? NextSlot()
+    public Slot? Peek()
     {
         if (_fillable.Count == 0) return null;
-        var slot = _fillable[0];
+        return _fillable[0];
+    }
+
+    public void Commit(Slot slot)
+    {
         _fillable.RemoveAt(0);
-        return slot;
     }
 }

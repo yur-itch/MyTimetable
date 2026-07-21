@@ -23,7 +23,7 @@ public sealed class TrailingChunkGrowthSlotter : ISlotter
         }
     }
 
-    public Slot? NextSlot()
+    public Slot? Peek()
     {
         if (!_heap.TryDequeue(out var s, out _)) return null;
 
@@ -36,4 +36,6 @@ public sealed class TrailingChunkGrowthSlotter : ISlotter
         }
         return new Slot { Date = s.Date, Number = number };
     }
+
+    public void Commit(Slot slot) { }
 }

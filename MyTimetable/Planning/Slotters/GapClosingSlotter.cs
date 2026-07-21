@@ -35,7 +35,8 @@ public sealed class GapClosingSlotter : ISlotter
             .GetEnumerator();
     }
 
-    public Slot? NextSlot() => _gapSlots.MoveNext() ? _gapSlots.Current : null;
+    public Slot? Peek() => _gapSlots.MoveNext() ? _gapSlots.Current : null;
+    public void Commit(Slot slot) { }
 
     internal static IEnumerable<GapRange> GetGapsInDay(List<int> day, int slotCount)
     {

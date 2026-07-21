@@ -14,5 +14,6 @@ public sealed class EmptyDaySeedSlotter : ISlotter
             .GetEnumerator();
     }
 
-    public Slot? NextSlot() => _seeds.MoveNext() ? _seeds.Current : null;
+    public Slot? Peek() => _seeds.MoveNext() ? _seeds.Current : null;
+    public void Commit(Slot slot) { }
 }
