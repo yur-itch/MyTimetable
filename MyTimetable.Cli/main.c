@@ -490,6 +490,102 @@ static int cmd_logout(void) {
     return 0;
 }
 
+// ── Shared table REPL (used by schedule and planner submit) ───────
+// Takes a raw table string (from JSON "data" field) and scroll_target.
+// Owns nothing — caller manages the passed string.
+static void run_table_repl(const char* data_text, int scroll_target) {
+    if (!data_text || !*data_text) return;
+
+    size_t data_len = strlen(data_text);
+    char *data_copy = malloc(data_len + 1);
+    if (!data_copy) return;
+    strcpy(data_copy, data_text);
+
+    char **lines = malloc(sizeof(char*) * 2048);
+    if (!lines) { free(data_copy); return; }
+    int line_count = 0;
+    char *p = data_copy;
+    while (*p && line_count < 2048) {
+        while (*p == '\r' || *p == '\n') p++;
+        if (!*p) break;
+        lines[line_count++] = p;
+        while (*p && *p != '\n' && *p != '\r') p++;
+        if (*p) { *p = '\0'; p++; }
+    }
+
+    if (line_count < 4) { free(lines); free(data_copy); return; }
+
+    int header_lines = 3;
+    int body_lines = line_count - header_lines;
+
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    int console_height = 40;
+    if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi))
+        console_height = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+
+    int scroll_region_top = header_lines + 1;
+    int scroll_region_bot = console_height - 1;
+    int avail = scroll_region_bot - scroll_region_top + 1;
+    if (avail < 1) avail = 10;
+
+    int start = scroll_target - avail / 2;
+    if (start < 0) start = 0;
+    int end = start + avail;
+    if (end > body_lines) { end = body_lines; start = end - avail; if (start < 0) start = 0; }
+
+    printf("\033[2J\033[0;0H");
+    for (int i = 0; i < header_lines; i++)
+        printf("%s\033[K\n", lines[i]);
+    printf("\033[%d;%dr", scroll_region_top, scroll_region_bot);
+
+    char cmd_line[64];
+    int running = 1;
+    while (running) {
+        printf("\033[%d;0H", scroll_region_top);
+        for (int i = start; i < end - 1; i++) {
+            int line_idx = header_lines + i;
+            if (i == scroll_target)
+                printf("\033[7m%s\033[27m\033[K\n", lines[line_idx]);
+            else
+                printf("%s\033[K\n", lines[line_idx]);
+        }
+        {
+            int i = end - 1;
+            int line_idx = header_lines + i;
+            if (i == scroll_target)
+                printf("\033[7m%s\033[27m\033[K", lines[line_idx]);
+            else
+                printf("%s\033[K", lines[line_idx]);
+        }
+
+        printf("\033[%d;0H\033[K[ u=up  d=down  q=quit ] ", console_height);
+        fflush(stdout);
+
+        if (!fgets(cmd_line, sizeof(cmd_line), stdin)) break;
+        size_t llen = strlen(cmd_line);
+        while (llen > 0 && (cmd_line[llen - 1] == '\n' || cmd_line[llen - 1] == '\r'))
+            cmd_line[--llen] = 0;
+
+        if (strcmp(cmd_line, "q") == 0 || strcmp(cmd_line, "quit") == 0) {
+            running = 0;
+        } else if (strcmp(cmd_line, "u") == 0 || strcmp(cmd_line, "up") == 0) {
+            start -= (avail - 1);
+            if (start < 0) start = 0;
+        } else if (strcmp(cmd_line, "d") == 0 || strcmp(cmd_line, "down") == 0) {
+            start += (avail - 1);
+            if (start + avail > body_lines) start = body_lines - avail;
+            if (start < 0) start = 0;
+        }
+        end = start + avail;
+        if (end > body_lines) end = body_lines;
+    }
+
+    printf("\033[r\033[2J\033[0;0H");
+    fflush(stdout);
+
+    free(lines); free(data_copy);
+}
+
 static int cmd_schedule(int argc, char** argv) {
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i],"--host")==0 && i+1<argc) {
