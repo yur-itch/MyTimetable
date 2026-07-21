@@ -48,6 +48,7 @@ namespace MyTimetable.Controllers
                 if (!await _auth.IsViewer(_db, sessionId))
                 {
                     // the planner returns the table, which is considered viewing
+                    // so technically requires both
                     return Unauthorized("No viewing rights for this page");
                 }
             }
