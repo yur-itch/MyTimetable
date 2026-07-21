@@ -210,13 +210,20 @@ public class TestDayLayout
 
     // ── Edge cases for FirstChunk/LastChunk ──────────────────────────
 
-    [Theory]
-    [InlineData(6)]  // полностью свободный день
-    [InlineData(10)] // другой slotCount, полностью свободный
-    public void FirstChunk_FullEmptyDay_ReturnsNull(int slotCount)
+    [Fact]
+    public void FirstChunk_FullEmptyDay6_ReturnsNull()
     {
-        DayLayout.FirstChunk([1, 2, 3, 4, 5, 6], slotCount).Should().BeNull();
-        DayLayout.LastChunk([1, 2, 3, 4, 5, 6], slotCount).Should().BeNull();
+        // День из 6 слотов, все свободны
+        DayLayout.FirstChunk([1, 2, 3, 4, 5, 6], 6).Should().BeNull();
+        DayLayout.LastChunk([1, 2, 3, 4, 5, 6], 6).Should().BeNull();
+    }
+
+    [Fact]
+    public void FirstChunk_FullEmptyDayWithLargerSlotCount_HasOccupiedSlots()
+    {
+        // open=[1..6], slotCount=10 → заняты 7,8,9,10 → есть первый кусок
+        DayLayout.FirstChunk([1, 2, 3, 4, 5, 6], 10)!.Value.Should().Be(new Chunk { Start = 7, Length = 4 });
+        DayLayout.LastChunk([1, 2, 3, 4, 5, 6], 10)!.Value.Should().Be(new Chunk { Start = 7, Length = 4 });
     }
 
     [Theory]
