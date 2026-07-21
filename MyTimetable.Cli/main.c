@@ -1001,8 +1001,8 @@ static int cmd_conflicts(int argc, char** argv) {
     for (struct json_array_element_s *e = arr->start; e; e = e->next) {
         struct json_object_s *slot = json_value_as_object(e->value);
         if (!slot) continue;
-        const char* date = json_get_string(slot, "date");
-        struct json_value_s *num_v = json_get(slot, "number");
+        const char* date = json_get_string(slot, "Date");
+        struct json_value_s *num_v = json_get(slot, "Number");
         int num = 0;
         if (num_v) {
             struct json_number_s *num_n = json_value_as_number(num_v);
