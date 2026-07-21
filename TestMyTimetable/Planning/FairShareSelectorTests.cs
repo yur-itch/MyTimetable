@@ -14,14 +14,14 @@ public class TestFairShareSelector
     public void Plan_EmptyQueue_ReturnsNothing()
     {
         var sel = new FairShareSelector(new Dictionary<string, int>(), Slots(5));
-        sel.Plan().Should().BeEmpty();
+        sel.Plan((_, _) => new(true, true)).Should().BeEmpty();
     }
 
     [Fact]
     public void Plan_EmptyFillable_ReturnsNothing()
     {
         var sel = new FairShareSelector(new Dictionary<string, int> { ["A"] = 3 }, []);
-        sel.Plan().Should().BeEmpty();
+        sel.Plan((_, _) => new(true, true)).Should().BeEmpty();
     }
 
     [Fact]
@@ -29,7 +29,7 @@ public class TestFairShareSelector
     {
         var queue = new Dictionary<string, int> { ["Math"] = 4 };
         var sel = new FairShareSelector(queue, Slots(4));
-        var result = sel.Plan().ToList();
+        var result = sel.Plan((_, _) => new(true, true)).ToList();
         result.Should().HaveCount(4);
         result.Should().OnlyContain(p => p.Lesson.Title == "Math");
     }
@@ -39,7 +39,7 @@ public class TestFairShareSelector
     {
         var queue = new Dictionary<string, int> { ["A"] = 2 };
         var sel = new FairShareSelector(queue, Slots(10));
-        sel.Plan().Should().HaveCount(2);
+        sel.Plan((_, _) => new(true, true)).Should().HaveCount(2);
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class TestFairShareSelector
     {
         var queue = new Dictionary<string, int> { ["A"] = 10 };
         var sel = new FairShareSelector(queue, Slots(3));
-        sel.Plan().Should().HaveCount(3);
+        sel.Plan((_, _) => new(true, true)).Should().HaveCount(3);
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public class TestFairShareSelector
     {
         var queue = new Dictionary<string, int> { ["A"] = 3, ["B"] = 3 };
         var sel = new FairShareSelector(queue, Slots(6));
-        var titles = sel.Plan().Select(p => p.Lesson.Title).ToList();
+        var titles = sel.Plan((_, _) => new(true, true)).Select(p => p.Lesson.Title).ToList();
 
         // A=50%, B=50% → с равными расстояниями берём первый в Available: A
         // Затем чередуем для балансировки
@@ -78,7 +78,7 @@ public class TestFairShareSelector
         // Шаг 4: placed={A=2,B=1}, total=3. Остался A=1, только A в Available → A
         var queue = new Dictionary<string, int> { ["A"] = 3, ["B"] = 1 };
         var sel = new FairShareSelector(queue, Slots(4));
-        var titles = sel.Plan().Select(p => p.Lesson.Title).ToList();
+        var titles = sel.Plan((_, _) => new(true, true)).Select(p => p.Lesson.Title).ToList();
 
         titles.Should().Equal(["A", "A", "B", "A"]);
     }
@@ -88,7 +88,7 @@ public class TestFairShareSelector
     {
         var queue = new Dictionary<string, int> { ["A"] = 4, ["B"] = 1 };
         var sel = new FairShareSelector(queue, Slots(5));
-        var titles = sel.Plan().Select(p => p.Lesson.Title).ToList();
+        var titles = sel.Plan((_, _) => new(true, true)).Select(p => p.Lesson.Title).ToList();
 
         // Шаг 1: пусто → если A: dist²=0.125, если B: dist²=1.125 → A
         // Шаг 2: A=1. Если A: dist²=0.125, если B: dist²=0.125 → равны → A (первый)
@@ -103,7 +103,7 @@ public class TestFairShareSelector
     {
         var queue = new Dictionary<string, int> { ["X"] = 2, ["Y"] = 2, ["Z"] = 2 };
         var sel = new FairShareSelector(queue, Slots(6));
-        var titles = sel.Plan().Select(p => p.Lesson.Title).ToList();
+        var titles = sel.Plan((_, _) => new(true, true)).Select(p => p.Lesson.Title).ToList();
 
         titles.Should().HaveCount(6);
         titles.Should().OnlyContain(t => t == "X" || t == "Y" || t == "Z");
@@ -120,7 +120,7 @@ public class TestFairShareSelector
         {
             new() { Date = new DateOnly(2024, 5, 10), Number = 3 }
         };
-        var result = new FairShareSelector(queue, slots).Plan().ToList();
+        var result = new FairShareSelector(queue, slots).Plan((_, _) => new(true, true)).ToList();
 
         result.Should().HaveCount(1);
         result[0].Slot.Date.Should().Be(new DateOnly(2024, 5, 10));

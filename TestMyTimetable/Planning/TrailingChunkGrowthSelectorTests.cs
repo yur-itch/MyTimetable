@@ -13,14 +13,14 @@ public class TestTrailingChunkGrowthSelector
     {
         var fillable = DaySlots(new DateOnly(2024, 1, 1), 1, 2, 3, 4, 5, 6);
         var sel = new TrailingChunkGrowthSelector(new Dictionary<string, int>(), fillable);
-        sel.Plan().Should().BeEmpty();
+        sel.Plan((_, _) => new(true, true)).Should().BeEmpty();
     }
 
     [Fact]
     public void Plan_EmptyFillable_ReturnsNothing()
     {
         var sel = new TrailingChunkGrowthSelector(new Dictionary<string, int> { ["A"] = 3 }, []);
-        sel.Plan().Should().BeEmpty();
+        sel.Plan((_, _) => new(true, true)).Should().BeEmpty();
     }
 
     [Fact]
@@ -29,7 +29,7 @@ public class TestTrailingChunkGrowthSelector
         var fillable = DaySlots(new DateOnly(2024, 1, 1), 1, 2, 3, 4, 5, 6);
         var sel = new TrailingChunkGrowthSelector(
             new Dictionary<string, int> { ["A"] = 3 }, fillable);
-        sel.Plan().Should().BeEmpty();
+        sel.Plan((_, _) => new(true, true)).Should().BeEmpty();
     }
 
     [Fact]
@@ -38,7 +38,7 @@ public class TestTrailingChunkGrowthSelector
         var fillable = DaySlots(new DateOnly(2024, 1, 1), 1, 2, 3, 4, 5);
         var sel = new TrailingChunkGrowthSelector(
             new Dictionary<string, int> { ["A"] = 3 }, fillable);
-        sel.Plan().Should().BeEmpty("последний кусок на 6, расширяться некуда");
+        sel.Plan((_, _) => new(true, true)).Should().BeEmpty("последний кусок на 6, расширяться некуда");
     }
 
     // ── Single-day exhaustive: all 64 subsets ──────────────────────
@@ -71,7 +71,7 @@ public class TestTrailingChunkGrowthSelector
         var fillable = DaySlots(new DateOnly(2024, 1, 1), open);
         var sel = new TrailingChunkGrowthSelector(
             new Dictionary<string, int> { ["A"] = 10 }, fillable);
-        var results = sel.Plan().ToList();
+        var results = sel.Plan((_, _) => new(true, true)).ToList();
 
         if (expectedNumber is null)
         {
@@ -108,7 +108,7 @@ public class TestTrailingChunkGrowthSelector
         };
         var sel = new TrailingChunkGrowthSelector(
             new Dictionary<string, int> { ["A"] = 4 }, fillable);
-        var results = sel.Plan().ToList();
+        var results = sel.Plan((_, _) => new(true, true)).ToList();
 
         results.Should().NotBeEmpty();
         results[0].Slot.Date.Should().Be(new DateOnly(2024, 1, 1));
@@ -135,7 +135,7 @@ public class TestTrailingChunkGrowthSelector
         };
         var sel = new TrailingChunkGrowthSelector(
             new Dictionary<string, int> { ["A"] = 3 }, fillable);
-        var results = sel.Plan().ToList();
+        var results = sel.Plan((_, _) => new(true, true)).ToList();
 
         results.Should().NotBeEmpty();
         results[0].Slot.Date.Should().Be(new DateOnly(2024, 1, 1));
@@ -148,7 +148,7 @@ public class TestTrailingChunkGrowthSelector
         var fillable = DaySlots(new DateOnly(2024, 1, 1), 1, 2, 4, 5, 6);
         var sel = new TrailingChunkGrowthSelector(
             new Dictionary<string, int> { ["A"] = 3 }, fillable);
-        var results = sel.Plan().ToList();
+        var results = sel.Plan((_, _) => new(true, true)).ToList();
 
         results.Should().HaveCount(3);
         results[0].Slot.Number.Should().Be(4);
@@ -162,7 +162,7 @@ public class TestTrailingChunkGrowthSelector
         var fillable = DaySlots(new DateOnly(2024, 1, 1), 1, 2, 4, 5, 6);
         var sel = new TrailingChunkGrowthSelector(
             new Dictionary<string, int> { ["A"] = 2 }, fillable);
-        sel.Plan().Should().HaveCount(2);
+        sel.Plan((_, _) => new(true, true)).Should().HaveCount(2);
     }
 
     [Fact]
@@ -171,7 +171,7 @@ public class TestTrailingChunkGrowthSelector
         var fillable = DaySlots(new DateOnly(2024, 1, 1), 1, 2, 4, 5, 6);
         var queue = new Dictionary<string, int> { ["X"] = 2, ["Y"] = 2 };
         var sel = new TrailingChunkGrowthSelector(queue, fillable);
-        var results = sel.Plan().ToList();
+        var results = sel.Plan((_, _) => new(true, true)).ToList();
 
         results.Should().HaveCount(3); // slot 4, 5, 6
         results[0].Lesson.Title.Should().Be("X");
@@ -184,7 +184,7 @@ public class TestTrailingChunkGrowthSelector
     {
         var fillable = DaySlots(new DateOnly(2024, 5, 10), 1, 2, 4, 5, 6);
         var result = new TrailingChunkGrowthSelector(
-            new Dictionary<string, int> { ["A"] = 1 }, fillable).Plan().ToList();
+            new Dictionary<string, int> { ["A"] = 1 }, fillable).Plan((_, _) => new(true, true)).ToList();
 
         result.Should().HaveCount(1);
         result[0].Slot.Date.Should().Be(new DateOnly(2024, 5, 10));

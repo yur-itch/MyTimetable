@@ -14,14 +14,14 @@ public class TestRandomSelector
     public void Plan_EmptyQueue_ReturnsNothing()
     {
         var sel = new RandomSelector(new Dictionary<string, int>(), Slots(5));
-        sel.Plan().Should().BeEmpty();
+        sel.Plan((_, _) => new(true, true)).Should().BeEmpty();
     }
 
     [Fact]
     public void Plan_EmptyFillable_ReturnsNothing()
     {
         var sel = new RandomSelector(new Dictionary<string, int> { ["A"] = 3 }, []);
-        sel.Plan().Should().BeEmpty();
+        sel.Plan((_, _) => new(true, true)).Should().BeEmpty();
     }
 
     [Fact]
@@ -29,7 +29,7 @@ public class TestRandomSelector
     {
         var queue = new Dictionary<string, int> { ["Math"] = 4 };
         var sel = new RandomSelector(queue, Slots(4));
-        var result = sel.Plan().ToList();
+        var result = sel.Plan((_, _) => new(true, true)).ToList();
         result.Should().HaveCount(4);
         result.Should().OnlyContain(p => p.Lesson.Title == "Math");
     }
@@ -39,7 +39,7 @@ public class TestRandomSelector
     {
         var queue = new Dictionary<string, int> { ["A"] = 2 };
         var sel = new RandomSelector(queue, Slots(10));
-        sel.Plan().Should().HaveCount(2);
+        sel.Plan((_, _) => new(true, true)).Should().HaveCount(2);
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class TestRandomSelector
     {
         var queue = new Dictionary<string, int> { ["A"] = 10 };
         var sel = new RandomSelector(queue, Slots(3));
-        sel.Plan().Should().HaveCount(3);
+        sel.Plan((_, _) => new(true, true)).Should().HaveCount(3);
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public class TestRandomSelector
     {
         var queue = new Dictionary<string, int> { ["A"] = 5, ["B"] = 5 };
         var sel = new RandomSelector(queue, Slots(10), new Random(42));
-        var result = sel.Plan().ToList();
+        var result = sel.Plan((_, _) => new(true, true)).ToList();
         result.Should().HaveCount(10);
         result.Should().OnlyContain(p => p.Lesson.Title == "A" || p.Lesson.Title == "B");
     }
@@ -67,8 +67,8 @@ public class TestRandomSelector
         var sel1 = new RandomSelector(queue, Slots(15), new Random(123));
         var sel2 = new RandomSelector(queue, Slots(15), new Random(123));
 
-        sel1.Plan().Select(p => p.Lesson.Title).Should().Equal(
-            sel2.Plan().Select(p => p.Lesson.Title));
+        sel1.Plan((_, _) => new(true, true)).Select(p => p.Lesson.Title).Should().Equal(
+            sel2.Plan((_, _) => new(true, true)).Select(p => p.Lesson.Title));
     }
 
     [Fact]
@@ -76,9 +76,9 @@ public class TestRandomSelector
     {
         var queue = new Dictionary<string, int> { ["A"] = 10, ["B"] = 10 };
         var seq1 = new RandomSelector(queue, Slots(10), new Random(42))
-            .Plan().Select(p => p.Lesson.Title).ToList();
+            .Plan((_, _) => new(true, true)).Select(p => p.Lesson.Title).ToList();
         var seq2 = new RandomSelector(queue, Slots(10), new Random(9999))
-            .Plan().Select(p => p.Lesson.Title).ToList();
+            .Plan((_, _) => new(true, true)).Select(p => p.Lesson.Title).ToList();
 
         seq1.Should().NotEqual(seq2, "разные seed'ы должны давать разные последовательности");
     }
@@ -91,7 +91,7 @@ public class TestRandomSelector
         {
             new() { Date = new DateOnly(2024, 5, 10), Number = 3 }
         };
-        var result = new RandomSelector(queue, slots, new Random(0)).Plan().ToList();
+        var result = new RandomSelector(queue, slots, new Random(0)).Plan((_, _) => new(true, true)).ToList();
 
         result.Should().HaveCount(1);
         result[0].Slot.Date.Should().Be(new DateOnly(2024, 5, 10));

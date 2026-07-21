@@ -13,14 +13,14 @@ public class TestEmptyDaySeedSelector
     {
         var fillable = DaySlots(new DateOnly(2024, 1, 1), [1, 2, 3, 4, 5, 6]);
         var sel = new EmptyDaySeedSelector(new Dictionary<string, int>(), fillable);
-        sel.Plan().Should().BeEmpty();
+        sel.Plan((_, _) => new(true, true)).Should().BeEmpty();
     }
 
     [Fact]
     public void Plan_EmptyFillable_ReturnsNothing()
     {
         var sel = new EmptyDaySeedSelector(new Dictionary<string, int> { ["A"] = 3 }, []);
-        sel.Plan().Should().BeEmpty();
+        sel.Plan((_, _) => new(true, true)).Should().BeEmpty();
     }
 
     [Fact]
@@ -30,7 +30,7 @@ public class TestEmptyDaySeedSelector
         var fillable = DaySlots(new DateOnly(2024, 1, 1), [1, 2, 3, 4, 5, 6]);
         var sel = new EmptyDaySeedSelector(new Dictionary<string, int> { ["A"] = 2 }, fillable);
         // Один пустой день → один seed-слот → Plan даёт 1 результат (потом _seeds кончился)
-        var result = sel.Plan().ToList();
+        var result = sel.Plan((_, _) => new(true, true)).ToList();
         result.Should().HaveCount(1);
     }
 
@@ -39,7 +39,7 @@ public class TestEmptyDaySeedSelector
     {
         var fillable = DaySlots(new DateOnly(2024, 1, 1), [1, 2, 3, 4, 5, 6]);
         var sel = new EmptyDaySeedSelector(new Dictionary<string, int> { ["A"] = 1 }, fillable);
-        var result = sel.Plan().ToList();
+        var result = sel.Plan((_, _) => new(true, true)).ToList();
 
         result.Should().HaveCount(1);
         result[0].Slot.Number.Should().Be(1);
@@ -69,7 +69,7 @@ public class TestEmptyDaySeedSelector
         };
         var queue = new Dictionary<string, int> { ["A"] = 3, ["B"] = 3 };
         var sel = new EmptyDaySeedSelector(queue, fillable);
-        var results = sel.Plan().ToList();
+        var results = sel.Plan((_, _) => new(true, true)).ToList();
 
         // Дни 1 и 3 — пустые → по одному seed'у в первый слот каждого
         results.Should().HaveCount(2);
@@ -84,7 +84,7 @@ public class TestEmptyDaySeedSelector
     {
         var fillable = DaySlots(new DateOnly(2024, 1, 1), [2, 3, 4, 5, 6]);
         var sel = new EmptyDaySeedSelector(new Dictionary<string, int> { ["A"] = 1 }, fillable);
-        sel.Plan().Should().BeEmpty();
+        sel.Plan((_, _) => new(true, true)).Should().BeEmpty();
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public class TestEmptyDaySeedSelector
     {
         var fillable = DaySlots(new DateOnly(2024, 1, 1), [1, 2, 4, 5, 6]);
         var sel = new EmptyDaySeedSelector(new Dictionary<string, int> { ["A"] = 1 }, fillable);
-        sel.Plan().Should().BeEmpty();
+        sel.Plan((_, _) => new(true, true)).Should().BeEmpty();
     }
 
     [Fact]
@@ -115,7 +115,7 @@ public class TestEmptyDaySeedSelector
         };
         var queue = new Dictionary<string, int> { ["A"] = 2 };
         var sel = new EmptyDaySeedSelector(queue, fillable);
-        var results = sel.Plan().ToList();
+        var results = sel.Plan((_, _) => new(true, true)).ToList();
 
         results.Should().HaveCount(2);
         results[0].Slot.Date.Should().Be(new DateOnly(2024, 1, 1));
@@ -144,7 +144,7 @@ public class TestEmptyDaySeedSelector
         };
         var queue = new Dictionary<string, int> { ["X"] = 2, ["Y"] = 2 };
         var sel = new EmptyDaySeedSelector(queue, fillable);
-        var results = sel.Plan().ToList();
+        var results = sel.Plan((_, _) => new(true, true)).ToList();
 
         results.Should().HaveCount(2);
         results[0].Lesson.Title.Should().Be("X");
@@ -189,7 +189,7 @@ public class TestEmptyDaySeedSelector
         };
         var queue = new Dictionary<string, int> { ["A"] = 3 };
         var sel = new EmptyDaySeedSelector(queue, fillable);
-        var results = sel.Plan().ToList();
+        var results = sel.Plan((_, _) => new(true, true)).ToList();
 
         results.Should().HaveCount(2);
         results[0].Slot.Date.Should().Be(new DateOnly(2024, 1, 1));
@@ -201,7 +201,7 @@ public class TestEmptyDaySeedSelector
     {
         var fillable = DaySlots(new DateOnly(2024, 5, 10), [1, 2, 3, 4, 5, 6]);
         var result = new EmptyDaySeedSelector(
-            new Dictionary<string, int> { ["A"] = 1 }, fillable).Plan().ToList();
+            new Dictionary<string, int> { ["A"] = 1 }, fillable).Plan((_, _) => new(true, true)).ToList();
 
         result.Should().HaveCount(1);
         result[0].Slot.Date.Should().Be(new DateOnly(2024, 5, 10));
