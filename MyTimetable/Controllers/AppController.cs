@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using MyTimetable.Entities;
 using MyTimetable.Models;
 using MyTimetable.Planning;
+using MyTimetable.Security;
 
 namespace MyTimetable.Controllers
 {
@@ -18,8 +19,10 @@ namespace MyTimetable.Controllers
         private readonly TimeProvider _time;
         private readonly IReadOnlyDictionary<string, IPlanningSelectorFactory> _strategies;
         private readonly PlanPage _planPage;
+        private readonly AuthProvider _auth;
+        private readonly SessionIdProvider _sessGen;
 
-        public AppController(ScheduleData data, AppDbContext db, CacheRebuilder rebuilder, Planner planner, ScheduleBuilder scheduleBuilder, ChangesetApplier applier, TimeProvider time, IReadOnlyDictionary<string, IPlanningSelectorFactory> strategies, PlanPage planPage)
+        public AppController(ScheduleData data, AppDbContext db, CacheRebuilder rebuilder, Planner planner, ScheduleBuilder scheduleBuilder, ChangesetApplier applier, TimeProvider time, IReadOnlyDictionary<string, IPlanningSelectorFactory> strategies, PlanPage planPage, AuthProvider auth, SessionIdProvider sessGen)
         {
             _data = data;
             _db = db;
@@ -30,12 +33,21 @@ namespace MyTimetable.Controllers
             _time = time;
             _strategies = strategies;
             _planPage = planPage;
+            _auth = auth;
+            _sessGen = sessGen;
         }
+
+        private string? SID => Request.Headers["X-Session-Id"].FirstOrDefault()
+                              ?? Request.Cookies["mytimetable.session"];
+
+        private async Task<bool> CanView() => await _auth.IsViewer(_db, SID);
+        private async Task<bool> CanEdit() => await _auth.IsEditor(_db, SID) && await _auth.IsViewer(_db, SID);
 
         [HttpGet]
         [HttpGet("/")]
-        public IActionResult Get()
+        public async Task<IActionResult> Get()
         {
+            if (!await CanView()) return RedirectToAction("Login");
             // Кэш всегда тёплый (прогрев на старте + пересборка на каждый Hide/Unhide).
             // Невалиден только если показывать нечего: пустая БД и API не засеял.
             if (!_data.StateValid)
@@ -47,7 +59,11 @@ namespace MyTimetable.Controllers
         }
 
         [HttpGet("GetOne")]
-        public IActionResult GetOne(DateOnly date) => PartialFor(date);
+        public async Task<IActionResult> GetOne(DateOnly date)
+        {
+            if (!await CanView()) return Unauthorized();
+            return PartialFor(date);
+        }
 
         // Свежий партиал дня из тёплого кэша. Его же возвращают Hide/Unhide, чтобы клиент
         // вставил обновлённый день без отдельного GET (один round trip на переключение).
@@ -65,6 +81,7 @@ namespace MyTimetable.Controllers
         [HttpPatch("Hide")]
         public async Task<IActionResult> Hide(DateOnly date, int lessonNumber)
         {
+            if (!await CanEdit()) return Unauthorized();
             DefaultLessonEntry? lesson = await _db.DefaultLessons.FindAsync(new object[] { date, lessonNumber });
             if (lesson == null)
             {
@@ -89,6 +106,7 @@ namespace MyTimetable.Controllers
         [HttpPatch("Unhide")]
         public async Task<IActionResult> Unhide(DateOnly date, int lessonNumber)
         {
+            if (!await CanEdit()) return Unauthorized();
             DefaultLessonEntry? lesson = await _db.DefaultLessons.FindAsync(new object[] { date, lessonNumber });
             if (lesson == null)
             {
@@ -108,6 +126,7 @@ namespace MyTimetable.Controllers
         [HttpPatch("Plan")]
         public async Task<IActionResult> Plan([FromQuery] Dictionary<string, int> titles, [FromQuery] List<string> strategies)
         {
+            if (!await CanEdit()) return Unauthorized();
             _planner.LoadQueue(titles);
             CalendarSchedule days = await _builder.LoadFromDb(_db, DateOnly.FromDateTime(_time.GetLocalNow().DateTime), _builder.YearEnd);
             ScheduleChangeset schedule = new();
@@ -132,8 +151,11 @@ namespace MyTimetable.Controllers
         }
 
         [HttpGet("Plan")]
-        public IActionResult Plan()
-            => Content(_planPage.Html, "text/html; charset=utf-8");
+        public async Task<IActionResult> Plan()
+        {
+            if (!await CanEdit()) return RedirectToAction("Login");
+            return Content(_planPage.Html, "text/html; charset=utf-8");
+        }
 
         // Сброс для отладки: сносит всё, что наставил планировщик/пользователь (кастомные уроки и скрытия),
         // и сразу пересобирает кэш из очищенной БД. Дефолтные уроки не трогаем — это данные API.
@@ -141,6 +163,7 @@ namespace MyTimetable.Controllers
         [HttpPost("Reset")]
         public async Task<IActionResult> Reset([FromServices] IHostEnvironment env)
         {
+            if (!await CanEdit()) return Unauthorized();
             if (!env.IsDevelopment())
             {
                 return NotFound();
@@ -154,6 +177,7 @@ namespace MyTimetable.Controllers
         [HttpGet("Conflicts")]
         public async Task<IActionResult> Conflicts()
         {
+            if (!await CanView()) return Unauthorized();
             CalendarSchedule schedule = await _builder.LoadFromDb(_db, DateOnly.FromDateTime(_time.GetLocalNow().DateTime), _builder.YearEnd);
             List<Slot> conflicts = _planner.GetConflictingSlots(schedule).ToList();
             return Ok(conflicts);
@@ -162,6 +186,7 @@ namespace MyTimetable.Controllers
         [HttpPatch("ResolveConflicts")]
         public async Task<IActionResult> ResolveConflicts()
         {
+            if (!await CanEdit()) return Unauthorized();
             CalendarSchedule schedule = await _builder.LoadFromDb(_db, DateOnly.FromDateTime(_time.GetLocalNow().DateTime), _builder.YearEnd);
             ScheduleChangeset changeset = new();
             var dates = _planner.ResolveConflicts(schedule, changeset);
@@ -172,6 +197,52 @@ namespace MyTimetable.Controllers
             Dictionary<DateOnly, string> rendered = dates.ToDictionary(x => x, x => _data.PartialViewResult[x]);
             // Снятие конфликтов не может «не влезть» (только убирает кастомные уроки), поэтому failure нет.
             return Ok(new { success = rendered });
+        }
+
+        [HttpGet("Login")]
+        public IActionResult Login() => View();
+
+        public record LoginRequest(string Username, string Password);
+
+        [HttpPost("Login")]
+        public async Task<IActionResult> Login([FromBody] LoginRequest req)
+        {
+            if (string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.Password))
+                return BadRequest(new { error = "Username and password required." });
+
+            if (!await _auth.CanLogIn(_db, req.Username, req.Password))
+                return Unauthorized(new { error = "Invalid credentials." });
+
+            string sessionId = _sessGen.Generate();
+            await _auth.AddSessionFor(_db, sessionId, req.Username);
+            await _db.SaveChangesAsync();
+
+            Response.Cookies.Append("mytimetable.session", sessionId, new CookieOptions
+            {
+                HttpOnly = false,
+                SameSite = SameSiteMode.Lax,
+                Path = "/",
+                MaxAge = TimeSpan.FromDays(7)
+            });
+
+            return Ok(new { sessionId, username = req.Username });
+        }
+
+        [HttpPost("Logout")]
+        public async Task<IActionResult> Logout()
+        {
+            string? sid = SID;
+            if (sid != null)
+            {
+                Session? session = await _db.Sessions.FindAsync(sid);
+                if (session != null)
+                {
+                    _db.Sessions.Remove(session);
+                    await _db.SaveChangesAsync();
+                }
+            }
+            Response.Cookies.Delete("mytimetable.session", new CookieOptions { Path = "/" });
+            return Ok();
         }
     }
 }
