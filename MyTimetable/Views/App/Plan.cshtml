@@ -93,6 +93,7 @@
         <button type="button" class="add" onclick="addStrat()">+ стратегия</button>
 
         <button type="button" class="go" id="go" onclick="submitPlan()">Запланировать</button>
+        <button type="button" class="go" id="resolve" onclick="resolveConflicts()" style="background:#2a1542;border-color:#a855f7;color:#e8d5ff">Разрешить конфликты</button>
         <button type="button" class="reset" id="reset" onclick="resetDb()">Сбросить БД</button>
         <div id="result"></div>
     </div>
@@ -173,6 +174,33 @@
             if (!rows.querySelector('.row')) addRow();
             restoring = false;
         })();
+
+        async function resolveConflicts() {
+            const btn = document.getElementById('resolve');
+            const result = document.getElementById('result');
+            result.className = '';
+            result.textContent = '';
+
+            btn.disabled = true;
+            try {
+                const res = await fetch('/App/ResolveConflicts', { method: 'PATCH' });
+                if (!res.ok) {
+                    result.className = 'err';
+                    result.textContent = 'Ошибка ' + res.status + ': ' + (await res.text());
+                    return;
+                }
+                const data = await res.json();
+                const days = data.success ? Object.keys(data.success).length : 0;
+                result.className = 'ok';
+                result.innerHTML = 'Конфликты разрешены (затронуто дней: ' + days +
+                    '). <a class="back" href="/App">открыть расписание →</a>';
+            } catch {
+                result.className = 'err';
+                result.textContent = 'Сеть недоступна.';
+            } finally {
+                btn.disabled = false;
+            }
+        }
 
         async function resetDb() {
             const reset = document.getElementById('reset');
