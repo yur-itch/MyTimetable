@@ -4,5 +4,6 @@ namespace MyTimetable.Planning;
 
 public interface ISlotter
 {
-    Slot? NextSlot();
+    Slot? Peek();
+    void Commit(Slot slot);
 }

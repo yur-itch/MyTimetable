@@ -2,5 +2,6 @@ namespace MyTimetable.Planning;
 
 public interface IPicker
 {
-    string? Pick(Dictionary<string, int> queue);
+    string? Peek(Dictionary<string, int> queue);
+    void Commit(string title);
 }
