@@ -909,6 +909,8 @@ static int cmd_plan(int argc, char** argv) {
                 pos += url_encode(qs + pos, strats[i]);
             }
 
+            pos += snprintf(qs + pos, sizeof(qs) - pos, "&fromCli=true");
+
             if (pos >= (int)sizeof(qs) - 512) {
                 printf("  Payload too large. Reduce subjects or strategies.\n");
                 continue;
@@ -936,19 +938,21 @@ static int cmd_plan(int argc, char** argv) {
             }
 
             struct json_value_s *jroot = json_parse(resp, strlen(resp));
-            int failure = 0, success = 0;
             if (jroot) {
                 struct json_object_s *jobj = json_value_as_object(jroot);
-                struct json_value_s *succ_v = json_get(jobj, "success");
-                struct json_value_s *fail_v = json_get(jobj, "failure");
-                struct json_number_s *succ_n = succ_v ? json_value_as_number(succ_v) : NULL;
-                struct json_number_s *fail_n = fail_v ? json_value_as_number(fail_v) : NULL;
-                success = succ_n ? atoi(succ_n->number) : 0;
-                failure = fail_n ? atoi(fail_n->number) : 0;
+                const char *data = NULL;
+                int starget = 0;
+                struct json_value_s *data_v = json_get(jobj, "data");
+                struct json_string_s *data_s = data_v ? json_value_as_string(data_v) : NULL;
+                if (data_s) data = data_s->string;
+                struct json_value_s *st_v = json_get(jobj, "scrollTarget");
+                struct json_number_s *st_n = st_v ? json_value_as_number(st_v) : NULL;
+                if (st_n) starget = atoi(st_n->number);
+                if (data) run_table_repl(data, starget);
                 free(jroot);
             }
 
-            printf("  Result: placed %d lessons, failed %d\n", success, failure);
+            plan_show_status(titles, counts, n, strats, s);
         }
         else {
             printf("Unknown: %s. Type 'help'.\n", args[0]);
