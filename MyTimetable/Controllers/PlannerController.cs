@@ -40,10 +40,16 @@ namespace MyTimetable.Controllers
         [HttpPatch]
         public async Task<IActionResult> Plan([FromQuery] Dictionary<string, int> titles, [FromQuery] List<string> strategies, [FromQuery] bool fromCli = false, [FromHeader(Name = "X-Session-Id")] string? sessionId = null)
         {
-            if (!string.IsNullOrEmpty(sessionId))
-            {
+            if (fromCli) {
                 if (!await _auth.IsEditor(_db, sessionId))
+                {
                     return Unauthorized("No editing rights for this page");
+                }
+                if (!await _auth.IsViewer(_db, sessionId))
+                {
+                    // the planner returns the table, which is considered viewing
+                    return Unauthorized("No viewing rights for this page");
+                }
             }
             _planner.LoadQueue(titles);
             CalendarSchedule days = await _builder.LoadFromDb(_db, DateOnly.FromDateTime(_time.GetLocalNow().DateTime), _builder.YearEnd);
@@ -81,10 +87,12 @@ namespace MyTimetable.Controllers
         [HttpGet("Conflicts")]
         public async Task<IActionResult> Conflicts([FromQuery] bool fromCli = false, [FromHeader(Name = "X-Session-Id")] string? sessionId = null)
         {
-            if (!string.IsNullOrEmpty(sessionId))
+            if (fromCli)
             {
                 if (!await _auth.IsViewer(_db, sessionId))
+                {
                     return Unauthorized("No viewing rights for this page");
+                }
             }
             CalendarSchedule schedule = await _builder.LoadFromDb(_db, DateOnly.FromDateTime(_time.GetLocalNow().DateTime), _builder.YearEnd);
             List<Slot> conflicts = _planner.GetConflictingSlots(schedule).ToList();
@@ -94,10 +102,16 @@ namespace MyTimetable.Controllers
         [HttpPatch("ResolveConflicts")]
         public async Task<IActionResult> ResolveConflicts([FromQuery] bool fromCli = false, [FromHeader(Name = "X-Session-Id")] string? sessionId = null)
         {
-            if (!string.IsNullOrEmpty(sessionId))
+            if (fromCli)
             {
                 if (!await _auth.IsEditor(_db, sessionId))
+                {
                     return Unauthorized("No editing rights for this page");
+                }
+                if (!await _auth.IsViewer(_db, sessionId))
+                {
+                    return Unauthorized("No viewing rights for this page");
+                }
             }
             CalendarSchedule schedule = await _builder.LoadFromDb(_db, DateOnly.FromDateTime(_time.GetLocalNow().DateTime), _builder.YearEnd);
             ScheduleChangeset changeset = new();
