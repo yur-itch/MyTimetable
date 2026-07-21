@@ -110,10 +110,30 @@
             text-decoration: none;
         }
         .plan-btn:hover { background: #173667; }
+
+        .logout-btn {
+            position: fixed;
+            top: 8px;
+            right: 8px;
+            z-index: 20;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: #1a1320;
+            border: 1px solid #5b2330;
+            color: #e88;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .logout-btn:hover { background: #271826; }
     </style>
 </head>
 <body>
     <a class="plan-btn" href="/App/Plan" title="Планирование">+</a>
+    <button class="logout-btn" onclick="logout()" title="Выйти">⏻</button>
     <div id="scroller">
         <div class="grid">
             <div class="cell s-both"></div>
@@ -175,6 +195,14 @@
                 maybeLogout(res);
                 if (res.ok) swapDay(dateStr, await res.text());
             } catch {}
+        }
+
+        async function logout() {
+            try {
+                await fetch('/App/Logout', { method: 'POST', headers: authHeaders() });
+            } catch {}
+            localStorage.removeItem('mytimetable.session');
+            window.location.href = '/App/Login';
         }
 
         function swapDay(dateStr, html) {
