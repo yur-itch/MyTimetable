@@ -99,6 +99,18 @@
     </div>
 
     <script>
+        function authHeaders() {
+            const sid = localStorage.getItem('mytimetable.session');
+            return sid ? { 'X-Session-Id': sid } : {};
+        }
+
+        function maybeLogout(res) {
+            if (res.status === 401) {
+                localStorage.removeItem('mytimetable.session');
+                window.location.href = '/App/Login';
+            }
+        }
+
         const rows = document.getElementById('rows');
         const strats = document.getElementById('strats');
         const STRATEGIES = [@Html.Raw(string.Join(", ", Model.Strategies.Select(s => "\"" + s + "\"")))];
@@ -211,7 +223,8 @@
 
             reset.disabled = true;
             try {
-                const res = await fetch('/App/Reset', { method: 'POST' });
+                const res = await fetch('/App/Reset', { method: 'POST', headers: authHeaders() });
+                maybeLogout(res);
                 if (!res.ok) {
                     result.className = 'err';
                     result.textContent = 'Ошибка ' + res.status + ': ' + (await res.text());
@@ -262,7 +275,8 @@
 
             go.disabled = true;
             try {
-                const res = await fetch('/App/Plan?' + params.join('&'), { method: 'PATCH' });
+                const res = await fetch('/App/Plan?' + params.join('&'), { method: 'PATCH', headers: authHeaders() });
+                maybeLogout(res);
                 if (!res.ok) {
                     result.className = 'err';
                     result.textContent = 'Ошибка ' + res.status + ': ' + (await res.text());
