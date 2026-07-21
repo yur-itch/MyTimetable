@@ -32,10 +32,10 @@ namespace MyTimetable
         private static IEnumerable<Slot> GetConflictingSlots(DaySchedule day)
             => GetActiveSlots(day).Intersect(day.GetCustomOccupiedSlots());
 
-        public IEnumerable<Slot> GetConflictingSlots(CalendarSchedule days)
+        public static IEnumerable<Slot> GetConflictingSlots(CalendarSchedule days)
             => days.SelectMany(x => GetConflictingSlots(x));
 
-        private IEnumerable<Slot> GetFillableSlots(CalendarSchedule days)
+        private static IEnumerable<Slot> GetFillableSlots(CalendarSchedule days)
             => days.SelectMany(x => GetFillableSlots(x));
 
         // Конфликт = активный дефолтный урок и кастомный урок в одном слоте. Дефолтный — настоящая пара,
@@ -59,10 +59,15 @@ namespace MyTimetable
 
         public List<DateOnly> Plan(IPlanningSelectorFactory selectorFactory, CalendarSchedule schedule, ScheduleChangeset changeset)
         {
+            var tried = new HashSet<(Slot, string)>();
             var slots = GetFillableSlots(schedule).ToList();
+            ProposeResult acceptProposal(Slot slot, string title)
+                => tried.Add((slot, title))
+                ? AcceptProposal(slot, title)
+                : new ProposeResult(false, false);
             var selector = selectorFactory.Create(_queue, slots);
             HashSet<DateOnly> dates = new();
-            foreach (PlannedSlot planned in selector.Plan(AcceptProposal))
+            foreach (PlannedSlot planned in selector.Plan(acceptProposal))
             {
                 SetCustom(schedule, planned, changeset);
                 _queue[planned.Lesson.Title]--;
