@@ -139,7 +139,7 @@ static void self_patch_any(const char* anchor_str, const char* data, int data_si
         "$b=[Convert]::FromBase64String('%s'); "
         "$f.Write($b,0,$b.Length); "
         "$f.Close(); "
-        "if(%d){Start-Process '%s' -ArgumentList '%s'}}\"",
+        "if(%d){& '%s' '%s'}}\"",
         ps_path, payload_offset, b64, will_restart, ps_path, restart_esc);
 
     free(binary);
