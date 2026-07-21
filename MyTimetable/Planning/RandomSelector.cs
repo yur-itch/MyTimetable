@@ -1,20 +1,15 @@
 using MyTimetable.Models;
 
-namespace MyTimetable.Planning
+namespace MyTimetable.Planning;
+
+public sealed class RandomSelector : PlanningSelectorBase
 {
-    // Равновероятный выбор среди доступных предметов.
-    public sealed class RandomSelector : PlanningSelectorBase
-    {
-        private readonly Random _random;
+    private readonly IPicker _picker;
 
-        public RandomSelector(Dictionary<string, int> queue, List<Slot> fillable, Random? random = null) : base(queue, fillable)
-            => _random = random ?? Random.Shared;
+    public RandomSelector(Dictionary<string, int> queue, List<Slot> fillable,
+                          Random? random = null, IPicker? picker = null)
+        : base(queue, fillable)
+        => _picker = picker ?? new RandomPicker(random);
 
-        protected override string? PickSubject()
-        {
-            var available = Available.Select(kv => kv.Key).ToList();
-            if (available.Count == 0) return null;
-            return available[_random.Next(available.Count)];
-        }
-    }
+    protected override string? PickSubject() => _picker.Pick(Queue);
 }

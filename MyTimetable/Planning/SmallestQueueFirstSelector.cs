@@ -1,18 +1,15 @@
 using MyTimetable.Models;
 
-namespace MyTimetable.Planning
-{
-    // Сначала закрывает предметы, которых осталось меньше всего.
-    public sealed class SmallestQueueFirstSelector : PlanningSelectorBase
-    {
-        public SmallestQueueFirstSelector(Dictionary<string, int> queue, List<Slot> fillable) : base(queue, fillable) { }
+namespace MyTimetable.Planning;
 
-        // Пустой Available -> MinBy не находит элементов; возвращаем null -> остановка.
-        protected override string? PickSubject()
-        {
-            var available = Available.ToList();
-            if (available.Count == 0) return null;
-            return available.MinBy(kv => kv.Value).Key;
-        }
-    }
+public sealed class SmallestQueueFirstSelector : PlanningSelectorBase
+{
+    private readonly IPicker _picker;
+
+    public SmallestQueueFirstSelector(Dictionary<string, int> queue, List<Slot> fillable,
+                                      IPicker? picker = null)
+        : base(queue, fillable)
+        => _picker = picker ?? new SmallestQueueFirstPicker();
+
+    protected override string? PickSubject() => _picker.Pick(Queue);
 }
