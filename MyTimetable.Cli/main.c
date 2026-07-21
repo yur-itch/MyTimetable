@@ -961,6 +961,117 @@ static int cmd_plan(int argc, char** argv) {
     return 0;
 }
 
+static int cmd_conflicts(int argc, char** argv) {
+    for (int i = 2; i < argc; i++) {
+        if (strcmp(argv[i],"--host")==0 && i+1<argc) {
+            if (mbstowcs(client.host, argv[++i], 256) == (size_t)-1)
+                wcscpy(client.host, DEFAULT_HOST);
+        }
+        else if (strcmp(argv[i],"--port")==0 && i+1<argc) {
+            char* endptr = NULL;
+            long val = strtol(argv[++i], &endptr, 10);
+            if (endptr == argv[i] || *endptr != '\0' || val < 1 || val > 65535) {
+                fprintf(stderr, "Invalid port: %s. Using default %d.\n", argv[i], DEFAULT_PORT);
+                client.port = DEFAULT_PORT;
+            } else {
+                client.port = (int)val;
+            }
+        }
+    }
+    if (needs_login()) { fprintf(stderr, "No token. Run 'login' first.\n"); return 1; }
+
+    // GET /Planner/Conflicts?fromCli=true
+    int st = 0;
+    char* raw = http_request(L"GET", L"/Planner/Conflicts?fromCli=true", NULL, &st, NULL);
+    if (!raw) { fprintf(stderr, "Connection failed\n"); return 1; }
+    if (st == 401) {
+        fprintf(stderr, "Token expired. Clearing...\n");
+        self_patch(SESSION_PLACEHOLDER, 0, NULL);
+        return 1;
+    }
+    if (st != 200) { fprintf(stderr, "Error %d: %s\n", st, raw); return 1; }
+
+    struct json_value_s *root = json_parse(raw, strlen(raw));
+    if (!root) { fprintf(stderr, "Bad JSON\n"); return 1; }
+
+    struct json_array_s *arr = json_value_as_array(root);
+    if (!arr) { fprintf(stderr, "Expected array\n"); free(root); return 1; }
+
+    int count = 0;
+    for (struct json_array_element_s *e = arr->start; e; e = e->next) {
+        struct json_object_s *slot = json_value_as_object(e->value);
+        if (!slot) continue;
+        const char* date = json_get_string(slot, "date");
+        struct json_value_s *num_v = json_get(slot, "number");
+        int num = 0;
+        if (num_v) {
+            struct json_number_s *num_n = json_value_as_number(num_v);
+            if (num_n) num = atoi(num_n->number);
+        }
+        printf("  %s  pair %d\n", date ? date : "?", num);
+        count++;
+    }
+    if (count == 0) printf("No conflicts found.\n");
+    else printf("%d conflict(s) total. Run 'resolve-conflicts' to fix.\n", count);
+
+    free(root);
+    return 0;
+}
+
+static int cmd_resolve_conflicts(int argc, char** argv) {
+    for (int i = 2; i < argc; i++) {
+        if (strcmp(argv[i],"--host")==0 && i+1<argc) {
+            if (mbstowcs(client.host, argv[++i], 256) == (size_t)-1)
+                wcscpy(client.host, DEFAULT_HOST);
+        }
+        else if (strcmp(argv[i],"--port")==0 && i+1<argc) {
+            char* endptr = NULL;
+            long val = strtol(argv[++i], &endptr, 10);
+            if (endptr == argv[i] || *endptr != '\0' || val < 1 || val > 65535) {
+                fprintf(stderr, "Invalid port: %s. Using default %d.\n", argv[i], DEFAULT_PORT);
+                client.port = DEFAULT_PORT;
+            } else {
+                client.port = (int)val;
+            }
+        }
+    }
+    if (needs_login()) { fprintf(stderr, "No token. Run 'login' first.\n"); return 1; }
+
+    // PATCH /Planner/ResolveConflicts?fromCli=true
+    int st = 0;
+    char ce[32];
+    char* raw = http_request(L"PATCH", L"/Planner/ResolveConflicts?fromCli=true", NULL, &st, ce);
+    if (!raw) { fprintf(stderr, "Connection failed\n"); return 1; }
+    if (st == 401) {
+        fprintf(stderr, "Token expired. Clearing...\n");
+        self_patch(SESSION_PLACEHOLDER, 0, NULL);
+        return 1;
+    }
+    if (st != 200) { fprintf(stderr, "Error %d: %s\n", st, raw); return 1; }
+
+    // Response: {data, scrollTarget} — same as CLI schedule view, brotli-compressed
+    if (strcmp(ce, "br") == 0) {
+        // http_request already decompressed it
+    }
+
+    struct json_value_s *root = json_parse(raw, strlen(raw));
+    if (!root) { fprintf(stderr, "Bad JSON from server\n"); return 1; }
+
+    struct json_object_s *root_obj = json_value_as_object(root);
+    const char *data_text = json_get_string(root_obj, "data");
+    struct json_value_s *st_v = json_get(root_obj, "scrollTarget");
+    struct json_number_s *st_n = st_v ? json_value_as_number(st_v) : NULL;
+    int scroll_target = st_n ? atoi(st_n->number) : 0;
+
+    if (!data_text) { fprintf(stderr, "No data in response\n"); free(root); return 1; }
+
+    printf("Conflicts resolved.\n");
+    run_table_repl(data_text, scroll_target);
+
+    free(root);
+    return 0;
+}
+
 static int cmd_proxy(void) {
     printf("Starting proxy...\n");
     system("start cmd /k \"dotnet run --project MyTimetable.Proxy --port 9155\"");
@@ -980,6 +1091,8 @@ static void help(void) {
            "  mytimetable plan                      interactive planner\n"
            "  mytimetable plan status|show          show saved plan state\n"
            "  mytimetable plan clear|reset           clear saved plan state\n"
+           "  mytimetable conflicts                list conflicting lessons\n"
+           "  mytimetable resolve-conflicts          resolve all conflicts\n"
            "  mytimetable proxy\n"
            "  mytimetable help\n\n"
            "Token stored INSIDE the .exe file. No config files.\n"
@@ -1001,6 +1114,8 @@ int main(int argc, char** argv) {
     if (strcmp(cmd,"logout")==0) return cmd_logout();
     if (strcmp(cmd,"schedule")==0) return cmd_schedule(argc,argv);
     if (strcmp(cmd,"plan")==0) return cmd_plan(argc,argv);
+    if (strcmp(cmd,"conflicts")==0) return cmd_conflicts(argc,argv);
+    if (strcmp(cmd,"resolve-conflicts")==0) return cmd_resolve_conflicts(argc,argv);
     if (strcmp(cmd,"proxy")==0) return cmd_proxy();
     if (strcmp(cmd,"help")==0) { help(); return 0; }
     fprintf(stderr,"Unknown: %s\n",cmd); help();
