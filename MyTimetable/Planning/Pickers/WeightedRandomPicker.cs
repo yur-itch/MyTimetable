@@ -7,7 +7,7 @@ public sealed class WeightedRandomPicker : IPicker
     public WeightedRandomPicker(Random? random = null)
         => _random = random ?? Random.Shared;
 
-    public string? Pick(Dictionary<string, int> queue)
+    public string? Peek(Dictionary<string, int> queue)
     {
         var available = queue.Where(kv => kv.Value > 0).ToList();
         if (available.Count == 0) return null;
@@ -24,4 +24,6 @@ public sealed class WeightedRandomPicker : IPicker
         }
         return available[^1].Key;
     }
+
+    public void Commit(string title) { }
 }
