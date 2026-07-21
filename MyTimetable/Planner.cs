@@ -32,7 +32,7 @@ namespace MyTimetable
         private static IEnumerable<Slot> GetConflictingSlots(DaySchedule day)
             => GetActiveSlots(day).Intersect(day.GetCustomOccupiedSlots());
 
-        public static IEnumerable<Slot> GetConflictingSlots(CalendarSchedule days)
+        public IEnumerable<Slot> GetConflictingSlots(CalendarSchedule days)
             => days.SelectMany(x => GetConflictingSlots(x));
 
         private static IEnumerable<Slot> GetFillableSlots(CalendarSchedule days)
