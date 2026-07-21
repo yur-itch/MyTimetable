@@ -83,8 +83,8 @@ namespace MyTimetable.Controllers
         {
             if (!string.IsNullOrEmpty(sessionId))
             {
-                if (!await _auth.IsEditor(_db, sessionId))
-                    return Unauthorized("No editing rights for this page");
+                if (!await _auth.IsViewer(_db, sessionId))
+                    return Unauthorized("No viewing rights for this page");
             }
             CalendarSchedule schedule = await _builder.LoadFromDb(_db, DateOnly.FromDateTime(_time.GetLocalNow().DateTime), _builder.YearEnd);
             List<Slot> conflicts = _planner.GetConflictingSlots(schedule).ToList();
