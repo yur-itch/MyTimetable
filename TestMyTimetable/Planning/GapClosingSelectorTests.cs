@@ -1,26 +1,20 @@
 using System.Reflection;
 using MyTimetable.Planning;
-using MyTimetable.Models;
 using FluentAssertions;
-using SlotRange = MyTimetable.Planning.Range;
 
 namespace TestMyTimetable.Planning
 {
     public class TestGapClosingSelector
     {
-        // GetGapsInDay стал instance-методом (нужен _slotCount из конструктора) — рефлексия теперь
-        // бьёт по инстансу, а не по типу; сам метод остался private, InternalsVisibleTo тут не помогает.
-        private static List<SlotRange> Invoke(int[] emptySlots)
+        private static List<GapRange> Invoke(int[] emptySlots, int slotCount = 6)
         {
-            var selector = new GapClosingSelector(new Dictionary<string, int>(), new List<Slot>());
-            var method = typeof(GapClosingSelector)
-                .GetMethod("GetGapsInDay", BindingFlags.NonPublic | BindingFlags.Instance)
+            var method = typeof(GapClosingSlotter)
+                .GetMethod("GetGapsInDay", BindingFlags.NonPublic | BindingFlags.Static)
                 ?? throw new InvalidOperationException("GetGapsInDay not found");
 
-            return ((IEnumerable<SlotRange>)method.Invoke(selector, [emptySlots.ToList()])!).ToList();
+            return ((IEnumerable<GapRange>)method.Invoke(null, [emptySlots.ToList(), slotCount])!).ToList();
         }
 
-        // Каждый кейс: [пустые слоты, ожидаемые Start[], ожидаемые Size[]]
         public static IEnumerable<object[]> Cases()
         {
             yield return new object[] { new int[] { }, new int[] { }, new int[] { } };
