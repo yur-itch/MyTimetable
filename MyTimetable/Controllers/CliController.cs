@@ -53,7 +53,7 @@ namespace MyTimetable.Controllers
             await _auth.AddSessionFor(_db, sessionID, req.Username);
             await _db.SaveChangesAsync();
 
-            return Ok(sessionID);
+            return Content(sessionID, "text/plain");
         }
 
         public record RegisterRequest(string Username, string Password);
@@ -74,7 +74,7 @@ namespace MyTimetable.Controllers
             await _auth.AddSessionFor(_db, sessionID, req.Username);
             await _db.SaveChangesAsync();
 
-            return Ok(sessionID);
+            return Content(sessionID, "text/plain");
         }
 
         // [HttpPatch("Hide")]
