@@ -92,6 +92,27 @@ slot choice depends on subject choice and vice versa. These continue to implemen
 full selector interface directly. Two code paths is acceptable: decomposable strategies
 use picker+slotter composition; non-decomposable ones implement the full contract.
 
+### Why classes, not delegates
+
+In a frozen-snapshot world (no planner feedback), pickers and slotters would be pure
+functions — delegates would suffice:
+
+```csharp
+delegate string? Picker(IReadOnlyDictionary<string, int> queue);
+delegate Slot? Slotter(List<Slot> fillable);
+```
+
+With justified streaming (Goal 1), the picker may be asked "try again" for the same
+slot after a rejection. This requires mutable internal state scoped to the Plan() call:
+
+- RoundRobin must defer `_position` advance until acceptance.
+- FairShare must defer `_placed` update until acceptance.
+- Chunk-growth heap must defer dequeue until acceptance.
+- The exclusion set for the current slot survives across retries.
+
+Delegates cannot carry this state cleanly — closures capturing mutable state are just
+classes by another name and harder to test. Classes are the correct choice.
+
 ### Intent
 
 This is a learning exercise, not a commercial requirement. The goal is to work through
