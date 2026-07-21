@@ -130,6 +130,18 @@
         </div>
     </div>
     <script>
+        function authHeaders() {
+            const sid = localStorage.getItem('mytimetable.session');
+            return sid ? { 'X-Session-Id': sid } : {};
+        }
+
+        function maybeLogout(res) {
+            if (res.status === 401) {
+                localStorage.removeItem('mytimetable.session');
+                window.location.href = '/App/Login';
+            }
+        }
+
         requestAnimationFrame(() => {
             const cur = document.getElementById("@Model.ScrollTarget");
             if (cur) (cur.firstElementChild ?? cur).scrollIntoView({ block: "center" });
@@ -151,14 +163,16 @@
             const action = el.classList.contains('hidden') ? 'Unhide' : 'Hide';
             try {
                 // PATCH сразу возвращает обновлённый партиал дня — вставляем его, без отдельного GET.
-                const res = await fetch('/App/' + action + '?date=' + dateStr + '&lessonNumber=' + num, { method: 'PATCH' });
+                const res = await fetch('/App/' + action + '?date=' + dateStr + '&lessonNumber=' + num, { method: 'PATCH', headers: authHeaders() });
+                maybeLogout(res);
                 if (res.ok) swapDay(dateStr, await res.text());
             } catch {}
         }
 
         async function refreshDay(dateStr) {
             try {
-                const res = await fetch('/App/GetOne?date=' + dateStr);
+                const res = await fetch('/App/GetOne?date=' + dateStr, { headers: authHeaders() });
+                maybeLogout(res);
                 if (res.ok) swapDay(dateStr, await res.text());
             } catch {}
         }
