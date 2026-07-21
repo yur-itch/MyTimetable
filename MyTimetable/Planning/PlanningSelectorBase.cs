@@ -12,8 +12,11 @@ namespace MyTimetable.Planning
     //  • Fillable — рабочее промежуточное состояние: стратегия потребляет/переупорядочивает пул по ходу
     //    (например, заполнение дырок выбирает слоты не по порядку). Список вызывающего остаётся нетронут.
     //
-    // На каждом шаге база берёт слот через TakeSlot() (по умолчанию ближайший по порядку — слот-стратегии
-    // переопределяют) и предмет через PickSubject(). «Пропуск» — это просто меньше выданных PlannedSlot.
+    // Слоты и предметы разделены на Peek/Commit:
+    //  • Peek выдаёт кандидата, не мутируя внутреннее состояние.
+    //  • Commit фиксирует выбор только после того, как планировщик подтвердил размещение.
+    // Это позволяет планировщику отклонять предложения (например, "нет пар по воскресеньям"),
+    // и селектор пробует альтернативы без потери состояния.
     public abstract class PlanningSelectorBase : IPlanningSelector
     {
         protected readonly Dictionary<string, int> Queue;
@@ -29,20 +32,33 @@ namespace MyTimetable.Planning
         protected IEnumerable<KeyValuePair<string, int>> Available
             => Queue.Where(kv => kv.Value > 0);
 
-        // Берёт следующий слот для заполнения. По умолчанию — ближайший по порядку (убирая его из Fillable);
-        // слот-стратегии (дырки, равномерный разброс, лимит на день) переопределяют выбор. null — слотов
-        // для размещения больше нет: Plan на этом заканчивает (даже если очередь ещё не пуста).
-        protected virtual Slot? TakeSlot()
+        // --- Слоты ---
+
+        // По умолчанию — ближайший по порядку слот (без удаления из Fillable).
+        // Слот-стратегии переопределяют, делегируя своему ISlotter.Peek().
+        // null — слотов больше нет.
+        protected virtual Slot? PeekSlot()
         {
             if (Fillable.Count == 0) return null;
-            Slot slot = Fillable[0];
-            Fillable.RemoveAt(0);
-            return slot;
+            return Fillable[0];
         }
 
-        // Выбор предмета для очередного размещения. null — подходящего предмета нет (например, очередь
-        // пуста): Plan на этом заканчивает, симметрично null из TakeSlot.
-        protected abstract string? PickSubject();
+        // Фиксирует занятие слота. По умолчанию — удаляет из Fillable.
+        // Слот-стратегии переопределяют, делегируя своему ISlotter.Commit().
+        protected virtual void CommitSlot(Slot slot)
+        {
+            Fillable.RemoveAt(0);
+        }
+
+        // --- Предметы ---
+
+        // Выбор предмета-кандидата. Не мутирует состояние пикера.
+        // null — подходящих предметов нет.
+        protected abstract string? PeekSubject();
+
+        // Фиксирует выбор предмета. По умолчанию пусто — для stateless-пикеров.
+        // Stateful-пикеры переопределяют, делегируя своему IPicker.Commit().
+        protected virtual void CommitSubject(string title) { }
 
         // Основной цикл с обратной связью от планировщика.
         // Планировщик через accept говорит, OK ли слот и OK ли предмет.
@@ -53,9 +69,9 @@ namespace MyTimetable.Planning
         //   (F,F) — не подходит ни то, ни другое: оба новые.
         public IEnumerable<PlannedSlot> Plan(Func<Slot, string, ProposeResult> accept)
         {
-            Slot? slot = TakeSlot();
+            Slot? slot = PeekSlot();
             if (slot is null) yield break;
-            string? title = PickSubject();
+            string? title = PeekSubject();
             if (title is null) yield break;
 
             bool newSlot = false;
@@ -65,13 +81,13 @@ namespace MyTimetable.Planning
             {
                 if (newSlot)
                 {
-                    slot = TakeSlot();
+                    slot = PeekSlot();
                     if (slot is null) yield break;
                     newSlot = false;
                 }
                 if (newSubject)
                 {
-                    title = PickSubject();
+                    title = PeekSubject();
                     if (title is null) yield break;
                     newSubject = false;
                 }
@@ -80,6 +96,8 @@ namespace MyTimetable.Planning
 
                 if (result.SlotOK && result.SubjectOK)
                 {
+                    CommitSlot(slot);
+                    CommitSubject(title);
                     Queue[title]--;
                     yield return new PlannedSlot
                     {
