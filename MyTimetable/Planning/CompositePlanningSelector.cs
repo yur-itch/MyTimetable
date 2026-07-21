@@ -16,11 +16,11 @@ namespace MyTimetable.Planning
             _factories = factories;
         }
 
-        public IEnumerable<PlannedSlot> Plan()
+        public IEnumerable<PlannedSlot> Plan(Func<Slot, string, ProposeResult> accept)
         {
             foreach (var factory in _factories)
             {
-                foreach (var placed in factory.Create(_queue, _fillable).Plan())
+                foreach (var placed in factory.Create(_queue, _fillable).Plan(accept))
                 {
                     _queue[placed.Lesson.Title]--;
                     _fillable.Remove(placed.Slot);
