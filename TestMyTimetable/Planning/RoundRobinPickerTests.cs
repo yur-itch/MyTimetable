@@ -4,6 +4,9 @@ namespace TestMyTimetable.Planning;
 
 public class TestRoundRobinPicker
 {
+    // RoundRobinPicker — stateless reader: queue values only change via caller.
+    // Tests decrement the queue to simulate PlanningSelectorBase.Plan().
+
     [Fact]
     public void Pick_FromEmptyQueue_ReturnsNull()
     {
@@ -14,9 +17,13 @@ public class TestRoundRobinPicker
     [Fact]
     public void Pick_SingleItem_ReturnsItEveryTime()
     {
-        var picker = new RoundRobinPicker(new Dictionary<string, int> { ["A"] = 5 });
+        var q = new Dictionary<string, int> { ["A"] = 5 };
+        var picker = new RoundRobinPicker(q);
         for (int i = 0; i < 5; i++)
+        {
             picker.Pick().Should().Be("A");
+            q["A"]--; // симулируем декремент из Plan()
+        }
     }
 
     [Fact]
@@ -25,13 +32,12 @@ public class TestRoundRobinPicker
         var q = new Dictionary<string, int> { ["A"] = 3, ["B"] = 3 };
         var picker = new RoundRobinPicker(q);
 
-        // Ожидаемый порядок: A, B, A, B, A, B
-        picker.Pick().Should().Be("A");
-        picker.Pick().Should().Be("B");
-        picker.Pick().Should().Be("A");
-        picker.Pick().Should().Be("B");
-        picker.Pick().Should().Be("A");
-        picker.Pick().Should().Be("B");
+        picker.Pick().Should().Be("A"); q["A"]--;
+        picker.Pick().Should().Be("B"); q["B"]--;
+        picker.Pick().Should().Be("A"); q["A"]--;
+        picker.Pick().Should().Be("B"); q["B"]--;
+        picker.Pick().Should().Be("A"); q["A"]--;
+        picker.Pick().Should().Be("B"); q["B"]--;
     }
 
     [Fact]
@@ -40,36 +46,32 @@ public class TestRoundRobinPicker
         var q = new Dictionary<string, int> { ["X"] = 2, ["Y"] = 2, ["Z"] = 2 };
         var picker = new RoundRobinPicker(q);
 
-        picker.Pick().Should().Be("X");
-        picker.Pick().Should().Be("Y");
-        picker.Pick().Should().Be("Z");
-        picker.Pick().Should().Be("X");
-        picker.Pick().Should().Be("Y");
-        picker.Pick().Should().Be("Z");
+        picker.Pick().Should().Be("X"); q["X"]--;
+        picker.Pick().Should().Be("Y"); q["Y"]--;
+        picker.Pick().Should().Be("Z"); q["Z"]--;
+        picker.Pick().Should().Be("X"); q["X"]--;
+        picker.Pick().Should().Be("Y"); q["Y"]--;
+        picker.Pick().Should().Be("Z"); q["Z"]--;
     }
 
     [Fact]
     public void Pick_WhenItemExhausted_SkipsIt()
     {
-        var q = new Dictionary<string, int> { ["A"] = 1, ["B"] = 3 };
+        // Симулируем: A израсходован (q["A"]=0)
+        var q = new Dictionary<string, int> { ["A"] = 0, ["B"] = 3 };
         var picker = new RoundRobinPicker(q);
 
-        picker.Pick().Should().Be("A"); // A=1 → A=0
-        picker.Pick().Should().Be("B"); // B=3 → B=2
-        // A exhausted — теперь только B
-        picker.Pick().Should().Be("B");
-        picker.Pick().Should().Be("B");
-        picker.Pick().Should().BeNull(); // все исчерпаны
+        picker.Pick().Should().Be("B"); q["B"]--;
+        picker.Pick().Should().Be("B"); q["B"]--;
+        picker.Pick().Should().Be("B"); q["B"]--;
+        picker.Pick().Should().BeNull();
     }
 
     [Fact]
     public void Pick_WhenAllExhausted_ReturnsNull()
     {
-        var q = new Dictionary<string, int> { ["A"] = 1, ["B"] = 1 };
+        var q = new Dictionary<string, int> { ["A"] = 0, ["B"] = 0 };
         var picker = new RoundRobinPicker(q);
-
-        picker.Pick().Should().Be("A");
-        picker.Pick().Should().Be("B");
         picker.Pick().Should().BeNull();
     }
 
@@ -79,36 +81,31 @@ public class TestRoundRobinPicker
         var q = new Dictionary<string, int> { ["A"] = 10, ["B"] = 10 };
         var picker = new RoundRobinPicker(q);
 
-        // Потратим 3 цикла
-        for (int i = 0; i < 3; i++)
-        {
-            picker.Pick(); // A
-            picker.Pick(); // B
-        }
-        // Текущая позиция после 3 циклов: позиция на A (если 6 вызовов, то position=0 → A)
-        picker.Pick().Should().Be("A");
+        picker.Pick(); q["A"]--;                      // A
+        picker.Pick(); q["B"]--;                      // B
+        picker.Pick(); q["A"]--;                      // A
+        picker.Pick(); q["B"]--;                      // B
+        picker.Pick(); q["A"]--;                      // A
+        picker.Pick().Should().Be("B");               // B — следующая в цикле
     }
 
     [Fact]
     public void Pick_RespectsKeyOrderFromDictionary()
     {
-        // Порядок должен соответствовать порядку ключей в словаре
         var q = new Dictionary<string, int> { ["First"] = 2, ["Second"] = 2, ["Third"] = 2 };
         var picker = new RoundRobinPicker(q);
 
-        picker.Pick().Should().Be("First");
-        picker.Pick().Should().Be("Second");
-        picker.Pick().Should().Be("Third");
-        picker.Pick().Should().Be("First");
+        picker.Pick().Should().Be("First");  q["First"]--;
+        picker.Pick().Should().Be("Second"); q["Second"]--;
+        picker.Pick().Should().Be("Third");  q["Third"]--;
+        picker.Pick().Should().Be("First");  q["First"]--;
     }
 
     [Fact]
     public void Pick_SingleItemExhausted_ReturnsNull()
     {
-        var q = new Dictionary<string, int> { ["A"] = 1 };
+        var q = new Dictionary<string, int> { ["A"] = 0 };
         var picker = new RoundRobinPicker(q);
-
-        picker.Pick().Should().Be("A");
         picker.Pick().Should().BeNull();
     }
 }
