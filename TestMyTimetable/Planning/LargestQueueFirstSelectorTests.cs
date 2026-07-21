@@ -27,23 +27,19 @@ public class TestLargestQueueFirstSelector
     [Fact]
     public void Plan_AlwaysPicksLargestRemaining()
     {
-        // A=4, B=2, C=1 → порядок предметов: A, A, B, A, A, C, B
+        // A=4, B=2, C=1
+        // Шаг 1: A=4,B=2,C=1 → A(4), Queue: A=3
+        // Шаг 2: A=3,B=2,C=1 → A(3), Queue: A=2
+        // Шаг 3: A=2,B=2,C=1 → A(2, первый с max=2), Queue: A=1
+        // Шаг 4: A=1,B=2,C=1 → B(2), Queue: B=1
+        // Шаг 5: A=1,B=1,C=1 → A(1, первый с max=1), Queue: A=0
+        // Шаг 6: B=1,C=1 → B(1, первый), Queue: B=0
+        // Шаг 7: C=1 → C
         var queue = new Dictionary<string, int> { ["A"] = 4, ["B"] = 2, ["C"] = 1 };
         var sel = new LargestQueueFirstSelector(queue, Slots(7));
-        var result = sel.Plan().ToList();
+        var titles = sel.Plan().Select(p => p.Lesson.Title).ToList();
 
-        result.Should().HaveCount(7);
-        result.Select(p => p.Lesson.Title).Should().Equal(
-            "A", // A=4, B=2, C=1 → A
-            "A", // A=3, B=2, C=1 → A
-            "B", // A=2, B=2, C=1 → tie → first in dict (A), next: A=2, B=2 → tie → B (second in dict)
-                 // Wait, MaxBy returns first max, so with A=2,B=2 it returns A
-            "A", // A=2, B=2, C=1 → A
-            "A", // A=1, B=2, C=1 → B
-            "B", // A=1, B=1, C=1 → tie, A first
-            "C"  // A=1, B=1, C=1 → after A placed: A=0,B=1,C=1 → B first
-        );
-        // Let me recalculate more carefully
+        titles.Should().Equal(["A", "A", "A", "B", "A", "B", "C"]);
     }
 
     [Fact]
@@ -53,16 +49,15 @@ public class TestLargestQueueFirstSelector
         var sel = new LargestQueueFirstSelector(queue, Slots(9));
         var titles = sel.Plan().Select(p => p.Lesson.Title).ToList();
 
-        // Шаг за шагом:
-        // Queue: A=5,B=3,C=1 → MaxBy: A (5)
-        // Queue: A=4,B=3,C=1 → MaxBy: A (4)
-        // Queue: A=3,B=3,C=1 → MaxBy: A(3) or B(3), MaxBy returns first → A
-        // Queue: A=2,B=3,C=1 → MaxBy: B (3)
-        // Queue: A=2,B=2,C=1 → MaxBy: A(2) or B(2), MaxBy returns first → A
-        // Queue: A=1,B=2,C=1 → MaxBy: B (2)
-        // Queue: A=1,B=1,C=1 → MaxBy: A (first with 1)
-        // Queue: A=0,B=1,C=1 → MaxBy: B (first with 1)
-        // Queue: A=0,B=0,C=1 → MaxBy: C
+        // A=5,B=3,C=1 → A→A=4
+        // A=4,B=3,C=1 → A→A=3
+        // A=3,B=3,C=1 → A(first with 3)→A=2
+        // A=2,B=3,C=1 → B→B=2
+        // A=2,B=2,C=1 → A(first with 2)→A=1
+        // A=1,B=2,C=1 → B→B=1
+        // A=1,B=1,C=1 → A(first with 1)→A=0
+        // B=1,C=1 → B(first)→B=0
+        // C=1 → C
         titles.Should().Equal(["A", "A", "A", "B", "A", "B", "A", "B", "C"]);
     }
 
@@ -71,12 +66,13 @@ public class TestLargestQueueFirstSelector
     {
         var queue = new Dictionary<string, int> { ["Math"] = 4 };
         var sel = new LargestQueueFirstSelector(queue, Slots(4));
-        var titles = sel.Plan().Select(p => p.Lesson.Title).ToList();
-        titles.Should().AllBe("Math");
+        var result = sel.Plan().ToList();
+        result.Should().HaveCount(4);
+        result.Should().OnlyContain(p => p.Lesson.Title == "Math");
     }
 
     [Fact]
-    public void Plan_StopsWhenQueueExhaustedEvenIfSlotsRemain()
+    public void Plan_StopsWhenQueueExhausted()
     {
         var queue = new Dictionary<string, int> { ["A"] = 2 };
         var sel = new LargestQueueFirstSelector(queue, Slots(10));
@@ -84,7 +80,7 @@ public class TestLargestQueueFirstSelector
     }
 
     [Fact]
-    public void Plan_StopsWhenSlotsExhaustedEvenIfQueueRemains()
+    public void Plan_StopsWhenSlotsExhausted()
     {
         var queue = new Dictionary<string, int> { ["A"] = 10 };
         var sel = new LargestQueueFirstSelector(queue, Slots(3));
@@ -98,16 +94,10 @@ public class TestLargestQueueFirstSelector
         var sel = new LargestQueueFirstSelector(queue, Slots(9));
         var titles = sel.Plan().Select(p => p.Lesson.Title).ToList();
 
-        // Все равны → MaxBy возвращает первый в словаре
-        // X=3,Y=3,Z=3 → X
-        // X=2,Y=3,Z=3 → Y (первый с 3)
-        // X=2,Y=2,Z=3 → Z
-        // X=2,Y=2,Z=2 → X
-        // X=1,Y=2,Z=2 → Y
-        // X=1,Y=1,Z=2 → Z
-        // X=1,Y=1,Z=1 → X
-        // X=0,Y=1,Z=1 → Y
-        // X=0,Y=0,Z=1 → Z
+        // Все равны, MaxBy берёт первый в Available:
+        // X=3,Y=3,Z=3 → X; X=2,Y=3,Z=3 → Y; X=2,Y=2,Z=3 → Z
+        // X=2,Y=2,Z=2 → X; X=1,Y=2,Z=2 → Y; X=1,Y=1,Z=2 → Z
+        // X=1,Y=1,Z=1 → X; X=0,Y=1,Z=1 → Y; X=0,Y=0,Z=1 → Z
         titles.Should().Equal(["X", "Y", "Z", "X", "Y", "Z", "X", "Y", "Z"]);
     }
 

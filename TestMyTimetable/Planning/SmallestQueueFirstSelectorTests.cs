@@ -27,16 +27,11 @@ public class TestSmallestQueueFirstSelector
     [Fact]
     public void Plan_AlwaysPicksSmallestRemaining()
     {
-        // A=5, B=3, C=1
-        // C(1) → C exhausted
-        // B(3) vs A(5) → B (3)
-        // B(2) vs A(5) → B (2)
-        // B(1) vs A(5) → B (1)
-        // B exhausted → A(5) → A repeatedly
         var queue = new Dictionary<string, int> { ["A"] = 5, ["B"] = 3, ["C"] = 1 };
         var sel = new SmallestQueueFirstSelector(queue, Slots(9));
         var titles = sel.Plan().Select(p => p.Lesson.Title).ToList();
 
+        // C=1 → C; B=3 → B,B,B; A=5 → A,A,A,A,A
         titles.Should().Equal(["C", "B", "B", "B", "A", "A", "A", "A", "A"]);
     }
 
@@ -45,7 +40,9 @@ public class TestSmallestQueueFirstSelector
     {
         var queue = new Dictionary<string, int> { ["Math"] = 4 };
         var sel = new SmallestQueueFirstSelector(queue, Slots(4));
-        sel.Plan().Select(p => p.Lesson.Title).Should().AllBe("Math");
+        var result = sel.Plan().ToList();
+        result.Should().HaveCount(4);
+        result.Should().OnlyContain(p => p.Lesson.Title == "Math");
     }
 
     [Fact]
@@ -67,40 +64,30 @@ public class TestSmallestQueueFirstSelector
     [Fact]
     public void Plan_AllSubjectsEqual_GetsDictionaryOrder()
     {
-        // Все равны → MinBy возвращает первый в словаре
         var queue = new Dictionary<string, int> { ["X"] = 3, ["Y"] = 3, ["Z"] = 3 };
         var sel = new SmallestQueueFirstSelector(queue, Slots(9));
         var titles = sel.Plan().Select(p => p.Lesson.Title).ToList();
 
-        // Шаг 1: X=3,Y=3,Z=3 → X (первый min)
-        // Шаг 2: X=2,Y=3,Z=3 → X (2)
-        // Шаг 3: X=1,Y=3,Z=3 → X (1)
-        // Шаг 4: X=0 → X exhausted, Y=3,Z=3 → Y
-        // Шаг 5: Y=2,Z=3 → Y
-        // Шаг 6: Y=1,Z=3 → Y
-        // Шаг 7: Y=0 → Z=3
-        // Шаг 8: Z=2
-        // Шаг 9: Z=1
+        // Все равны, MinBy берёт первый в списке Available:
+        // X=3 → X, X=2 → X, X=1 → X, X exhausted
+        // Y=3 → Y, Y=2 → Y, Y=1 → Y, Y exhausted
+        // Z=3 → Z, Z=2 → Z, Z=1 → Z
         titles.Should().Equal(["X", "X", "X", "Y", "Y", "Y", "Z", "Z", "Z"]);
     }
 
     [Fact]
     public void Plan_RespectsTiesViaDictionaryOrder()
     {
-        // A=2, B=2, C=1
-        // C(1) → C exhausted
-        // A=2,B=2 → A (first)
-        // A=1,B=2 → A (1)
-        // A exhausted → B=2
         var queue = new Dictionary<string, int> { ["A"] = 2, ["B"] = 2, ["C"] = 1 };
         var sel = new SmallestQueueFirstSelector(queue, Slots(5));
         var titles = sel.Plan().Select(p => p.Lesson.Title).ToList();
 
+        // C=1 → C; A=2,B=2 → A (first min); A=1,B=2 → A; A exhausted → B=2,B=2
         titles.Should().Equal(["C", "A", "A", "B", "B"]);
     }
 
     [Fact]
-    public void Plan_OutputHasCorrectSlotAndLessonProperties()
+    public void Plan_OutputHasCorrectProperties()
     {
         var queue = new Dictionary<string, int> { ["A"] = 1 };
         var slots = new List<Slot>
