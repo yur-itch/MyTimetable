@@ -66,6 +66,7 @@ var app = builder.Build();
 
 // Применяем миграции на старте: на чистой БД (свежий Postgres на Railway) это создаёт схему.
 // Если упадёт здесь — значит БД недоступна или строка подключения неверна; смотри логи деплоя.
+// Test: agent edit for snapshot verification
 using (var scope = app.Services.CreateScope())
 {
     var sp = scope.ServiceProvider;
