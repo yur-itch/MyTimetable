@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using Microsoft.AspNetCore.Mvc;
 using MyTimetable.Models;
 using MyTimetable.Planning;
+using System.Text.Json;
 
 namespace MyTimetable.Controllers
 {
@@ -54,9 +55,14 @@ namespace MyTimetable.Controllers
             await _db.SaveChangesAsync();
             await _rebuilder.Rebuild(_db, dates);
             await _planPage.Rebuild(_planner.Queue);
-            Dictionary<DateOnly, string> rendered = dates.ToDictionary(x => x, x => _data.PartialViewResult[x]);
-            var response = new { success = rendered, failure = _planner.Queue.Values.Sum() };
-            return Ok(response);
+            if (fromCli) {
+                Response.Headers.Append("Content-Encoding", "br");
+                return Ok(_data.CliViewResult);
+            } else {
+                Dictionary<DateOnly, string> rendered = dates.ToDictionary(x => x, x => _data.PartialViewResult[x]);
+                var response = new { success = rendered, failure = _planner.Queue.Values.Sum() };
+                return Ok(response);
+            }
         }
 
         [HttpGet]

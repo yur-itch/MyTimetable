@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using MyTimetable.Models;
@@ -81,10 +82,17 @@ namespace MyTimetable
             string html = await _renderer.RenderViewToStringAsync("Get", view, actionContext);
             _data.ViewResult = Compression.Brotli(html);
 
-            // CLI view: prerendered table, brotli-compressed for GET /Cli
+            // CLI view: full JSON with metadata + table, brotli-compressed.
+            // Served as-is by GET /Cli and Planner fromCli.
             int cliScrollTarget = currentIdx >= 0 ? currentIdx : 0;
-            string cliJson = _cliRenderer.Render(view.SlotCount, cliScrollTarget, schedule);
-            _data.CliViewResult = Compression.Brotli(cliJson);
+            string cliTable = _cliRenderer.Render(schedule, view.SlotCount);
+            var cliJson = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                slotCount = view.SlotCount,
+                scrollTarget = cliScrollTarget,
+                data = cliTable
+            });
+            _data.CliViewResult = Compression.Brotli(cliJson, CompressionLevel.Fastest);
 
             _data.StateValid = true;
             return true;

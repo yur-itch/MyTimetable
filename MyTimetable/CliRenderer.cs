@@ -6,13 +6,7 @@ namespace MyTimetable
 {
     public sealed class CliRenderer
     {
-        public string Render(int slotCount, int scrollTarget, CalendarSchedule schedule)
-        {
-            string table = RenderTable(schedule, slotCount);
-            return JsonSerializer.Serialize(new { slotCount, scrollTarget, data = table });
-        }
-
-        private static string RenderTable(CalendarSchedule schedule, int slotCount)
+        public string Render(CalendarSchedule schedule, int slotCount)
         {
             // Column widths: start at 10, grow to fit
             int[] cw = new int[slotCount + 1];

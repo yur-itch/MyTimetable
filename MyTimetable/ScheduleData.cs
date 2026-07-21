@@ -11,6 +11,8 @@ namespace MyTimetable
         private readonly Lock _lock = new();
         private byte[] _brotliViewResult = { };
         private byte[] _cliViewResult = { };
+        public int CliScrollTarget;
+        public int CliSlotCount;
         public ConcurrentDictionary<DateOnly, string> PartialViewResult = new();
 
         public bool StateValid

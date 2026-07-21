@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyTimetable.Entities;
@@ -37,8 +38,13 @@ namespace MyTimetable.Controllers
             {
                 return StatusCode(503, "Расписание временно недоступно");
             }
-            Response.Headers.ContentEncoding = "br";
-            return File(_data.CliViewResult, "application/json; charset=utf-8");
+            string resp = JsonSerializer.Serialize(new
+            {
+                slotCount = _data.CliSlotCount,
+                scrollTarget = _data.CliScrollTarget,
+                data = _data.CliViewResult
+            });
+            return File(resp, "application/json; charset=utf-8");
         }
 
         public record LoginRequest(string Username, string Password);
