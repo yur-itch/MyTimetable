@@ -134,7 +134,7 @@ public class TestFairShareSelector
         // ...
         // Фактически, из-за симметрии будет получаться XYZXYZ с равными
         titles.Should().HaveCount(6);
-        titles.Should().OnlyContain(t => t is "X" or "Y" or "Z");
+        titles.Should().OnlyContain(t => t == "X" || t == "Y" || t == "Z");
         // Каждый предмет должен появиться ровно 2 раза
         titles.Count(t => t == "X").Should().Be(2);
         titles.Count(t => t == "Y").Should().Be(2);

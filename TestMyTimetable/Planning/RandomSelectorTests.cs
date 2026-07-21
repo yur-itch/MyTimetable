@@ -58,7 +58,7 @@ public class TestRandomSelector
 
         // Просто проверяем, что все 10 слотов заполнены и только A/B
         titles.Should().HaveCount(10);
-        titles.Should().OnlyContain(t => t is "A" or "B");
+        titles.Should().OnlyContain(t => t == "A" || t == "B");
     }
 
     [Fact]
