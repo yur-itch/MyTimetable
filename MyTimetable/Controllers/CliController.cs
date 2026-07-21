@@ -25,7 +25,7 @@ namespace MyTimetable.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Get(string? sessionId)
+        public async Task<IActionResult> Get([FromHeader(Name = "X-Session-Id")] string? sessionId)
         {
             if (!await _auth.IsViewer(_db, sessionId))
             {
