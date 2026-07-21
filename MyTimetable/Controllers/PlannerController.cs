@@ -89,7 +89,7 @@ namespace MyTimetable.Controllers
         }
 
         [HttpPatch("ResolveConflicts")]
-        public async Task<IActionResult> ResolveConflicts()
+        public async Task<IActionResult> ResolveConflicts([FromQuery] bool fromCli = false)
         {
             if (!await _auth.IsEditor(_db, SID))
                 return Unauthorized(new { error = "No editing rights." });
