@@ -7,7 +7,10 @@ namespace MyTimetable.Planning
     {
         public SmallestQueueFirstSelector(Dictionary<string, int> queue, List<Slot> fillable) : base(queue, fillable) { }
 
-        // Пустой Available -> MinBy возвращает default(KeyValuePair), его Key == null -> остановка.
-        protected override string? PickSubject() => Available.MinBy(kv => kv.Value).Key;
+        protected override string? PickSubject()
+        {
+            var best = Available.MinBy(kv => kv.Value);
+            return best.Key; // null когда Available пуст
+        }
     }
 }
