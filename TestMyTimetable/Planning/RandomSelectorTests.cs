@@ -57,7 +57,7 @@ public class TestRandomSelector
         var sel = new RandomSelector(queue, Slots(10), new Random(42));
         var result = sel.Plan().ToList();
         result.Should().HaveCount(10);
-        result.Should().OnlyContain(p => p.Lesson.Title is "A" or "B");
+        result.Should().OnlyContain(p => p.Lesson.Title == "A" || p.Lesson.Title == "B");
     }
 
     [Fact]
