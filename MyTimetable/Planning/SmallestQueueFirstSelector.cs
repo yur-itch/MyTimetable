@@ -11,5 +11,6 @@ public sealed class SmallestQueueFirstSelector : PlanningSelectorBase
         : base(queue, fillable)
         => _picker = picker ?? new SmallestQueueFirstPicker();
 
-    protected override string? PickSubject() => _picker.Pick(Queue);
+    protected override string? PeekSubject() => _picker.Peek(Queue);
+    protected override void CommitSubject(string title) => _picker.Commit(title);
 }

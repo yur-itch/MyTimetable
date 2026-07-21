@@ -11,5 +11,6 @@ public sealed class RandomSelector : PlanningSelectorBase
         : base(queue, fillable)
         => _picker = picker ?? new RandomPicker(random);
 
-    protected override string? PickSubject() => _picker.Pick(Queue);
+    protected override string? PeekSubject() => _picker.Peek(Queue);
+    protected override void CommitSubject(string title) => _picker.Commit(title);
 }
