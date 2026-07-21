@@ -65,12 +65,31 @@
         .reset:hover { background: #271826; }
         .reset:disabled { opacity: .5; cursor: default; }
 
+        .logout-btn {
+            position: fixed;
+            top: 8px;
+            right: 8px;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: #1a1320;
+            border: 1px solid #5b2330;
+            color: #e88;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .logout-btn:hover { background: #271826; }
+
         #result { margin-top: 18px; font-size: 14px; min-height: 20px; }
         #result.ok { color: #7ddc8e; }
         #result.err { color: #e88; }
     </style>
 </head>
 <body>
+    <button class="logout-btn" onclick="logout()" title="Выйти">⏻</button>
     <div class="wrap">
         <a class="back" href="/App">← к расписанию</a>
         <h1>Планирование пар</h1>
@@ -102,6 +121,12 @@
         function authHeaders() {
             const sid = localStorage.getItem('mytimetable.session');
             return sid ? { 'X-Session-Id': sid } : {};
+        }
+
+        async function logout() {
+            try { await fetch('/App/Logout', { method: 'POST', headers: authHeaders() }); } catch {}
+            localStorage.removeItem('mytimetable.session');
+            window.location.href = '/App/Login';
         }
 
         function maybeLogout(res) {
