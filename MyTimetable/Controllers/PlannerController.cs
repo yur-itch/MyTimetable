@@ -37,21 +37,16 @@ namespace MyTimetable.Controllers
             _auth = auth;
         }
 
+        private string? SID => Request.Headers["X-Session-Id"].FirstOrDefault()
+                              ?? Request.Cookies["mytimetable.session"];
+
         [HttpPatch]
-        public async Task<IActionResult> Plan([FromQuery] Dictionary<string, int> titles, [FromQuery] List<string> strategies, [FromQuery] bool fromCli = false, [FromHeader(Name = "X-Session-Id")] string? sessionId = null)
+        public async Task<IActionResult> Plan([FromQuery] Dictionary<string, int> titles, [FromQuery] List<string> strategies, [FromQuery] bool fromCli = false)
         {
-            if (fromCli) {
-                if (!await _auth.IsEditor(_db, sessionId))
-                {
-                    return Unauthorized("No editing rights for this page");
-                }
-                if (!await _auth.IsViewer(_db, sessionId))
-                {
-                    // the planner returns the table, which is considered viewing
-                    // so technically requires both
-                    return Unauthorized("No viewing rights for this page");
-                }
-            }
+            if (!await _auth.IsEditor(_db, SID))
+                return Unauthorized(new { error = "No editing rights." });
+            if (!await _auth.IsViewer(_db, SID))
+                return Unauthorized(new { error = "No viewing rights." });
             _planner.LoadQueue(titles);
             CalendarSchedule days = await _builder.LoadFromDb(_db, DateOnly.FromDateTime(_time.GetLocalNow().DateTime), _builder.YearEnd);
             ScheduleChangeset schedule = new();
@@ -81,39 +76,25 @@ namespace MyTimetable.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Plan() {
-            return Content(_planPage.Html, "text/html; charset=utf-8");
-        }
+        public IActionResult Plan() => Content(_planPage.Html, "text/html; charset=utf-8");
 
         [HttpGet("Conflicts")]
-        public async Task<IActionResult> Conflicts([FromQuery] bool fromCli = false, [FromHeader(Name = "X-Session-Id")] string? sessionId = null)
+        public async Task<IActionResult> Conflicts()
         {
-            if (fromCli)
-            {
-                if (!await _auth.IsViewer(_db, sessionId))
-                {
-                    return Unauthorized("No viewing rights for this page");
-                }
-            }
+            if (!await _auth.IsViewer(_db, SID))
+                return Unauthorized(new { error = "No viewing rights." });
             CalendarSchedule schedule = await _builder.LoadFromDb(_db, DateOnly.FromDateTime(_time.GetLocalNow().DateTime), _builder.YearEnd);
             List<Slot> conflicts = _planner.GetConflictingSlots(schedule).ToList();
             return Ok(conflicts);
         }
 
         [HttpPatch("ResolveConflicts")]
-        public async Task<IActionResult> ResolveConflicts([FromQuery] bool fromCli = false, [FromHeader(Name = "X-Session-Id")] string? sessionId = null)
+        public async Task<IActionResult> ResolveConflicts()
         {
-            if (fromCli)
-            {
-                if (!await _auth.IsEditor(_db, sessionId))
-                {
-                    return Unauthorized("No editing rights for this page");
-                }
-                if (!await _auth.IsViewer(_db, sessionId))
-                {
-                    return Unauthorized("No viewing rights for this page");
-                }
-            }
+            if (!await _auth.IsEditor(_db, SID))
+                return Unauthorized(new { error = "No editing rights." });
+            if (!await _auth.IsViewer(_db, SID))
+                return Unauthorized(new { error = "No viewing rights." });
             CalendarSchedule schedule = await _builder.LoadFromDb(_db, DateOnly.FromDateTime(_time.GetLocalNow().DateTime), _builder.YearEnd);
             ScheduleChangeset changeset = new();
             var dates = _planner.ResolveConflicts(schedule, changeset);
