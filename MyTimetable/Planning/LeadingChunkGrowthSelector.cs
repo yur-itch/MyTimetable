@@ -8,11 +8,13 @@ public sealed class LeadingChunkGrowthSelector : PlanningSelectorBase
     private readonly IPicker _picker;
 
     public LeadingChunkGrowthSelector(Dictionary<string, int> queue, List<Slot> fillable,
-                                      int slotCount = 6, IPicker? picker = null, ISlotter? slotter = null)
+                                      int slotCount = 6,
+                                      IPickerFactory? pickerFactory = null,
+                                      ISlotterFactory? slotterFactory = null)
         : base(queue, fillable)
     {
-        _slotter = slotter ?? new LeadingChunkGrowthSlotter(Fillable, slotCount);
-        _picker = picker ?? new RoundRobinPicker(queue);
+        _slotter = slotterFactory?.Create(Fillable) ?? new LeadingChunkGrowthSlotter(Fillable, slotCount);
+        _picker = pickerFactory?.Create(Queue) ?? new RoundRobinPicker(Queue);
     }
 
     protected override Slot? PeekSlot() => _slotter.Peek();
