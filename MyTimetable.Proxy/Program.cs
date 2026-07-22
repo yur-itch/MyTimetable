@@ -50,6 +50,14 @@ app.MapGet("/Cli", async (HttpContext context) =>
     await context.Response.Body.WriteAsync(compressed);
 });
 
+app.MapGet("/Planner/Strategies", () =>
+{
+    var prebuilt = new[] { "gap", "emptyseed", "leading", "trailing", "roundrobin", "fairshare", "largest", "smallest", "random", "weighted" };
+    var pickers = new[] { "roundrobin", "fairshare", "largest", "smallest", "random", "weighted" };
+    var slotters = new[] { "sequential", "gap", "emptyseed", "leading", "trailing" };
+    return Results.Ok(new { prebuilt, pickers, slotters });
+});
+
 app.MapPatch("/Planner", async (HttpRequest httpReq) =>
 {
     var sessionId = httpReq.Headers["X-Session-Id"].FirstOrDefault();
