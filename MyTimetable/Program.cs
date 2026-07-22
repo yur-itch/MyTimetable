@@ -29,15 +29,10 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<IReadOnlyDictionary<string, IPlanningSelectorFactory>>(_ =>
     new Dictionary<string, IPlanningSelectorFactory>(StringComparer.OrdinalIgnoreCase)
     {
-        // Dual strategies: swap picker via PickerFactory. Default is RoundRobinPicker.
-        ["gap"] = new PlanningSelectorFactory((q, s) => new GapClosingSelector(q, s, DaySchedule.DefaultSlotCount,
-            pickerFactory: new PickerFactory(q => new RoundRobinPicker(q)))),
-        ["emptyseed"] = new PlanningSelectorFactory((q, s) => new EmptyDaySeedSelector(q, s, DaySchedule.DefaultSlotCount,
-            pickerFactory: new PickerFactory(q => new RoundRobinPicker(q)))),
-        ["leading"] = new PlanningSelectorFactory((q, s) => new LeadingChunkGrowthSelector(q, s, DaySchedule.DefaultSlotCount,
-            pickerFactory: new PickerFactory(q => new RoundRobinPicker(q)))),
-        ["trailing"] = new PlanningSelectorFactory((q, s) => new TrailingChunkGrowthSelector(q, s, DaySchedule.DefaultSlotCount,
-            pickerFactory: new PickerFactory(q => new RoundRobinPicker(q)))),
+        ["gap"] = new PlanningSelectorFactory((q, s) => new GapClosingSelector(q, s, DaySchedule.DefaultSlotCount)),
+        ["emptyseed"] = new PlanningSelectorFactory((q, s) => new EmptyDaySeedSelector(q, s, DaySchedule.DefaultSlotCount)),
+        ["leading"] = new PlanningSelectorFactory((q, s) => new LeadingChunkGrowthSelector(q, s, DaySchedule.DefaultSlotCount)),
+        ["trailing"] = new PlanningSelectorFactory((q, s) => new TrailingChunkGrowthSelector(q, s, DaySchedule.DefaultSlotCount)),
         ["roundrobin"] = new PlanningSelectorFactory((q, s) => new RoundRobinSelector(q, s)),
         ["fairshare"] = new PlanningSelectorFactory((q, s) => new FairShareSelector(q, s)),
         ["largest"] = new PlanningSelectorFactory((q, s) => new LargestQueueFirstSelector(q, s)),
