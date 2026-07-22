@@ -31,7 +31,7 @@ namespace MyTimetable.Controllers
                               ?? Request.Cookies["mytimetable.session"];
 
         private async Task<bool> CanView() => await _auth.IsViewer(_db, SID);
-        private async Task<bool> CanEdit() => await _auth.IsEditor(_db, SID) && await _auth.IsViewer(_db, SID);
+        private async Task<bool> CanEdit() => await _auth.IsEditor(_db, SID);
 
         [HttpGet]
         [HttpGet("/")]
@@ -136,7 +136,7 @@ namespace MyTimetable.Controllers
 
             Response.Cookies.Append("mytimetable.session", sessionId, new CookieOptions
             {
-                HttpOnly = false,
+                HttpOnly = true,
                 SameSite = SameSiteMode.Lax,
                 Path = "/",
                 MaxAge = TimeSpan.FromDays(7)

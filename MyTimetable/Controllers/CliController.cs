@@ -43,7 +43,7 @@ namespace MyTimetable.Controllers
 
         public record LoginRequest(string Username, string Password);
 
-        [HttpPost("login")]
+        [HttpPost("Login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest req)
         {
             if (!await _auth.CanLogIn(_db, req.Username, req.Password)) {
@@ -58,7 +58,7 @@ namespace MyTimetable.Controllers
 
         public record RegisterRequest(string Username, string Password);
 
-        [HttpPost("register")]
+        [HttpPost("Register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest req)
         {
             if (string.IsNullOrWhiteSpace(req.Username))
@@ -75,6 +75,21 @@ namespace MyTimetable.Controllers
             await _db.SaveChangesAsync();
 
             return Content(sessionID, "text/plain");
+        }
+
+        [HttpPost("Logout")]
+        public async Task<IActionResult> Logout([FromHeader(Name = "X-Session-Id")] string? sessionId)
+        {
+            if (sessionId != null)
+            {
+                Session? session = await _db.Sessions.FindAsync(sessionId);
+                if (session != null)
+                {
+                    _db.Sessions.Remove(session);
+                    await _db.SaveChangesAsync();
+                }
+            }
+            return Ok();
         }
 
         // [HttpPatch("Hide")]
