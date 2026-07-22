@@ -934,22 +934,53 @@ static int cmd_plan(int argc, char** argv) {
                 printf("  %d. %s\n", i + 1, strats[i]);
         }
         else if (strcmp(args[0], "push") == 0) {
-            if (ac < 2) { printf("Usage: push <strategy>\n"); continue; }
-            const char* sn = args[1];
-            if (strategy_index(sn) < 0) {
-                printf("Unknown strategy: %s\n", sn);
-                printf("Valid: ");
-                for (int i = 0; ALL_STRATEGIES[i]; i++) {
-                    if (i > 0) printf(", ");
-                    printf("%s", ALL_STRATEGIES[i]);
+            if (ac == 2) {
+                // Prebuilt: push <name>
+                const char* sn = args[1];
+                if (!is_prebuilt(sn)) {
+                    printf("Unknown prebuilt: %s\n", sn);
+                    printf("Prebuilt: ");
+                    for (int i = 0; i < prebuilt_count; i++) {
+                        if (i > 0) printf(", ");
+                        printf("%s", prebuilt_names[i]);
+                    }
+                    printf("\n  Or: push <picker> <slotter> for composed\n");
+                    continue;
                 }
-                printf("\n");
+                if (s >= MAX_STRATEGIES) { printf("Max %d strategies\n", MAX_STRATEGIES); continue; }
+                strcpy(strats[s], sn);
+                s++;
+                printf("  Pushed prebuilt: %s (pos %d)\n", sn, s);
+            } else if (ac >= 3) {
+                // Composed: push <picker> <slotter>
+                const char* pn = args[1];
+                const char* sl = args[2];
+                if (!is_picker(pn)) {
+                    printf("Unknown picker: %s\nPickers: ", pn);
+                    for (int i = 0; i < picker_count; i++) {
+                        if (i > 0) printf(", ");
+                        printf("%s", picker_names[i]);
+                    }
+                    printf("\n");
+                    continue;
+                }
+                if (!is_slotter(sl)) {
+                    printf("Unknown slotter: %s\nSlotters: ", sl);
+                    for (int i = 0; i < slotter_count; i++) {
+                        if (i > 0) printf(", ");
+                        printf("%s", slotter_names[i]);
+                    }
+                    printf("\n");
+                    continue;
+                }
+                if (s >= MAX_STRATEGIES) { printf("Max %d strategies\n", MAX_STRATEGIES); continue; }
+                snprintf(strats[s], 32, "%s:%s", pn, sl);
+                s++;
+                printf("  Pushed composed: %s:%s (pos %d)\n", pn, sl, s);
+            } else {
+                printf("Usage: push <name>  OR  push <picker> <slotter>\n");
                 continue;
             }
-            if (s >= MAX_STRATEGIES) { printf("Max %d strategies\n", MAX_STRATEGIES); continue; }
-            strcpy(strats[s], sn);
-            s++;
-            printf("  Pushed: %s (pos %d)\n", sn, s);
             plan_show_status(titles, counts, n, strats, s);
         }
         else if (strcmp(args[0], "pop") == 0) {
