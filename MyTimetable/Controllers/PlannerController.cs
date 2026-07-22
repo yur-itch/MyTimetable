@@ -56,6 +56,8 @@ namespace MyTimetable.Controllers
                 return Unauthorized(new { error = "No editing rights." });
             if (!await _auth.IsViewer(_db, SID))
                 return Unauthorized(new { error = "No viewing rights." });
+            if (specifications == null || specifications.Count == 0)
+                return BadRequest(new { error = "No strategies specified." });
             _planner.LoadQueue(titles);
             CalendarSchedule days = await _builder.LoadFromDb(_db, DateOnly.FromDateTime(_time.GetLocalNow().DateTime), _builder.YearEnd);
             ScheduleChangeset schedule = new();
