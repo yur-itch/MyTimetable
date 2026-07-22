@@ -109,6 +109,15 @@ namespace MyTimetable.Controllers
             }
         }
 
+        [HttpGet("Strategies")]
+        public IActionResult Strategies()
+        {
+            var prebuilt = _strategies.Keys.OrderBy(k => k).ToList();
+            var pickers = _pickers.Keys.OrderBy(k => k).ToList();
+            var slotters = _slotters.Keys.OrderBy(k => k).ToList();
+            return Ok(new { prebuilt, pickers, slotters });
+        }
+
         [HttpGet]
         public IActionResult Plan() => Content(_planPage.Html, "text/html; charset=utf-8");
 
