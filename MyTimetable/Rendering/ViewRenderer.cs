@@ -20,6 +20,18 @@ namespace MyTimetable.Rendering
             _tempDataProvider = tempDataProvider;
         }
 
+        public Task<string> RenderViewToStringAsync(
+            string viewName, object model,
+            IServiceProvider serviceProvider,
+            bool isPartial = false)
+        {
+            var httpContext = new DefaultHttpContext { RequestServices = serviceProvider };
+            var routeData = new RouteData();
+            routeData.Values["controller"] = "App";
+            var actionContext = new ActionContext(httpContext, routeData, new ActionDescriptor());
+            return RenderViewToStringAsync(viewName, model, actionContext, isPartial);
+        }
+
         public async Task<string> RenderViewToStringAsync(
             string viewName, object model,
             ActionContext actionContext,
