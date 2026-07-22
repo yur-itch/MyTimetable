@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using MyTimetable;
 using MyTimetable.Models;
+using MyTimetable.Rendering;
 
 namespace MyTimetable.Caching
 {

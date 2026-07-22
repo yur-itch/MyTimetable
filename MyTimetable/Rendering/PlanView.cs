@@ -1,4 +1,4 @@
-namespace MyTimetable
+namespace MyTimetable.Rendering
 {
     // Модель страницы планирования: списки для UI (пребилды, пикеры, слоттеры) + текущая очередь предметов.
     public sealed class PlanView

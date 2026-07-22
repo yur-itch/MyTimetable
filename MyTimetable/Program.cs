@@ -5,6 +5,7 @@ using MyTimetable;
 using MyTimetable.Caching;
 using MyTimetable.Models;
 using MyTimetable.Planning;
+using MyTimetable.Rendering;
 using MyTimetable.Entities;
 using MyTimetable.Security;
 using MyTimetable.TsuInTime;

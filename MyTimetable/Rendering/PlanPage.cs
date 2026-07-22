@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc.Abstractions;
 using MyTimetable.Planning;
 using NUglify;
 
-namespace MyTimetable
+namespace MyTimetable.Rendering
 {
     // Готовый (отрендеренный + минифицированный) HTML страницы планирования.
     public sealed class PlanPage

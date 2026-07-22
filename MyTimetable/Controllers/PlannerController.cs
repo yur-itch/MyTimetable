@@ -5,6 +5,7 @@ using System.Text;
 using MyTimetable.Caching;
 using MyTimetable.Models;
 using MyTimetable.Planning;
+using MyTimetable.Rendering;
 using MyTimetable.Security;
 
 namespace MyTimetable.Controllers
