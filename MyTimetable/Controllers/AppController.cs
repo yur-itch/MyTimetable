@@ -144,11 +144,12 @@ namespace MyTimetable.Controllers
             List<IPlanningSelectorFactory> factories = new();
             foreach (var spec in specifications)
             {
-                IActionResult? error = ResolveSpec(spec, out var factory);
+                IActionResult? error = ResolveSpec(spec, out var sf);
                 if (error != null) return error;
-                factories.Add(factory);
+                factories.Add(sf);
             }
-            PlanningSelectorFactory factory = new((dict, slots) => new CompositePlanningSelector(dict, slots, factories));
+            PlanningSelectorFactory composite = new((dict, slots) => new CompositePlanningSelector(dict, slots, factories));
+            List<DateOnly> dates = _planner.Plan(composite, days, schedule);
             List<DateOnly> dates = _planner.Plan(factory, days, schedule);
             await _applier.Apply(_db, schedule);
             await _db.SaveChangesAsync(); // контроллер владеет единицей работы запроса — он и коммитит
