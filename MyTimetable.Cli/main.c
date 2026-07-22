@@ -641,17 +641,81 @@ static int cmd_schedule(int argc, char** argv) {
 }
 
 // ── Interactive planner ───────────────────────────────────────────
-static const char* ALL_STRATEGIES[] = {
-    "gap", "emptyseed", "leading", "trailing",
-    "roundrobin", "fairshare", "largest", "smallest",
-    "random", "weighted",
-    NULL
-};
+// Fetched from server at startup — never hardcoded.
+static char prebuilt_names[32][32];
+static int  prebuilt_count = 0;
+static char picker_names[32][32];
+static int  picker_count = 0;
+static char slotter_names[32][32];
+static int  slotter_count = 0;
+static int  strategies_loaded = 0;
 
-static int strategy_index(const char* name) {
-    for (int i = 0; ALL_STRATEGIES[i]; i++)
-        if (strcmp(ALL_STRATEGIES[i], name) == 0) return i;
-    return -1;
+static int is_prebuilt(const char* name) {
+    for (int i = 0; i < prebuilt_count; i++)
+        if (strcmp(prebuilt_names[i], name) == 0) return 1;
+    return 0;
+}
+static int is_picker(const char* name) {
+    for (int i = 0; i < picker_count; i++)
+        if (strcmp(picker_names[i], name) == 0) return 1;
+    return 0;
+}
+static int is_slotter(const char* name) {
+    for (int i = 0; i < slotter_count; i++)
+        if (strcmp(slotter_names[i], name) == 0) return 1;
+    return 0;
+}
+
+// Parse a stored strategy string. "gap" = prebuilt, "picker:slotter" = composed.
+// Returns 1 if prebuilt (stores in *name), 2 if composed (stores in *p / *sl),
+// 0 if invalid.
+static int parse_strategy_spec(const char* raw, char* name, char* p, char* sl) {
+    const char* colon = strchr(raw, ':');
+    if (!colon) {
+        strncpy(name, raw, 31); name[31] = 0;
+        return is_prebuilt(name) ? 1 : 0;
+    }
+    size_t plen = colon - raw;
+    if (plen > 31) plen = 31;
+    memcpy(p, raw, plen); p[plen] = 0;
+    strncpy(sl, colon + 1, 31); sl[31] = 0;
+    return (is_picker(p) && is_slotter(sl)) ? 2 : 0;
+}
+
+static int fetch_strategies(void) {
+    if (strategies_loaded) return 1;
+    int st = 0;
+    char* raw = http_request(L"GET", L"/Planner/Strategies", NULL, &st, NULL);
+    if (!raw || st != 200) return 0;
+
+    struct json_value_s* root = json_parse(raw, strlen(raw));
+    if (!root) return 0;
+    struct json_object_s* obj = json_value_as_object(root);
+    if (!obj) { free(root); return 0; }
+
+    // Parse each array
+    const char* keys[] = {"prebuilt", "pickers", "slotters"};
+    char (*dests[3])[32] = {prebuilt_names, picker_names, slotter_names};
+    int* counts[3] = {&prebuilt_count, &picker_count, &slotter_count};
+
+    for (int k = 0; k < 3; k++) {
+        struct json_value_s* arr_v = json_get(obj, keys[k]);
+        struct json_array_s* arr = arr_v ? json_value_as_array(arr_v) : NULL;
+        if (!arr) continue;
+        int idx = 0;
+        for (struct json_array_element_s* e = arr->start; e && idx < 32; e = e->next) {
+            struct json_string_s* s = json_value_as_string(e->value);
+            if (s && s->string) {
+                strncpy(dests[k][idx], s->string, 31);
+                dests[k][idx][31] = 0;
+                idx++;
+            }
+        }
+        *counts[k] = idx;
+    }
+    free(root);
+    strategies_loaded = 1;
+    return 1;
 }
 
 static void plan_show_status(char titles[][MAX_TITLE_LEN], int* counts, int n,
