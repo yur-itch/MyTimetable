@@ -1,7 +1,6 @@
 using MyTimetable.Models;
-using MyTimetable.Planning;
 
-namespace MyTimetable
+namespace MyTimetable.Planning
 {
     // Набор решений планировщика по кастомным урокам: какие слоты получают новый кастомный урок,
     // а какие — очищаются. Планировщик владеет только кастомными уроками: дефолтные принадлежат API
