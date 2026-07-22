@@ -1,5 +1,3 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Abstractions;
 using MyTimetable.Planning;
 using NUglify;
 
@@ -31,10 +29,6 @@ namespace MyTimetable.Rendering
         public async Task Rebuild(IReadOnlyDictionary<string, int> queue)
         {
             using var scope = _serviceProvider.CreateScope();
-            var httpContext = new DefaultHttpContext { RequestServices = scope.ServiceProvider };
-            var routeData = new RouteData();
-            routeData.Values["controller"] = "App";
-            var actionContext = new ActionContext(httpContext, routeData, new ActionDescriptor());
 
             var model = new PlanView
             {
@@ -43,7 +37,7 @@ namespace MyTimetable.Rendering
                 SlotterNames = _slotterNames,
                 Queue = queue
             };
-            string html = await _renderer.RenderViewToStringAsync("Plan", model, actionContext);
+            string html = await _renderer.RenderViewToStringAsync("Plan", model, scope.ServiceProvider);
             var minified = Uglify.Html(html);
             Html = minified.HasErrors ? html : minified.Code;
         }
