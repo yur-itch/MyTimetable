@@ -1,5 +1,6 @@
 using MyTimetable.Models;
 using MyTimetable.Entities;
+using MyTimetable.Planning;
 
 namespace MyTimetable
 {
