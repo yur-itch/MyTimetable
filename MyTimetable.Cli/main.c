@@ -852,7 +852,7 @@ static int cmd_plan(int argc, char** argv) {
             printf("  subjects               - list subjects\n");
             printf("  push <name>            - add prebuilt strategy\n");
             printf("  push <picker> <slotter> - add composed strategy\n");
-            printf("  pop                    - remove top strategy\n");
+            printf("  pop [N]                - remove strategy (last, or by position)\n");
             printf("  mv <from> <to>         - move strategy (1-indexed)\n");
             printf("  strategies             - list available strategies\n");
             printf("  submit                 - send plan to server\n");
