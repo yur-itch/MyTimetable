@@ -847,22 +847,33 @@ static int cmd_plan(int argc, char** argv) {
         }
         else if (strcmp(args[0], "help") == 0 || strcmp(args[0], "h") == 0) {
             printf("Commands:\n");
-            printf("  add <title> <count>   - add subject to queue\n");
-            printf("  rm <title>            - remove subject\n");
-            printf("  subjects              - list subjects\n");
-            printf("  push <strategy>       - add strategy on top\n");
-            printf("  pop                   - remove top strategy\n");
-            printf("  mv <from> <to>        - move strategy (1-indexed)\n");
-            printf("  strategies            - list strategies\n");
-            printf("  submit                - send plan to server\n");
-            printf("  save                  - persist plan in binary (restarts)\n");
-            printf("  clear                 - reset all subjects and strategies\n");
-            printf("  help  / h             - this help\n");
-            printf("  quit  / q             - exit\n");
-            printf("Strategies: ");
-            for (int i = 0; ALL_STRATEGIES[i]; i++) {
+            printf("  add <title> <count>    - add subject to queue\n");
+            printf("  rm <title>             - remove subject\n");
+            printf("  subjects               - list subjects\n");
+            printf("  push <name>            - add prebuilt strategy\n");
+            printf("  push <picker> <slotter> - add composed strategy\n");
+            printf("  pop                    - remove top strategy\n");
+            printf("  mv <from> <to>         - move strategy (1-indexed)\n");
+            printf("  strategies             - list available strategies\n");
+            printf("  submit                 - send plan to server\n");
+            printf("  save                   - persist plan in binary (restarts)\n");
+            printf("  clear                  - reset all subjects and strategies\n");
+            printf("  help  / h              - this help\n");
+            printf("  quit  / q              - exit\n");
+            printf("Prebuilt: ");
+            for (int i = 0; i < prebuilt_count; i++) {
                 if (i > 0) printf(", ");
-                printf("%s", ALL_STRATEGIES[i]);
+                printf("%s", prebuilt_names[i]);
+            }
+            printf("\nPickers:  ");
+            for (int i = 0; i < picker_count; i++) {
+                if (i > 0) printf(", ");
+                printf("%s", picker_names[i]);
+            }
+            printf("\nSlotters: ");
+            for (int i = 0; i < slotter_count; i++) {
+                if (i > 0) printf(", ");
+                printf("%s", slotter_names[i]);
             }
             printf("\n");
         }
