@@ -51,7 +51,7 @@ namespace MyTimetable.Controllers
         [HttpPatch]
         public async Task<IActionResult> Plan(
             [FromQuery] Dictionary<string, int> titles,
-            [FromBody] List<StrategySpec> specifications,
+            [FromBody] List<SelectorSpec> specifications,
             [FromQuery] bool fromCli = false)
         {
             if (!await _auth.IsEditor(_db, SID))
@@ -86,17 +86,17 @@ namespace MyTimetable.Controllers
             }
         }
 
-        private bool TryResolveSpec(StrategySpec spec, out IPlanningSelectorFactory factory, out string? error)
+        private bool TryResolveSpec(SelectorSpec spec, out IPlanningSelectorFactory factory, out string? error)
         {
             switch (spec)
             {
-                case StrategySpec.Prebuilt p:
+                case SelectorSpec.Prebuilt p:
                     if (!_strategies.TryGetValue(p.Name, out var sf))
                     {
                         factory = null!; error = $"strategy '{p.Name}' does not exist"; return false;
                     }
                     factory = sf; error = null; return true;
-                case StrategySpec.Composed c:
+                case SelectorSpec.Composed c:
                     if (!_pickers.TryGetValue(c.Picker, out var pf))
                     {
                         factory = null!; error = $"picker '{c.Picker}' does not exist"; return false;
