@@ -1,7 +1,6 @@
 ﻿using MyTimetable.Models;
-using MyTimetable.Planning;
 
-namespace MyTimetable
+namespace MyTimetable.Planning
 {
     public sealed class Planner
     {
