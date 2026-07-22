@@ -1,6 +1,8 @@
-﻿using MyTimetable.Models;
-
-namespace MyTimetable.Entities
+﻿namespace MyTimetable.Entities
 {
-    public record class LessonDeactivation : Slot { }
+    public record class LessonDeactivation
+    {
+        public required DateOnly Date;
+        public required int Number;
+    }
 }
