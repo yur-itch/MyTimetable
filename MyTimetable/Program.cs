@@ -61,6 +61,11 @@ builder.Services.AddSingleton<IReadOnlyDictionary<string, ISlotterFactory>>(_ =>
         ["leading"] = new SlotterFactory(s => new LeadingChunkGrowthSlotter(s, DaySchedule.DefaultSlotCount)),
         ["trailing"] = new SlotterFactory(s => new TrailingChunkGrowthSlotter(s, DaySchedule.DefaultSlotCount)),
     });
+builder.Services.AddSingleton(sp => new PlanPageConfig(
+    sp.GetRequiredService<IReadOnlyDictionary<string, IPlanningSelectorFactory>>().Keys.ToList(),
+    sp.GetRequiredService<IReadOnlyDictionary<string, IPickerFactory>>().Keys.ToList(),
+    sp.GetRequiredService<IReadOnlyDictionary<string, ISlotterFactory>>().Keys.ToList()
+));
 builder.Services.AddSingleton<Planner>();
 builder.Services.AddSingleton<PlanPage>();
 builder.Services.AddSingleton<ScheduleData>();
