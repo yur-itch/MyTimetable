@@ -753,6 +753,12 @@ static int cmd_plan(int argc, char** argv) {
         }
     }
 
+    // Fetch available strategies from server — fail if unreachable.
+    if (!fetch_strategies()) {
+        fprintf(stderr, "Cannot fetch strategy list from server. Is it running?\n");
+        return 1;
+    }
+
     // Check for subcommands
     {
         const char* sub = NULL;
