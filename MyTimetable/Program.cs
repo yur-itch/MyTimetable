@@ -43,6 +43,23 @@ builder.Services.AddSingleton<IReadOnlyDictionary<string, IPlanningSelectorFacto
         ["random"] = new PlanningSelectorFactory((q, s) => new RandomSelector(q, s)),
         ["weighted"] = new PlanningSelectorFactory((q, s) => new WeightedRandomSelector(q, s)),
     });
+builder.Services.AddSingleton<IReadOnlyDictionary<string, IPickerFactory>>(_ =>
+    new Dictionary<string, IPickerFactory>(StringComparer.OrdinalIgnoreCase)
+    {
+        // Dual strategies: customise picker by passing a PickerFactory.
+        // e.g. pickerFactory: new PickerFactory(q => new FairSharePicker(q))
+        ["gap"] = new PlanningSelectorFactory((q, s) => new GapClosingSelector(q, s, DaySchedule.DefaultSlotCount)),
+        ["emptyseed"] = new PlanningSelectorFactory((q, s) => new EmptyDaySeedSelector(q, s, DaySchedule.DefaultSlotCount)),
+        ["leading"] = new PlanningSelectorFactory((q, s) => new LeadingChunkGrowthSelector(q, s, DaySchedule.DefaultSlotCount)),
+        ["trailing"] = new PlanningSelectorFactory((q, s) => new TrailingChunkGrowthSelector(q, s, DaySchedule.DefaultSlotCount)),
+        // Picker-only strategies: picker factory matches the natural default.
+        ["roundrobin"] = new PlanningSelectorFactory((q, s) => new RoundRobinSelector(q, s)),
+        ["fairshare"] = new PlanningSelectorFactory((q, s) => new FairShareSelector(q, s)),
+        ["largest"] = new PlanningSelectorFactory((q, s) => new LargestQueueFirstSelector(q, s)),
+        ["smallest"] = new PlanningSelectorFactory((q, s) => new SmallestQueueFirstSelector(q, s)),
+        ["random"] = new PlanningSelectorFactory((q, s) => new RandomSelector(q, s)),
+        ["weighted"] = new PlanningSelectorFactory((q, s) => new WeightedRandomSelector(q, s)),
+    });
 builder.Services.AddSingleton<Planner>();
 builder.Services.AddSingleton<PlanPage>();
 builder.Services.AddSingleton<ScheduleData>();
