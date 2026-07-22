@@ -169,10 +169,14 @@ static void self_patch(const char* new_session, int will_restart, const char* re
 
 // ── Session helper ────────────────────────────────────────────────
 static void session_hex(char* out, size_t out_sz) {
+    static const char hex[] = "0123456789abcdef";
     const unsigned char* p = (const unsigned char*)session_ptr(session_data);
-    for (int i = 0; i < SESSION_SIZE && i*2+2 < (int)out_sz; i++)
-        sprintf(out + i*2, "%02x", p[i]);
-    out[out_sz - 1] = '\0';
+    size_t pos = 0;
+    for (int i = 0; i < SESSION_SIZE && pos + 2 < out_sz; i++) {
+        out[pos++] = hex[(p[i] >> 4) & 0x0F];
+        out[pos++] = hex[p[i] & 0x0F];
+    }
+    out[pos] = '\0';
 }
 
 static int hex_decode(const char* hex, unsigned char* out, int out_sz) {
@@ -372,7 +376,12 @@ static int url_enc_char(char* d, unsigned char c) {
     if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~') {
         if (d) *d = c; return 1;
     }
-    if (d) { sprintf(d, "%%%02X", c); }
+    if (d) {
+        static const char hex[] = "0123456789ABCDEF";
+        d[0] = '%';
+        d[1] = hex[(c >> 4) & 0x0F];
+        d[2] = hex[c & 0x0F];
+    }
     return 3;
 }
 
