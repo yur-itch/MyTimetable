@@ -485,6 +485,11 @@ static int cmd_register(int argc, char** argv) {
 }
 
 static int cmd_logout(void) {
+    if (!needs_login()) {
+        printf("Logging out from server...\n");
+        int st = 0;
+        http_request(L"POST", L"/Cli/Logout", NULL, &st, NULL);
+    }
     printf("Clearing baked-in token...\n");
     self_patch(SESSION_PLACEHOLDER, 0, NULL);
     return 0;
