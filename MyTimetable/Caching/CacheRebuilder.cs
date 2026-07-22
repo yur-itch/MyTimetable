@@ -52,17 +52,10 @@ namespace MyTimetable.Caching
             }
 
             using var scope = _serviceProvider.CreateScope();
-            var httpContext = new DefaultHttpContext
-            {
-                RequestServices = scope.ServiceProvider,
-            };
-            var routeData = new RouteData();
-            routeData.Values["controller"] = "App";
-            var actionContext = new ActionContext(httpContext, routeData, new ActionDescriptor());
 
             foreach (DaySchedule day in dates.Select(x => schedule.DateToDaySchedule(x)!))
             {
-                _data.PartialViewResult[day.Date] = await _renderer.RenderViewToStringAsync("GetOne", day, actionContext, true);
+                _data.PartialViewResult[day.Date] = await _renderer.RenderViewToStringAsync("GetOne", day, scope.ServiceProvider, true);
             }
 
             // Упорядоченный снимок кэшированных партиалов: страница собирается из всех кусочков
@@ -80,7 +73,7 @@ namespace MyTimetable.Caching
                 Days = ordered.Select(kv => kv.Value).ToList()
             };
 
-            string html = await _renderer.RenderViewToStringAsync("Get", view, actionContext);
+            string html = await _renderer.RenderViewToStringAsync("Get", view, scope.ServiceProvider);
             _data.ViewResult = Compression.Brotli(html);
 
             // CLI view: [4B scrollTarget LE][2B data_len LE][UTF-8 data], brotli-compressed.
