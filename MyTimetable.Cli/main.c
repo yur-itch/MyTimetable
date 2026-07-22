@@ -84,7 +84,7 @@ static void self_patch_any(const char* anchor_str, const char* data, int data_si
 
     char* anchor = (char*)mem_find(binary, fsize, anchor_str, ANCHOR_SIZE);
     if (!anchor) {
-        fprintf(stderr, "Anchor not found - cannot self-patch\n");
+        fputs("Anchor not found - cannot self-patch\n", stderr);
         free(binary);
         return;
     }
@@ -160,7 +160,7 @@ static void self_patch_any(const char* anchor_str, const char* data, int data_si
     if (spawned) {
         exit(0);
     }
-    fprintf(stderr, "Self-patch spawn failed\n");
+    fputs("Self-patch spawn failed\n", stderr);
     return;
 }
 
@@ -255,7 +255,7 @@ static void plan_patch_save(char titles[][MAX_TITLE_LEN], int* counts, int n,
     } else {
         for (int i = len; i < PLAN_DATA_SIZE; i++) buf[i] = 0;
     }
-    printf("Saving plan to binary...\n");
+    fputs("Saving plan to binary...\n", stdout);
     fflush(stdout);
     self_patch_any(PLAN_ANCHOR, buf, PLAN_DATA_SIZE, 1, "plan");
 }
@@ -482,7 +482,7 @@ static int cmd_register(int argc, char** argv) {
         }
     }
     if (!user || !pass) {
-        fprintf(stderr, "Usage: mytimetable register --user <username> --password <password>\n");
+        fputs("Usage: mytimetable register --user <username> --password <password>\n", stderr);
         return 1;
     }
     char err[512] = {0};
@@ -497,11 +497,11 @@ static int cmd_register(int argc, char** argv) {
 
 static int cmd_logout(void) {
     if (!needs_login()) {
-        printf("Logging out from server...\n");
+        fputs("Logging out from server...\n", stdout);
         int st = 0;
         http_request(L"POST", L"/Cli/Logout", NULL, &st, NULL);
     }
-    printf("Clearing baked-in token...\n");
+    fputs("Clearing baked-in token...\n", stdout);
     self_patch(SESSION_PLACEHOLDER, 0, NULL);
     return 0;
 }
@@ -549,7 +549,7 @@ static void run_table_repl(const char* data_text, int scroll_target) {
     int end = start + avail;
     if (end > body_lines) { end = body_lines; start = end - avail; if (start < 0) start = 0; }
 
-    printf("\033[2J\033[0;0H");
+    fputs("\033[2J\033[0;0H", stdout);
     for (int i = 0; i < header_lines; i++)
         printf("%s\033[K\n", lines[i]);
     printf("\033[%d;%dr", scroll_region_top, scroll_region_bot);
@@ -596,7 +596,7 @@ static void run_table_repl(const char* data_text, int scroll_target) {
         if (end > body_lines) end = body_lines;
     }
 
-    printf("\033[r\033[2J\033[0;0H");
+    fputs("\033[r\033[2J\033[0;0H", stdout);
     fflush(stdout);
 
     free(lines); free(data_copy);
@@ -627,7 +627,7 @@ static int cmd_schedule(int argc, char** argv) {
     char* raw = http_request(L"GET", L"/Cli", NULL, &st, ce);
     if (!raw) { fprintf(stderr, "Connection failed\n"); return 1; }
     if (st == 401) {
-        fprintf(stderr, "Token expired. Clearing...\n");
+        fputs("Token expired. Clearing...\n", stderr);
         self_patch(SESSION_PLACEHOLDER, 0, NULL);
         return 1;
     }
@@ -731,19 +731,19 @@ static int fetch_strategies(void) {
 
 static void plan_show_status(char titles[][MAX_TITLE_LEN], int* counts, int n,
                               char strats[][32], int s) {
-    printf("  [");
+    fputs("  [", stdout);
     if (n == 0) printf("no subjects");
     for (int i = 0; i < n; i++) {
         if (i > 0) printf(", ");
         printf("%s x %d", titles[i], counts[i]);
     }
-    printf(" | ");
+    fputs(" | ", stdout);
     if (s == 0) printf("no strategies");
     for (int i = 0; i < s; i++) {
         if (i > 0) printf(" > ");
         printf("%s", strats[i]);
     }
-    printf("]\n");
+    fputs("]\n", stdout);
 }
 
 static int cmd_plan(int argc, char** argv) {
@@ -766,7 +766,7 @@ static int cmd_plan(int argc, char** argv) {
 
     // Fetch available strategies from server — fail if unreachable.
     if (!fetch_strategies()) {
-        fprintf(stderr, "Cannot fetch strategy list from server. Is it running?\n");
+        fputs("Cannot fetch strategy list from server. Is it running?\n", stderr);
         return 1;
     }
 
@@ -790,12 +790,12 @@ static int cmd_plan(int argc, char** argv) {
                 const char* pp = plan_ptr(plan_data);
                 if (pp[0] && (pp[0] == 's' || pp[0] == 'S'))
                     plan_deserialize(pp, t, c, &n, st, &s);
-                printf("Saved plan state:\n");
+                fputs("Saved plan state:\n", stdout);
                 plan_show_status(t, c, n, st, s);
                 return 0;
             }
             if (strcmp(sub, "clear") == 0 || strcmp(sub, "reset") == 0) {
-                printf("Clearing saved plan state...\n");
+                fputs("Clearing saved plan state...\n", stdout);
                 char dummy_titles[1][MAX_TITLE_LEN];
                 int  dummy_counts[1];
                 char dummy_strats[1][32];
@@ -817,11 +817,11 @@ static int cmd_plan(int argc, char** argv) {
         const char* pp = plan_ptr(plan_data);
         if (pp[0] && (pp[0] == 's' || pp[0] == 'S')) {
             if (plan_deserialize(pp, titles, counts, &n, strats, &s))
-                printf("Loaded saved plan from binary.\n");
+                fputs("Loaded saved plan from binary.\n", stdout);
         }
     }
 
-    printf("Planner interactive. Type 'help' for commands, 'quit' to exit.\n");
+    fputs("Planner interactive. Type 'help' for commands, 'quit' to exit.\n", stdout);
     plan_show_status(titles, counts, n, strats, s);
 
     char line[512];
@@ -853,40 +853,40 @@ static int cmd_plan(int argc, char** argv) {
         }
         else if (strcmp(args[0], "clear") == 0) {
             n = 0; s = 0;
-            printf("  Cleared.\n");
+            fputs("  Cleared.\n", stdout);
             plan_show_status(titles, counts, n, strats, s);
         }
         else if (strcmp(args[0], "help") == 0 || strcmp(args[0], "h") == 0) {
-            printf("Commands:\n");
-            printf("  add <title> <count>    - add subject to queue\n");
-            printf("  rm <title>             - remove subject\n");
-            printf("  subjects               - list subjects\n");
-            printf("  push <name>            - add prebuilt strategy\n");
-            printf("  push <picker> <slotter> - add composed strategy\n");
-            printf("  pop [N]                - remove strategy (last, or by position)\n");
-            printf("  mv <from> <to>         - move strategy (1-indexed)\n");
-            printf("  strategies             - list available strategies\n");
-            printf("  submit                 - send plan to server\n");
-            printf("  save                   - persist plan in binary (restarts)\n");
-            printf("  clear                  - reset all subjects and strategies\n");
-            printf("  help  / h              - this help\n");
-            printf("  quit  / q              - exit\n");
-            printf("Prebuilt: ");
+            fputs("Commands:\n", stdout);
+            fputs("  add <title> <count>    - add subject to queue\n", stdout);
+            fputs("  rm <title>             - remove subject\n", stdout);
+            fputs("  subjects               - list subjects\n", stdout);
+            fputs("  push <name>            - add prebuilt strategy\n", stdout);
+            fputs("  push <picker> <slotter> - add composed strategy\n", stdout);
+            fputs("  pop [N]                - remove strategy (last, or by position)\n", stdout);
+            fputs("  mv <from> <to>         - move strategy (1-indexed)\n", stdout);
+            fputs("  strategies             - list available strategies\n", stdout);
+            fputs("  submit                 - send plan to server\n", stdout);
+            fputs("  save                   - persist plan in binary (restarts)\n", stdout);
+            fputs("  clear                  - reset all subjects and strategies\n", stdout);
+            fputs("  help  / h              - this help\n", stdout);
+            fputs("  quit  / q              - exit\n", stdout);
+            fputs("Prebuilt: ", stdout);
             for (int i = 0; i < prebuilt_count; i++) {
                 if (i > 0) printf(", ");
                 printf("%s", prebuilt_names[i]);
             }
-            printf("\nPickers:  ");
+            fputs("\nPickers:  ", stdout);
             for (int i = 0; i < picker_count; i++) {
                 if (i > 0) printf(", ");
                 printf("%s", picker_names[i]);
             }
-            printf("\nSlotters: ");
+            fputs("\nSlotters: ", stdout);
             for (int i = 0; i < slotter_count; i++) {
                 if (i > 0) printf(", ");
                 printf("%s", slotter_names[i]);
             }
-            printf("\n");
+            fputs("\n", stdout);
         }
         else if (strcmp(args[0], "subjects") == 0) {
             if (n == 0) { printf("(empty)\n"); }
@@ -955,12 +955,12 @@ static int cmd_plan(int argc, char** argv) {
                 const char* sn = args[1];
                 if (!is_prebuilt(sn)) {
                     printf("Unknown prebuilt: %s\n", sn);
-                    printf("Prebuilt: ");
+                    fputs("Prebuilt: ", stdout);
                     for (int i = 0; i < prebuilt_count; i++) {
                         if (i > 0) printf(", ");
                         printf("%s", prebuilt_names[i]);
                     }
-                    printf("\n  Or: push <picker> <slotter> for composed\n");
+                    fputs("\n  Or: push <picker> <slotter> for composed\n", stdout);
                     continue;
                 }
                 if (s >= MAX_STRATEGIES) { printf("Max %d strategies\n", MAX_STRATEGIES); continue; }
@@ -977,7 +977,7 @@ static int cmd_plan(int argc, char** argv) {
                         if (i > 0) printf(", ");
                         printf("%s", picker_names[i]);
                     }
-                    printf("\n");
+                    fputs("\n", stdout);
                     continue;
                 }
                 if (!is_slotter(sl)) {
@@ -986,7 +986,7 @@ static int cmd_plan(int argc, char** argv) {
                         if (i > 0) printf(", ");
                         printf("%s", slotter_names[i]);
                     }
-                    printf("\n");
+                    fputs("\n", stdout);
                     continue;
                 }
                 if (s >= MAX_STRATEGIES) { printf("Max %d strategies\n", MAX_STRATEGIES); continue; }
@@ -994,7 +994,7 @@ static int cmd_plan(int argc, char** argv) {
                 s++;
                 printf("  Pushed composed: %s:%s (pos %d)\n", pn, sl, s);
             } else {
-                printf("Usage: push <name>  OR  push <picker> <slotter>\n");
+                fputs("Usage: push <name>  OR  push <picker> <slotter>\n", stdout);
                 continue;
             }
             plan_show_status(titles, counts, n, strats, s);
@@ -1071,23 +1071,23 @@ static int cmd_plan(int argc, char** argv) {
             bpos += snprintf(body + bpos, sizeof(body) - bpos, "]");
 
             if (pos >= (int)sizeof(qs) - 512 || bpos >= (int)sizeof(body) - 512) {
-                printf("  Payload too large. Reduce subjects or strategies.\n");
+                fputs("  Payload too large. Reduce subjects or strategies.\n", stdout);
                 continue;
             }
 
             WCHAR wpath[4096];
             mbstowcs(wpath, qs, 4096);
 
-            printf("  Sending plan...\n");
+            fputs("  Sending plan...\n", stdout);
             int st = 0;
             char* resp = http_request(L"PATCH", wpath, body, &st, NULL);
 
             if (!resp) {
-                printf("  Connection failed.\n");
+                fputs("  Connection failed.\n", stdout);
                 continue;
             }
             if (st == 401) {
-                printf("  Token expired. Type 'login' to re-authenticate, then retry.\n");
+                fputs("  Token expired. Type 'login' to re-authenticate, then retry.\n", stdout);
                 self_patch(SESSION_PLACEHOLDER, 0, NULL);
                 return 1;
             }
@@ -1144,7 +1144,7 @@ static int cmd_conflicts(int argc, char** argv) {
     char* raw = http_request(L"GET", L"/Planner/Conflicts?fromCli=true", NULL, &st, NULL);
     if (!raw) { fprintf(stderr, "Connection failed\n"); return 1; }
     if (st == 401) {
-        fprintf(stderr, "Token expired. Clearing...\n");
+        fputs("Token expired. Clearing...\n", stderr);
         self_patch(SESSION_PLACEHOLDER, 0, NULL);
         return 1;
     }
@@ -1202,7 +1202,7 @@ static int cmd_resolve_conflicts(int argc, char** argv) {
     char* raw = http_request(L"PATCH", L"/Planner/ResolveConflicts?fromCli=true", NULL, &st, ce);
     if (!raw) { fprintf(stderr, "Connection failed\n"); return 1; }
     if (st == 401) {
-        fprintf(stderr, "Token expired. Clearing...\n");
+        fputs("Token expired. Clearing...\n", stderr);
         self_patch(SESSION_PLACEHOLDER, 0, NULL);
         return 1;
     }
@@ -1224,7 +1224,7 @@ static int cmd_resolve_conflicts(int argc, char** argv) {
 
     if (!data_text) { fprintf(stderr, "No data in response\n"); free(root); return 1; }
 
-    printf("Conflicts resolved.\n");
+    fputs("Conflicts resolved.\n", stdout);
     run_table_repl(data_text, scroll_target);
 
     free(root);
@@ -1232,11 +1232,11 @@ static int cmd_resolve_conflicts(int argc, char** argv) {
 }
 
 static int cmd_proxy(void) {
-    printf("Starting proxy...\n");
+    fputs("Starting proxy...\n", stdout);
     system("start cmd /k \"dotnet run --project MyTimetable.Proxy --port 9155\"");
     wcsncpy(client.host, L"localhost", 256);
     client.port = 9155;
-    printf("  Proxy on localhost:9155\n  Run 'login' to bake a token.\n");
+    fputs("  Proxy on localhost:9155\n  Run 'login' to bake a token.\n", stdout);
     return 0;
 }
 
