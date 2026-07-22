@@ -1,29 +1,27 @@
-using MyTimetable.Planning;
 using NUglify;
 
 namespace MyTimetable.Rendering
 {
+    public sealed record PlanPageConfig(
+        IReadOnlyCollection<string> PrebuiltNames,
+        IReadOnlyCollection<string> PickerNames,
+        IReadOnlyCollection<string> SlotterNames
+    );
+
     // Готовый (отрендеренный + минифицированный) HTML страницы планирования.
     public sealed class PlanPage
     {
         private readonly ViewRenderer _renderer;
         private readonly IServiceProvider _serviceProvider;
-        private readonly IReadOnlyCollection<string> _prebuiltNames;
-        private readonly IReadOnlyCollection<string> _pickerNames;
-        private readonly IReadOnlyCollection<string> _slotterNames;
+        private readonly PlanPageConfig _config;
 
         public string Html { get; private set; } = "";
 
-        public PlanPage(ViewRenderer renderer, IServiceProvider serviceProvider,
-                        IReadOnlyDictionary<string, IPlanningSelectorFactory> strategies,
-                        IReadOnlyDictionary<string, IPickerFactory> pickers,
-                        IReadOnlyDictionary<string, ISlotterFactory> slotters)
+        public PlanPage(ViewRenderer renderer, IServiceProvider serviceProvider, PlanPageConfig config)
         {
             _renderer = renderer;
             _serviceProvider = serviceProvider;
-            _prebuiltNames = strategies.Keys.ToList();
-            _pickerNames = pickers.Keys.ToList();
-            _slotterNames = slotters.Keys.ToList();
+            _config = config;
         }
 
         public async Task Rebuild(IReadOnlyDictionary<string, int> queue)
@@ -32,9 +30,9 @@ namespace MyTimetable.Rendering
 
             var model = new PlanView
             {
-                PrebuiltNames = _prebuiltNames,
-                PickerNames = _pickerNames,
-                SlotterNames = _slotterNames,
+                PrebuiltNames = _config.PrebuiltNames,
+                PickerNames = _config.PickerNames,
+                SlotterNames = _config.SlotterNames,
                 Queue = queue
             };
             string html = await _renderer.RenderViewToStringAsync("Plan", model, scope.ServiceProvider);
