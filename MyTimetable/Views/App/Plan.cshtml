@@ -280,7 +280,7 @@
 
             btn.disabled = true;
             try {
-                const res = await fetch('/App/ResolveConflicts', { method: 'PATCH' });
+                const res = await fetch('/Planner/ResolveConflicts', { method: 'PATCH' });
                 if (!res.ok) {
                     result.className = 'err';
                     result.textContent = 'Ошибка ' + res.status + ': ' + (await res.text());
@@ -308,7 +308,7 @@
 
             reset.disabled = true;
             try {
-                const res = await fetch('/App/Reset', { method: 'POST', headers: authHeaders() });
+                const res = await fetch('/Planner/Reset', { method: 'POST', headers: authHeaders() });
                 maybeLogout(res);
                 if (!res.ok) {
                     result.className = 'err';
@@ -359,7 +359,7 @@
 
             go.disabled = true;
             try {
-                const res = await fetch('/App/Plan?' + params.join('&'), {
+                const res = await fetch('/Planner?' + params.join('&'), {
                     method: 'PATCH',
                     headers: { ...authHeaders(), 'Content-Type': 'application/json' },
                     body: JSON.stringify(specs)
