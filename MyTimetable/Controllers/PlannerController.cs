@@ -82,35 +82,30 @@ namespace MyTimetable.Controllers
             }
         }
 
-        private IActionResult? ResolveSpec(StrategySpec spec, out IPlanningSelectorFactory factory)
+        private bool TryResolveSpec(StrategySpec spec, out IPlanningSelectorFactory factory, out string? error)
         {
             switch (spec)
             {
                 case StrategySpec.Prebuilt p:
                     if (!_strategies.TryGetValue(p.Name, out var sf))
                     {
-                        factory = null!;
-                        return BadRequest($"strategy '{p.Name}' does not exist");
+                        factory = null!; error = $"strategy '{p.Name}' does not exist"; return false;
                     }
-                    factory = sf;
-                    return null;
+                    factory = sf; error = null; return true;
                 case StrategySpec.Composed c:
                     if (!_pickers.TryGetValue(c.Picker, out var pf))
                     {
-                        factory = null!;
-                        return BadRequest($"picker '{c.Picker}' does not exist");
+                        factory = null!; error = $"picker '{c.Picker}' does not exist"; return false;
                     }
                     if (!_slotters.TryGetValue(c.Slotter, out var slf))
                     {
-                        factory = null!;
-                        return BadRequest($"slotter '{c.Slotter}' does not exist");
+                        factory = null!; error = $"slotter '{c.Slotter}' does not exist"; return false;
                     }
                     factory = new PlanningSelectorFactory(
                         (q, s) => new DualSelector(q, s, pf, slf));
-                    return null;
+                    error = null; return true;
                 default:
-                    factory = null!;
-                    return BadRequest("unknown strategy spec type");
+                    factory = null!; error = "unknown strategy spec type"; return false;
             }
         }
 
