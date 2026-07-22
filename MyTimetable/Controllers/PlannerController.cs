@@ -67,7 +67,7 @@ namespace MyTimetable.Controllers
                 if (error != null) return error;
                 factories.Add(sf);
             }
-            PlanningSelectorFactory factory = new((dict, slots) => new CompositePlanningSelector(dict, slots, factories));
+            PlanningSelectorFactory composite = new((dict, slots) => new CompositePlanningSelector(dict, slots, factories));
             List<DateOnly> dates = _planner.Plan(factory, days, schedule);
             await _applier.Apply(_db, schedule);
             await _db.SaveChangesAsync();
