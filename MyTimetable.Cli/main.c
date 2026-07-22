@@ -1202,15 +1202,6 @@ static int cmd_resolve_conflicts(int argc, char** argv) {
     return 0;
 }
 
-static int cmd_proxy(void) {
-    fputs("Starting proxy...\n", stdout);
-    system("start cmd /k \"dotnet run --project MyTimetable.Proxy --port 9155\"");
-    wcsncpy(client.host, L"localhost", 256);
-    client.port = 9155;
-    fputs("  Proxy on localhost:9155\n  Run 'login' to bake a token.\n", stdout);
-    return 0;
-}
-
 static void help(void) {
     printf("MyTimetable CLI - self-patching single-binary auth\n\n"
            "Usage:\n"
@@ -1223,7 +1214,6 @@ static void help(void) {
            "  mytimetable plan clear|reset           clear saved plan state\n"
            "  mytimetable conflicts                list conflicting lessons\n"
            "  mytimetable resolve-conflicts          resolve all conflicts\n"
-           "  mytimetable proxy\n"
            "  mytimetable help\n\n"
            "Token stored INSIDE the .exe file. No config files.\n"
            "Run 'logout' to erase it.\n");
@@ -1246,7 +1236,6 @@ int main(int argc, char** argv) {
     if (strcmp(cmd,"plan")==0) return cmd_plan(argc,argv);
     if (strcmp(cmd,"conflicts")==0) return cmd_conflicts(argc,argv);
     if (strcmp(cmd,"resolve-conflicts")==0) return cmd_resolve_conflicts(argc,argv);
-    if (strcmp(cmd,"proxy")==0) return cmd_proxy();
     if (strcmp(cmd,"help")==0) { help(); return 0; }
     fprintf(stderr,"Unknown: %s\n",cmd); help();
     return 1;

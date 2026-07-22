@@ -1,5 +1,4 @@
 <Solution>
   <Project Path="MyTimetable/MyTimetable.csproj" />
   <Project Path="TestMyTimetable/TestMyTimetable.csproj" Id="5674886a-2719-4687-9bef-c011670e5959" />
-  <Project Path="MyTimetable.Proxy/MyTimetable.Proxy.csproj" Id="a1b2c3d4-5678-90ab-cdef-1234567890ab" />
 </Solution>
