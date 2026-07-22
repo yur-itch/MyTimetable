@@ -362,5 +362,8 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
+# Pi agent subagent artifacts
+.pi-subagents/
+
 # Windows reserved device name
 nul
