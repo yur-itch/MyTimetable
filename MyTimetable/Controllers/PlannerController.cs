@@ -62,8 +62,8 @@ namespace MyTimetable.Controllers
             List<IPlanningSelectorFactory> factories = new();
             foreach (var spec in specifications)
             {
-                IActionResult? error = ResolveSpec(spec, out var sf);
-                if (error != null) return error;
+                if (!TryResolveSpec(spec, out var sf, out var error))
+                    return BadRequest(error);
                 factories.Add(sf);
             }
             PlanningSelectorFactory composite = new((dict, slots) => new CompositePlanningSelector(dict, slots, factories));
