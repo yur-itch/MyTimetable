@@ -990,8 +990,18 @@ static int cmd_plan(int argc, char** argv) {
         }
         else if (strcmp(args[0], "pop") == 0) {
             if (s == 0) { printf("(empty)\n"); continue; }
+            int idx = s - 1; // default: remove last
+            if (ac >= 2) {
+                idx = atoi(args[1]) - 1;
+                if (idx < 0 || idx >= s) {
+                    printf("Position must be 1-%d\n", s);
+                    continue;
+                }
+            }
+            printf("  Popped [%d]: %s\n", idx + 1, strats[idx]);
+            for (int i = idx; i < s - 1; i++)
+                strcpy(strats[i], strats[i + 1]);
             s--;
-            printf("  Popped: %s\n", strats[s]);
             plan_show_status(titles, counts, n, strats, s);
         }
         else if (strcmp(args[0], "mv") == 0) {
