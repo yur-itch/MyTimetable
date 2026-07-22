@@ -1,7 +1,5 @@
 using System.IO.Compression;
 using System.Text;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Abstractions;
 using MyTimetable;
 using MyTimetable.Models;
 using MyTimetable.Rendering;
