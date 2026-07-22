@@ -1,8 +1,7 @@
-using System.Runtime.InteropServices;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using MyTimetable.Models;
 using MyTimetable.Planning;
-using System.Text.Json;
 using MyTimetable.Security;
 
 namespace MyTimetable.Controllers
@@ -150,6 +149,19 @@ namespace MyTimetable.Controllers
                 var response = new { success = rendered, failure = _planner.Queue.Values.Sum() };
                 return Ok(response);
             }
+        }
+
+        [HttpPost("Reset")]
+        public async Task<IActionResult> Reset([FromServices] IHostEnvironment env)
+        {
+            if (!await _auth.IsEditor(_db, SID))
+                return Unauthorized(new { error = "No editing rights." });
+            if (!env.IsDevelopment())
+                return NotFound();
+            int custom = await _db.CustomLessons.ExecuteDeleteAsync();
+            int deactivations = await _db.Deactivations.ExecuteDeleteAsync();
+            await _rebuilder.Rebuild(_db);
+            return Ok(new { cleared = new { custom, deactivations } });
         }
     }
 }
