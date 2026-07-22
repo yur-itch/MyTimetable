@@ -46,19 +46,21 @@ namespace MyTimetable
 
         private static string FormatCell(Cell cell)
         {
-            if (cell.DefaultLesson is { } dl)
+            // Custom lessons take priority — they were explicitly placed here.
+            // Hidden defaults underneath are invisible by design.
+            if (cell.CustomLesson is { } cl)
+            {
+                string sn = ShortName(cl.Title);
+                string type = cl.LessonType.Length > 0 ? cl.LessonType[0].ToString() : "?";
+                return $"!{sn} {type}";
+            }
+            if (cell.DefaultLesson is { } dl && !cell.Hidden)
             {
                 string sn = ShortName(dl.Title);
                 string type = dl.LessonType.Length > 0 ? dl.LessonType[0].ToString() : "?";
                 if (!string.IsNullOrEmpty(dl.Room))
                     return $"{sn} {type} [{dl.Room}]";
                 return $"{sn} {type}";
-            }
-            if (cell.CustomLesson is { } cl)
-            {
-                string sn = ShortName(cl.Title);
-                string type = cl.LessonType.Length > 0 ? cl.LessonType[0].ToString() : "?";
-                return $"!{sn} {type}";
             }
             return "-";
         }
