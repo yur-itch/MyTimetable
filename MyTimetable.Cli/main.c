@@ -930,8 +930,13 @@ static int cmd_plan(int argc, char** argv) {
         }
         else if (strcmp(args[0], "strategies") == 0) {
             if (s == 0) { printf("(empty)\n"); }
-            for (int i = 0; i < s; i++)
-                printf("  %d. %s\n", i + 1, strats[i]);
+            for (int i = 0; i < s; i++) {
+                char name[32] = {0}, p[32] = {0}, sl[32] = {0};
+                int kind = parse_strategy_spec(strats[i], name, p, sl);
+                if (kind == 1) printf("  %d. prebuilt %s\n", i + 1, name);
+                else if (kind == 2) printf("  %d. composed %s:%s\n", i + 1, p, sl);
+                else printf("  %d. (invalid) %s\n", i + 1, strats[i]);
+            }
         }
         else if (strcmp(args[0], "push") == 0) {
             if (ac == 2) {
