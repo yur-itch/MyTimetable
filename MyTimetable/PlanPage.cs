@@ -5,24 +5,27 @@ using NUglify;
 
 namespace MyTimetable
 {
-    // Готовый (отрендеренный + минифицированный) HTML страницы планирования. Список стратегий фиксирован
-    // на старте, но очередь предметов меняется планированием и снятием конфликтов — поэтому блоб
-    // пересобирается (Rebuild) после каждого изменения очереди, а GET /App/Plan лишь отдаёт текущий Html
-    // без рендера и минификации на запрос. Зеркало CacheRebuilder, но для статической формы планирования.
+    // Готовый (отрендеренный + минифицированный) HTML страницы планирования.
     public sealed class PlanPage
     {
         private readonly ViewRenderer _renderer;
         private readonly IServiceProvider _serviceProvider;
-        private readonly IReadOnlyCollection<string> _strategies;
+        private readonly IReadOnlyCollection<string> _prebuiltNames;
+        private readonly IReadOnlyCollection<string> _pickerNames;
+        private readonly IReadOnlyCollection<string> _slotterNames;
 
         public string Html { get; private set; } = "";
 
         public PlanPage(ViewRenderer renderer, IServiceProvider serviceProvider,
-                        IReadOnlyDictionary<string, IPlanningSelectorFactory> strategies)
+                        IReadOnlyDictionary<string, IPlanningSelectorFactory> strategies,
+                        IReadOnlyDictionary<string, IPickerFactory> pickers,
+                        IReadOnlyDictionary<string, ISlotterFactory> slotters)
         {
             _renderer = renderer;
             _serviceProvider = serviceProvider;
-            _strategies = strategies.Keys.ToList();
+            _prebuiltNames = strategies.Keys.ToList();
+            _pickerNames = pickers.Keys.ToList();
+            _slotterNames = slotters.Keys.ToList();
         }
 
         public async Task Rebuild(IReadOnlyDictionary<string, int> queue)
@@ -33,7 +36,13 @@ namespace MyTimetable
             routeData.Values["controller"] = "App";
             var actionContext = new ActionContext(httpContext, routeData, new ActionDescriptor());
 
-            var model = new PlanView { Strategies = _strategies, Queue = queue };
+            var model = new PlanView
+            {
+                PrebuiltNames = _prebuiltNames,
+                PickerNames = _pickerNames,
+                SlotterNames = _slotterNames,
+                Queue = queue
+            };
             string html = await _renderer.RenderViewToStringAsync("Plan", model, actionContext);
             var minified = Uglify.Html(html);
             Html = minified.HasErrors ? html : minified.Code;
