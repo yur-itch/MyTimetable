@@ -18,12 +18,17 @@ namespace MyTimetable.Controllers
         private readonly ChangesetApplier _applier;
         private readonly TimeProvider _time;
         private readonly IReadOnlyDictionary<string, IPlanningSelectorFactory> _strategies;
+        private readonly IReadOnlyDictionary<string, IPickerFactory> _pickers;
+        private readonly IReadOnlyDictionary<string, ISlotterFactory> _slotters;
         private readonly PlanPage _planPage;
         private readonly AuthProvider _auth;
 
         public PlannerController(ScheduleData data, AppDbContext db, CacheRebuilder rebuilder, Planner planner,
             ScheduleBuilder scheduleBuilder, ChangesetApplier applier, TimeProvider time,
-            IReadOnlyDictionary<string, IPlanningSelectorFactory> strategies, PlanPage planPage, AuthProvider auth)
+            IReadOnlyDictionary<string, IPlanningSelectorFactory> strategies,
+            IReadOnlyDictionary<string, IPickerFactory> pickers,
+            IReadOnlyDictionary<string, ISlotterFactory> slotters,
+            PlanPage planPage, AuthProvider auth)
         {
             _data = data;
             _db = db;
@@ -33,6 +38,8 @@ namespace MyTimetable.Controllers
             _applier = applier;
             _time = time;
             _strategies = strategies;
+            _pickers = pickers;
+            _slotters = slotters;
             _planPage = planPage;
             _auth = auth;
         }
@@ -41,7 +48,10 @@ namespace MyTimetable.Controllers
                               ?? Request.Cookies["mytimetable.session"];
 
         [HttpPatch]
-        public async Task<IActionResult> Plan([FromQuery] Dictionary<string, int> titles, [FromQuery] List<string> strategies, [FromQuery] bool fromCli = false)
+        public async Task<IActionResult> Plan(
+            [FromQuery] Dictionary<string, int> titles,
+            [FromBody] List<StrategySpec> specifications,
+            [FromQuery] bool fromCli = false)
         {
             if (!await _auth.IsEditor(_db, SID))
                 return Unauthorized(new { error = "No editing rights." });
@@ -51,13 +61,11 @@ namespace MyTimetable.Controllers
             CalendarSchedule days = await _builder.LoadFromDb(_db, DateOnly.FromDateTime(_time.GetLocalNow().DateTime), _builder.YearEnd);
             ScheduleChangeset schedule = new();
             List<IPlanningSelectorFactory> factories = new();
-            foreach (var strategy in strategies)
+            foreach (var spec in specifications)
             {
-                if (!_strategies.TryGetValue(strategy, out var selectorFactory))
-                {
-                    return BadRequest($"strategy '{strategy}' does not exist");
-                }
-                factories.Add(selectorFactory);
+                IActionResult? error = ResolveSpec(spec, out var sf);
+                if (error != null) return error;
+                factories.Add(sf);
             }
             PlanningSelectorFactory factory = new((dict, slots) => new CompositePlanningSelector(dict, slots, factories));
             List<DateOnly> dates = _planner.Plan(factory, days, schedule);
@@ -72,6 +80,38 @@ namespace MyTimetable.Controllers
                 Dictionary<DateOnly, string> rendered = dates.ToDictionary(x => x, x => _data.PartialViewResult[x]);
                 var response = new { success = rendered, failure = _planner.Queue.Values.Sum() };
                 return Ok(response);
+            }
+        }
+
+        private IActionResult? ResolveSpec(StrategySpec spec, out IPlanningSelectorFactory factory)
+        {
+            switch (spec)
+            {
+                case StrategySpec.Prebuilt p:
+                    if (!_strategies.TryGetValue(p.Name, out var sf))
+                    {
+                        factory = null!;
+                        return BadRequest($"strategy '{p.Name}' does not exist");
+                    }
+                    factory = sf;
+                    return null;
+                case StrategySpec.Composed c:
+                    if (!_pickers.TryGetValue(c.Picker, out var pf))
+                    {
+                        factory = null!;
+                        return BadRequest($"picker '{c.Picker}' does not exist");
+                    }
+                    if (!_slotters.TryGetValue(c.Slotter, out var slf))
+                    {
+                        factory = null!;
+                        return BadRequest($"slotter '{c.Slotter}' does not exist");
+                    }
+                    factory = new PlanningSelectorFactory(
+                        (q, s) => new DualSelector(q, s, pf, slf));
+                    return null;
+                default:
+                    factory = null!;
+                    return BadRequest("unknown strategy spec type");
             }
         }
 
