@@ -13,7 +13,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include "json.h"
 #include <brotli/decode.h>
 
 #define DEFAULT_HOST L"localhost"
@@ -337,17 +336,25 @@ static char* http_request(const WCHAR* method, const WCHAR* path,
     return buf;
 }
 
-// ── JSON helpers (sheredom/json.h wrappers) ─────────────────────
-static struct json_value_s* json_get(struct json_object_s *obj, const char *key) {
-    if (!obj) return NULL;
-    for (struct json_object_element_s *e = obj->start; e; e = e->next)
-        if (strcmp(e->name->string, key) == 0) return e->value;
-    return NULL;
+// ── Binary read helpers ──────────────────────────────────────────
+static int read_u16(const unsigned char* p, int* off) {
+    int v = p[*off] | (p[*off + 1] << 8);
+    *off += 2;
+    return v;
 }
-static const char* json_get_string(struct json_object_s *obj, const char *key) {
-    struct json_value_s *v = json_get(obj, key);
-    struct json_string_s *s = v ? json_value_as_string(v) : NULL;
-    return s ? s->string : NULL;
+static int read_i32(const unsigned char* p, int* off) {
+    int v = p[*off] | (p[*off + 1] << 8) | (p[*off + 2] << 16) | (p[*off + 3] << 24);
+    *off += 4;
+    return v;
+}
+static void read_block(char (*dest)[32], int* count, const unsigned char* p, int* off) {
+    *count = read_u16(p, off);
+    for (int i = 0; i < *count && i < 32; i++) {
+        int len = read_u16(p, off);
+        memcpy(dest[i], p + *off, len < 31 ? len : 31);
+        dest[i][len < 31 ? len : 31] = 0;
+        *off += len;
+    }
 }
 
 // ── Display helpers ───────────────────────────────────────────────
@@ -633,21 +640,19 @@ static int cmd_schedule(int argc, char** argv) {
     }
     if (st != 200) { fprintf(stderr, "Error %d\n", st); return 1; }
 
-    // Parse JSON (already decompressed by WinHTTP)
-    struct json_value_s *root = json_parse(raw, strlen(raw));
-    if (!root) { fprintf(stderr, "Bad JSON from server\n"); return 1; }
-
-    struct json_object_s *root_obj = json_value_as_object(root);
-    const char *data_text = json_get_string(root_obj, "data");
-    struct json_value_s *st_v = json_get(root_obj, "scrollTarget");
-    struct json_number_s *st_n = st_v ? json_value_as_number(st_v) : NULL;
-    int scroll_target = st_n ? atoi(st_n->number) : 0;
-
-    if (!data_text) { fprintf(stderr, "No schedule data\n"); free(root); return 1; }
-
-    run_table_repl(data_text, scroll_target);
-
-    free(root);
+    // Parse binary: [4B scrollTarget LE][2B data_len LE][UTF-8 data]
+    {
+        const unsigned char* p = (const unsigned char*)raw;
+        int off = 0;
+        int scroll_target = read_i32(p, &off);
+        int data_len = read_u16(p, &off);
+        if (off + data_len < BUFSIZE) {
+            char saved = raw[off + data_len];
+            raw[off + data_len] = 0;
+            run_table_repl(raw + off, scroll_target);
+            raw[off + data_len] = saved;
+        }
+    }
     return 0;
 }
 
@@ -699,32 +704,14 @@ static int fetch_strategies(void) {
     char* raw = http_request(L"GET", L"/Planner/Strategies", NULL, &st, NULL);
     if (!raw || st != 200) return 0;
 
-    struct json_value_s* root = json_parse(raw, strlen(raw));
-    if (!root) return 0;
-    struct json_object_s* obj = json_value_as_object(root);
-    if (!obj) { free(root); return 0; }
-
-    // Parse each array
-    const char* keys[] = {"prebuilt", "pickers", "slotters"};
-    char (*dests[3])[32] = {prebuilt_names, picker_names, slotter_names};
-    int* counts[3] = {&prebuilt_count, &picker_count, &slotter_count};
-
-    for (int k = 0; k < 3; k++) {
-        struct json_value_s* arr_v = json_get(obj, keys[k]);
-        struct json_array_s* arr = arr_v ? json_value_as_array(arr_v) : NULL;
-        if (!arr) continue;
-        int idx = 0;
-        for (struct json_array_element_s* e = arr->start; e && idx < 32; e = e->next) {
-            struct json_string_s* s = json_value_as_string(e->value);
-            if (s && s->string) {
-                strncpy(dests[k][idx], s->string, 31);
-                dests[k][idx][31] = 0;
-                idx++;
-            }
-        }
-        *counts[k] = idx;
+    // Parse binary: 3 blocks [2B count][2B len][chars]...
+    {
+        const unsigned char* p = (const unsigned char*)raw;
+        int off = 0;
+        read_block(prebuilt_names, &prebuilt_count, p, &off);
+        read_block(picker_names, &picker_count, p, &off);
+        read_block(slotter_names, &slotter_count, p, &off);
     }
-    free(root);
     strategies_loaded = 1;
     return 1;
 }
@@ -1096,19 +1083,18 @@ static int cmd_plan(int argc, char** argv) {
                 continue;
             }
 
-            struct json_value_s *jroot = json_parse(resp, strlen(resp));
-            if (jroot) {
-                struct json_object_s *jobj = json_value_as_object(jroot);
-                const char *data = NULL;
-                int starget = 0;
-                struct json_value_s *data_v = json_get(jobj, "data");
-                struct json_string_s *data_s = data_v ? json_value_as_string(data_v) : NULL;
-                if (data_s) data = data_s->string;
-                struct json_value_s *st_v = json_get(jobj, "scrollTarget");
-                struct json_number_s *st_n = st_v ? json_value_as_number(st_v) : NULL;
-                if (st_n) starget = atoi(st_n->number);
-                if (data) run_table_repl(data, starget);
-                free(jroot);
+            // Parse binary: [4B scrollTarget LE][2B data_len LE][UTF-8 data]
+            {
+                const unsigned char* p = (const unsigned char*)resp;
+                int off = 0;
+                int starget = read_i32(p, &off);
+                int data_len = read_u16(p, &off);
+                if (off + data_len < BUFSIZE) {
+                    char saved = resp[off + data_len];
+                    resp[off + data_len] = 0;
+                    run_table_repl(resp + off, starget);
+                    resp[off + data_len] = saved;
+                }
             }
 
             plan_show_status(titles, counts, n, strats, s);
@@ -1150,30 +1136,21 @@ static int cmd_conflicts(int argc, char** argv) {
     }
     if (st != 200) { fprintf(stderr, "Error %d: %s\n", st, raw); return 1; }
 
-    struct json_value_s *root = json_parse(raw, strlen(raw));
-    if (!root) { fprintf(stderr, "Bad JSON\n"); return 1; }
-
-    struct json_array_s *arr = json_value_as_array(root);
-    if (!arr) { fprintf(stderr, "Expected array\n"); free(root); return 1; }
-
-    int count = 0;
-    for (struct json_array_element_s *e = arr->start; e; e = e->next) {
-        struct json_object_s *slot = json_value_as_object(e->value);
-        if (!slot) continue;
-        const char* date = json_get_string(slot, "Date");
-        struct json_value_s *num_v = json_get(slot, "Number");
-        int num = 0;
-        if (num_v) {
-            struct json_number_s *num_n = json_value_as_number(num_v);
-            if (num_n) num = atoi(num_n->number);
+    // Parse binary: [2B count][10B date][1B number]...
+    {
+        const unsigned char* p = (const unsigned char*)raw;
+        int off = 0;
+        int count = read_u16(p, &off);
+        for (int i = 0; i < count; i++) {
+            char date[11] = {0};
+            memcpy(date, p + off, 10);
+            off += 10;
+            int num = p[off++];
+            printf("  %s  pair %d\n", date, num);
         }
-        printf("  %s  pair %d\n", date ? date : "?", num);
-        count++;
+        if (count == 0) fputs("No conflicts found.\n", stdout);
+        else printf("%d conflict(s) total. Run 'resolve-conflicts' to fix.\n", count);
     }
-    if (count == 0) printf("No conflicts found.\n");
-    else printf("%d conflict(s) total. Run 'resolve-conflicts' to fix.\n", count);
-
-    free(root);
     return 0;
 }
 
@@ -1208,26 +1185,20 @@ static int cmd_resolve_conflicts(int argc, char** argv) {
     }
     if (st != 200) { fprintf(stderr, "Error %d: %s\n", st, raw); return 1; }
 
-    // Response: {data, scrollTarget} — same as CLI schedule view, brotli-compressed
-    if (strcmp(ce, "br") == 0) {
-        // http_request already decompressed it
-    }
-
-    struct json_value_s *root = json_parse(raw, strlen(raw));
-    if (!root) { fprintf(stderr, "Bad JSON from server\n"); return 1; }
-
-    struct json_object_s *root_obj = json_value_as_object(root);
-    const char *data_text = json_get_string(root_obj, "data");
-    struct json_value_s *st_v = json_get(root_obj, "scrollTarget");
-    struct json_number_s *st_n = st_v ? json_value_as_number(st_v) : NULL;
-    int scroll_target = st_n ? atoi(st_n->number) : 0;
-
-    if (!data_text) { fprintf(stderr, "No data in response\n"); free(root); return 1; }
-
     fputs("Conflicts resolved.\n", stdout);
-    run_table_repl(data_text, scroll_target);
-
-    free(root);
+    // Parse binary: [4B scrollTarget LE][2B data_len LE][UTF-8 data]
+    {
+        const unsigned char* p = (const unsigned char*)raw;
+        int off = 0;
+        int scroll_target = read_i32(p, &off);
+        int data_len = read_u16(p, &off);
+        if (off + data_len < BUFSIZE) {
+            char saved = raw[off + data_len];
+            raw[off + data_len] = 0;
+            run_table_repl(raw + off, scroll_target);
+            raw[off + data_len] = saved;
+        }
+    }
     return 0;
 }
 

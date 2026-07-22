@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.IO;
+using System.Text;
 using MyTimetable.Models;
 using MyTimetable.Planning;
 using MyTimetable.Security;
@@ -76,7 +78,7 @@ namespace MyTimetable.Controllers
             await _planPage.Rebuild(_planner.Queue);
             if (fromCli) {
                 Response.Headers.ContentEncoding = "br";
-                return File(_data.CliViewResult, "application/json; charset=utf-8");
+                return File(_data.CliViewResult, "application/octet-stream");
             } else {
                 Dictionary<DateOnly, string> rendered = dates.ToDictionary(x => x, x => _data.PartialViewResult[x]);
                 var response = new { success = rendered, failure = _planner.Queue.Values.Sum() };
@@ -117,7 +119,24 @@ namespace MyTimetable.Controllers
             var prebuilt = _strategies.Keys.OrderBy(k => k).ToList();
             var pickers = _pickers.Keys.OrderBy(k => k).ToList();
             var slotters = _slotters.Keys.OrderBy(k => k).ToList();
-            return Ok(new { prebuilt, pickers, slotters });
+            // Binary: 3 blocks [2B count][2B len][UTF-8 name]...
+            using var ms = new MemoryStream();
+            using var w = new BinaryWriter(ms);
+            WriteBlock(w, prebuilt);
+            WriteBlock(w, pickers);
+            WriteBlock(w, slotters);
+            return File(ms.ToArray(), "application/octet-stream");
+        }
+
+        private static void WriteBlock(BinaryWriter w, List<string> items)
+        {
+            w.Write((ushort)items.Count);
+            foreach (var item in items)
+            {
+                byte[] bytes = System.Text.Encoding.UTF8.GetBytes(item);
+                w.Write((ushort)bytes.Length);
+                w.Write(bytes);
+            }
         }
 
         [HttpGet]
@@ -130,7 +149,17 @@ namespace MyTimetable.Controllers
                 return Unauthorized(new { error = "No viewing rights." });
             CalendarSchedule schedule = await _builder.LoadFromDb(_db, DateOnly.FromDateTime(_time.GetLocalNow().DateTime), _builder.YearEnd);
             List<Slot> conflicts = _planner.GetConflictingSlots(schedule).ToList();
-            return Ok(conflicts);
+            // Binary: [2B count][10B date "yyyy-MM-dd"][1B number]...
+            using var ms = new MemoryStream();
+            using var w = new BinaryWriter(ms);
+            w.Write((ushort)conflicts.Count);
+            foreach (var c in conflicts)
+            {
+                byte[] dateBytes = System.Text.Encoding.UTF8.GetBytes(c.Date.ToString("yyyy-MM-dd"));
+                w.Write(dateBytes); // always 10 bytes
+                w.Write((byte)c.Number);
+            }
+            return File(ms.ToArray(), "application/octet-stream");
         }
 
         [HttpPatch("ResolveConflicts")]
@@ -149,7 +178,7 @@ namespace MyTimetable.Controllers
             await _planPage.Rebuild(_planner.Queue);
             if (fromCli) {
                 Response.Headers.ContentEncoding = "br";
-                return File(_data.CliViewResult, "application/json; charset=utf-8");
+                return File(_data.CliViewResult, "application/octet-stream");
             } else {
                 Dictionary<DateOnly, string> rendered = dates.ToDictionary(x => x, x => _data.PartialViewResult[x]);
                 var response = new { success = rendered, failure = _planner.Queue.Values.Sum() };

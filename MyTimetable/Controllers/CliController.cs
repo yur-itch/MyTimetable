@@ -38,7 +38,7 @@ namespace MyTimetable.Controllers
                 return StatusCode(503, "Расписание временно недоступно");
             }
             Response.Headers.ContentEncoding = "br";
-            return File(_data.CliViewResult, "application/json; charset=utf-8");
+            return File(_data.CliViewResult, "application/octet-stream");
         }
 
         public record LoginRequest(string Username, string Password);
