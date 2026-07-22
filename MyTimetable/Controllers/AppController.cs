@@ -150,7 +150,6 @@ namespace MyTimetable.Controllers
             }
             PlanningSelectorFactory composite = new((dict, slots) => new CompositePlanningSelector(dict, slots, factories));
             List<DateOnly> dates = _planner.Plan(composite, days, schedule);
-            List<DateOnly> dates = _planner.Plan(factory, days, schedule);
             await _applier.Apply(_db, schedule);
             await _db.SaveChangesAsync(); // контроллер владеет единицей работы запроса — он и коммитит
             await _rebuilder.Rebuild(_db, dates);
