@@ -36,7 +36,7 @@ static char session_data[SESSION_DATA_LEN] =
 
 // ── Plan persistent storage ───────────────────────────────────────
 #define PLAN_ANCHOR "PLAN_ANCHOR_16__"
-#define PLAN_DATA_SIZE  1024
+#define PLAN_DATA_SIZE  4096
 #define PLAN_TOTAL_LEN  (ANCHOR_SIZE + PLAN_DATA_SIZE)
 #define MAX_SUBJECTS   32
 #define MAX_STRATEGIES 32
