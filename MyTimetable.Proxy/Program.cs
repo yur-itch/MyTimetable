@@ -184,4 +184,12 @@ static string RenderSchedule(int slotCount, int scrollTarget, List<Dictionary<st
 
 record LoginRequest(string Username, string Password);
 record LoginResponse(string SessionId, string User, string Role);
-record PlanRequest(Dictionary<string, int>? Titles, List<string>? Strategies);
+record PlanRequest(Dictionary<string, int>? Titles, List<PlanStrategySpec>? Specifications);
+
+[JsonDerivedType(typeof(PlanPrebuilt), "prebuilt")]
+[JsonDerivedType(typeof(PlanComposed), "composed")]
+abstract record PlanStrategySpec
+{
+    public sealed record PlanPrebuilt(string Name) : PlanStrategySpec;
+    public sealed record PlanComposed(string Picker, string Slotter) : PlanStrategySpec;
+}
