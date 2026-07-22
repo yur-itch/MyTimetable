@@ -40,6 +40,25 @@ builder.Services.AddSingleton<IReadOnlyDictionary<string, IPlanningSelectorFacto
         ["random"] = new PlanningSelectorFactory((q, s) => new RandomSelector(q, s)),
         ["weighted"] = new PlanningSelectorFactory((q, s) => new WeightedRandomSelector(q, s)),
     });
+builder.Services.AddSingleton<IReadOnlyDictionary<string, IPickerFactory>>(_ =>
+    new Dictionary<string, IPickerFactory>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["roundrobin"] = new PickerFactory(q => new RoundRobinPicker(q)),
+        ["fairshare"] = new PickerFactory(q => new FairSharePicker(q)),
+        ["largest"] = new PickerFactory(_ => new LargestQueueFirstPicker()),
+        ["smallest"] = new PickerFactory(_ => new SmallestQueueFirstPicker()),
+        ["random"] = new PickerFactory(_ => new RandomPicker()),
+        ["weighted"] = new PickerFactory(_ => new WeightedRandomPicker()),
+    });
+builder.Services.AddSingleton<IReadOnlyDictionary<string, ISlotterFactory>>(_ =>
+    new Dictionary<string, ISlotterFactory>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["sequential"] = new SlotterFactory(s => new SequentialSlotter(s)),
+        ["gap"] = new SlotterFactory(s => new GapClosingSlotter(s, DaySchedule.DefaultSlotCount)),
+        ["emptyseed"] = new SlotterFactory(s => new EmptyDaySeedSlotter(s, DaySchedule.DefaultSlotCount)),
+        ["leading"] = new SlotterFactory(s => new LeadingChunkGrowthSlotter(s, DaySchedule.DefaultSlotCount)),
+        ["trailing"] = new SlotterFactory(s => new TrailingChunkGrowthSlotter(s, DaySchedule.DefaultSlotCount)),
+    });
 builder.Services.AddSingleton<Planner>();
 builder.Services.AddSingleton<PlanPage>();
 builder.Services.AddSingleton<ScheduleData>();
