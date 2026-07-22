@@ -1016,7 +1016,7 @@ static int cmd_plan(int argc, char** argv) {
             if (n == 0) { printf("No subjects. Add some first.\n"); continue; }
             if (s == 0) { printf("No strategies. Push at least one.\n"); continue; }
 
-            // Build query string: /Planner?titles[Encoded]=N&...&strategies[0]=S&...
+            // Build query string: /Planner?titles[Encoded]=N&...&fromCli=true
             char qs[4096];
             int pos = 0;
             pos += snprintf(qs + pos, sizeof(qs) - pos, "/Planner?");
@@ -1026,14 +1026,30 @@ static int cmd_plan(int argc, char** argv) {
                 pos += url_encode(qs + pos, titles[i]);
                 pos += snprintf(qs + pos, sizeof(qs) - pos, "]=%d", counts[i]);
             }
-            for (int i = 0; i < s && pos < (int)sizeof(qs) - 512; i++) {
-                pos += snprintf(qs + pos, sizeof(qs) - pos, "&strategies[%d]=", i);
-                pos += url_encode(qs + pos, strats[i]);
-            }
-
             pos += snprintf(qs + pos, sizeof(qs) - pos, "&fromCli=true");
 
-            if (pos >= (int)sizeof(qs) - 512) {
+            // Build JSON body with StrategySpec array
+            char body[4096];
+            int bpos = 0;
+            bpos += snprintf(body + bpos, sizeof(body) - bpos, "[");
+            for (int i = 0; i < s; i++) {
+                if (i > 0) bpos += snprintf(body + bpos, sizeof(body) - bpos, ",");
+                char name[32] = {0}, p[32] = {0}, sl[32] = {0};
+                int kind = parse_strategy_spec(strats[i], name, p, sl);
+                if (kind == 1) {
+                    bpos += snprintf(body + bpos, sizeof(body) - bpos,
+                        "{\"$type\":\"prebuilt\",\"name\":\"%s\"}", name);
+                } else if (kind == 2) {
+                    bpos += snprintf(body + bpos, sizeof(body) - bpos,
+                        "{\"$type\":\"composed\",\"picker\":\"%s\",\"slotter\":\"%s\"}", p, sl);
+                } else {
+                    // Shouldn't happen — push validates, but skip gracefully
+                    continue;
+                }
+            }
+            bpos += snprintf(body + bpos, sizeof(body) - bpos, "]");
+
+            if (pos >= (int)sizeof(qs) - 512 || bpos >= (int)sizeof(body) - 512) {
                 printf("  Payload too large. Reduce subjects or strategies.\n");
                 continue;
             }
@@ -1043,7 +1059,7 @@ static int cmd_plan(int argc, char** argv) {
 
             printf("  Sending plan...\n");
             int st = 0;
-            char* resp = http_request(L"PATCH", wpath, NULL, &st, NULL);
+            char* resp = http_request(L"PATCH", wpath, body, &st, NULL);
 
             if (!resp) {
                 printf("  Connection failed.\n");
