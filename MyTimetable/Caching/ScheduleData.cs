@@ -3,7 +3,7 @@ using MyTimetable.Models;
 using System.Collections;
 using System.Collections.Concurrent;
 
-namespace MyTimetable
+namespace MyTimetable.Caching
 {
     public sealed class ScheduleData
     {

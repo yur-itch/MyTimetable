@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.ResponseCompression;
 using System.IO.Compression;
 
 using MyTimetable;
+using MyTimetable.Caching;
 using MyTimetable.Models;
 using MyTimetable.Planning;
 using MyTimetable.Entities;

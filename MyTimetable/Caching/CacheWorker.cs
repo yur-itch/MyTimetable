@@ -1,9 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using MyTimetable;
 using MyTimetable.Models;
 using MyTimetable.TsuInTime;
 using MyTimetable.Entities;
 
-namespace MyTimetable
+namespace MyTimetable.Caching
 {
     public sealed class CacheWorker : BackgroundService
     {

@@ -2,9 +2,10 @@ using System.IO.Compression;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
+using MyTimetable;
 using MyTimetable.Models;
 
-namespace MyTimetable
+namespace MyTimetable.Caching
 {
     // Полная пересборка кэша страницы (предсжатый блоб всей страницы + партиалы по дням) из текущего
     // состояния БД. Зовётся и фоновым воркером каждый тик, и контроллером сразу после Hide/Unhide —
