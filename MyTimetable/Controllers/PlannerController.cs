@@ -79,7 +79,7 @@ namespace MyTimetable.Controllers
             await _rebuilder.Rebuild(_db, dates);
             await _planPage.Rebuild(_planner.Queue);
             if (fromCli) {
-                Response.Headers.ContentEncoding = "br";
+                Response.Headers.ContentEncoding = "gzip";
                 return File(_data.CliViewResult, "application/octet-stream");
             } else {
                 Dictionary<DateOnly, string> rendered = dates.ToDictionary(x => x, x => _data.PartialViewResult[x]);
@@ -179,7 +179,7 @@ namespace MyTimetable.Controllers
             await _rebuilder.Rebuild(_db, dates);
             await _planPage.Rebuild(_planner.Queue);
             if (fromCli) {
-                Response.Headers.ContentEncoding = "br";
+                Response.Headers.ContentEncoding = "gzip";
                 return File(_data.CliViewResult, "application/octet-stream");
             } else {
                 Dictionary<DateOnly, string> rendered = dates.ToDictionary(x => x, x => _data.PartialViewResult[x]);
