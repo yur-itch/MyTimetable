@@ -44,7 +44,6 @@ namespace MyTimetable.Controllers
             {
                 return StatusCode(503, "Расписание временно недоступно");
             }
-            Response.Headers.Add("X-Debug", "gzip-rewrite-v2");
             Response.Headers.ContentEncoding = "gzip";
             return File(_data.ViewResult, "text/html; charset=utf-8");
         }
