@@ -601,7 +601,7 @@ static int cmd_schedule(int argc, char** argv) {
     }
     if (needs_login()) { fprintf(stderr, "No token. Run 'login' first.\n"); return 1; }
 
-    // GET /Cli — brotli-compressed, decompressed inside http_request
+    // GET /Cli — gzip-compressed, decompressed by WinHTTP
     int st = 0;
     char* raw = http_request(L"GET", L"/Cli", NULL, &st);
     if (!raw) { fprintf(stderr, "Connection failed\n"); return 1; }
