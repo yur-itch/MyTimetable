@@ -382,7 +382,7 @@ static int needs_login(void) { return is_placeholder(session_ptr(session_data));
 
 static int do_login_hex(const char* user, const char* pass) {
     char body[256]; snprintf(body, sizeof(body), "{\"username\":\"%s\",\"password\":\"%s\"}", user, pass);
-    int st = 0; char* r = http_request(L"POST", L"/Cli/login", body, &st, NULL);
+    int st = 0; char* r = http_request(L"POST", L"/Cli/login", body, &st);
     if (!r || st != 200) { return 0; }
     // Response body is plain 32-char hex session ID
     if (strlen(r) != SESSION_SIZE * 2) return 0;
@@ -394,7 +394,7 @@ static int do_login_hex(const char* user, const char* pass) {
 
 static int do_register_hex(const char* user, const char* pass, char* err_buf, int err_sz) {
     char body[256]; snprintf(body, sizeof(body), "{\"username\":\"%s\",\"password\":\"%s\"}", user, pass);
-    int st = 0; char* r = http_request(L"POST", L"/Cli/register", body, &st, NULL);
+    int st = 0; char* r = http_request(L"POST", L"/Cli/register", body, &st);
     if (!r) { snprintf(err_buf, err_sz, "Connection failed"); return 0; }
     if (st != 200) {
         snprintf(err_buf, err_sz, "Server error %d: %s", st, r);
@@ -479,7 +479,7 @@ static int cmd_logout(void) {
     if (!needs_login()) {
         fputs("Logging out from server...\n", stdout);
         int st = 0;
-        http_request(L"POST", L"/Cli/Logout", NULL, &st, NULL);
+        http_request(L"POST", L"/Cli/Logout", NULL, &st);
     }
     fputs("Clearing baked-in token...\n", stdout);
     self_patch(SESSION_PLACEHOLDER, 0, NULL);
@@ -673,7 +673,7 @@ static int parse_strategy_spec(const char* raw, char* name, char* p, char* sl) {
 static int fetch_strategies(void) {
     if (strategies_loaded) return 1;
     int st = 0;
-    char* raw = http_request(L"GET", L"/Planner/Strategies", NULL, &st, NULL);
+    char* raw = http_request(L"GET", L"/Planner/Strategies", NULL, &st);
     if (!raw || st != 200) return 0;
 
     // Parse binary: 3 blocks [2B count][2B len][chars]...
@@ -1039,7 +1039,7 @@ static int cmd_plan(int argc, char** argv) {
 
             fputs("  Sending plan...\n", stdout);
             int st = 0;
-            char* resp = http_request(L"PATCH", wpath, body, &st, NULL);
+            char* resp = http_request(L"PATCH", wpath, body, &st);
 
             if (!resp) {
                 fputs("  Connection failed.\n", stdout);
@@ -1099,7 +1099,7 @@ static int cmd_conflicts(int argc, char** argv) {
 
     // GET /Planner/Conflicts?fromCli=true
     int st = 0;
-    char* raw = http_request(L"GET", L"/Planner/Conflicts?fromCli=true", NULL, &st, NULL);
+    char* raw = http_request(L"GET", L"/Planner/Conflicts?fromCli=true", NULL, &st);
     if (!raw) { fprintf(stderr, "Connection failed\n"); return 1; }
     if (st == 401) {
         fputs("Token expired. Clearing...\n", stderr);
