@@ -21,5 +21,22 @@ namespace MyTimetable
             }
             return output.ToArray();
         }
+
+        // UTF-8 string → gzip (Content-Encoding: gzip).
+        public static byte[] Gzip(string html, CompressionLevel level = CompressionLevel.Optimal)
+        {
+            return Gzip(Encoding.UTF8.GetBytes(html), level);
+        }
+
+        // Raw bytes → gzip.
+        public static byte[] Gzip(byte[] data, CompressionLevel level = CompressionLevel.Optimal)
+        {
+            using var output = new MemoryStream();
+            using (var gzip = new GZipStream(output, level))
+            {
+                gzip.Write(data);
+            }
+            return output.ToArray();
+        }
     }
 }
