@@ -8,58 +8,37 @@ if (args.Length < 1)
 }
 
 var path = args[0];
-if (!File.Exists(path))
-{
-    Console.Error.WriteLine($"File not found: {path}");
-    return 1;
-}
-
 byte[] raw = File.ReadAllBytes(path);
 Console.WriteLine($"Input: {raw.Length:N0} bytes\n");
 
-foreach (var level in new[] { ("Fastest", CompressionLevel.Fastest), ("Optimal", CompressionLevel.Optimal), ("SmallestSize", CompressionLevel.SmallestSize) })
-{
-    // Warmup
-    Compress(raw, level.Item2);
-
-    int iterations = 100;
-    var sw = Stopwatch.StartNew();
-    int size = 0;
-    for (int i = 0; i < iterations; i++)
-        size = Compress(raw, level.Item2);
-    sw.Stop();
-
-    double ms = sw.Elapsed.TotalMilliseconds / iterations;
-    double ratio = (double)raw.Length / size;
-    Console.WriteLine($"{level.Item1,-14} {size,7:N0} bytes  {ms,8:F3} ms/op  ({ratio:F1}× ratio)");
-}
-
-// gzip
-{
-    var sw = Stopwatch.StartNew();
-    int sizeGz = 0;
-    for (int i = 0; i < 100; i++)
-        sizeGz = GzipCompress(raw);
-    sw.Stop();
-    double ms = sw.Elapsed.TotalMilliseconds / 100;
-    double ratio = (double)raw.Length / sizeGz;
-    Console.WriteLine($"gzip-best      {sizeGz,7:N0} bytes  {ms,8:F3} ms/op  ({ratio:F1}× ratio)");
-}
+Test("Fastest", CompressionLevel.Fastest, raw, 20);
+Test("Optimal", CompressionLevel.Optimal, raw, 20);
+Test("SmallestSize", CompressionLevel.SmallestSize, raw, 5);
+TestGzip(raw, 20);
 
 return 0;
 
-static int Compress(byte[] data, CompressionLevel level)
+static void Test(string name, CompressionLevel level, byte[] raw, int iters)
 {
-    using var ms = new MemoryStream();
-    using (var bs = new BrotliStream(ms, level, leaveOpen: false))
-        bs.Write(data);
-    return ms.ToArray().Length;
+    Compress(raw, level); // warmup
+    var sw = Stopwatch.StartNew();
+    int size = 0;
+    for (int i = 0; i < iters; i++) size = Compress(raw, level);
+    sw.Stop();
+    double ms = sw.Elapsed.TotalMilliseconds / iters;
+    Console.WriteLine($"{name,-14} {size,7:N0} bytes  {ms,7:F1} ms/op  ({raw.Length / (double)size:F1}×)");
 }
 
-static int GzipCompress(byte[] data)
+static void TestGzip(byte[] raw, int iters)
 {
-    using var ms = new MemoryStream();
-    using (var gz = new GZipStream(ms, CompressionLevel.SmallestSize, leaveOpen: false))
-        gz.Write(data);
-    return ms.ToArray().Length;
+    GzipCompress(raw); // warmup
+    var sw = Stopwatch.StartNew();
+    int size = 0;
+    for (int i = 0; i < iters; i++) size = GzipCompress(raw);
+    sw.Stop();
+    double ms = sw.Elapsed.TotalMilliseconds / iters;
+    Console.WriteLine($"{"gzip-best",-14} {size,7:N0} bytes  {ms,7:F1} ms/op  ({raw.Length / (double)size:F1}×)");
 }
+
+static int Compress(byte[] d, CompressionLevel l) { using var m = new MemoryStream(); using (var b = new BrotliStream(m, l, true)) b.Write(d); return m.ToArray().Length; }
+static int GzipCompress(byte[] d) { using var m = new MemoryStream(); using (var g = new GZipStream(m, CompressionLevel.SmallestSize, true)) g.Write(d); return m.ToArray().Length; }
