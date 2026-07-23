@@ -74,7 +74,7 @@ namespace MyTimetable.Caching
             };
 
             string html = await _renderer.RenderViewToStringAsync("Get", view, scope.ServiceProvider);
-            _data.ViewResult = Compression.Brotli(html);
+            _data.ViewResult = Compression.Gzip(html);
 
             // CLI view: [4B scrollTarget LE][2B data_len LE][UTF-8 data], brotli-compressed.
             int cliScrollTarget = currentIdx >= 0 ? currentIdx : 0;
@@ -85,7 +85,7 @@ namespace MyTimetable.Caching
             cliW.Write(cliScrollTarget);
             cliW.Write((ushort)cliTableBytes.Length);
             cliW.Write(cliTableBytes);
-            _data.CliViewResult = Compression.Brotli(cliMs.ToArray(), CompressionLevel.Fastest);
+            _data.CliViewResult = Compression.Gzip(cliMs.ToArray(), CompressionLevel.Optimal);
 
             _data.StateValid = true;
             return true;
