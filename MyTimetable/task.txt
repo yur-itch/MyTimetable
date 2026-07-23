@@ -8,45 +8,121 @@ Auth failure → HTTP 401
 
 POST /Cli/login
   Body (JSON): { "username": string, "password": string }
-  Ok (200): { "sessionId": string }    // 32 hex chars (16 raw bytes)
-  Fail (401): (empty body or any)
+  Ok (200): plain text, 32 hex chars (16 raw bytes) — session ID
+  Fail (401): plain text error
+
+POST /Cli/register
+  Body (JSON): { "username": string, "password": string }
+  Ok (200): plain text, 32 hex chars — session ID
+  Conflict (409): plain text error
+
+POST /Cli/logout
+  Header: X-Session-Id
+  Ok (200): empty
 
 GET /Cli
-  No query params. Returns the entire schedule for the whole academic year.
   Response body is Brotli-compressed (Content-Encoding: br).
-  After decompression, JSON:
-  {
-    "slotCount": int,        // number of lesson slots per day, usually 6
-    "scrollTarget": int,     // 0-based index of today in the day list
-    "data": string           // prerendered Unicode box-drawing table
-  }
+  After decompression, binary layout:
+    [4B scrollTarget LE]      — 0-based index of today in the day list
+    [2B data_len LE]          — length of UTF-8 table string
+    [UTF-8 data]              — pre-rendered Unicode box-drawing table
 
 ### Controller: Planner
 
 Base path: /Planner
 
+GET /Planner/Strategies
+  Returns binary: 3 blocks, each [2B count][2B len][UTF-8 name]...
+    Block 0: prebuilt strategy names
+    Block 1: picker names
+    Block 2: slotter names
+
+GET /Planner
+  Returns the Plan page HTML (text/html)
+
 PATCH /Planner
-  Header: X-Session-Id: <sessionId>
-  Body (JSON):
-  {
-    "titles": { "<subject>": <count>, ... },    // Dictionary<string, int>
-    "strategies": [ "<strategy>", ... ]          // List<string>, ordered
-  }
-  Ok (200): { "success": int, "failure": int }
-  Fail (401): (empty)
+  Header: X-Session-Id
+  Query: titles[<url-encoded-subject>]=<count>&...&fromCli=true
+  Body (JSON): SelectorSpec array
+    SelectorSpec is either:
+      { "$type": "prebuilt", "name": string }
+      { "$type": "composed", "picker": string, "slotter": string }
+  When fromCli=true: response is Brotli-compressed binary:
+    [4B scrollTarget LE][2B data_len LE][UTF-8 table]
+  When fromCli=false: JSON { "success": { "<date>": "<html>" }, "failure": int }
 
-Valid strategies (order matters, composable, no-op if impossible):
-  gap, emptyseed, leading, trailing, roundrobin,
-  fairshare, largest, smallest, random, weighted
+PATCH /Planner/ResolveConflicts
+  Query: fromCli=(true|false)
+  Same response format as PATCH /Planner
 
-## Required Features
+GET /Planner/Conflicts
+  Returns binary: [2B count][10B date "yyyy-MM-dd"][1B lessonNumber]...
+
+POST /Planner/Reset
+  Development only. Clears all CustomLessons and Deactivations.
+
+### Controller: App
+
+Base path: /App
+
+GET /App or GET /
+  Requires session (cookie or X-Session-Id).
+  Returns Brotli-compressed HTML (Content-Encoding: br).
+
+GET /App/GetOne?date=<yyyy-MM-dd>
+  Returns partial HTML for one day.
+
+PATCH /App/Hide?date=<yyyy-MM-dd>&lessonNumber=<N>
+  Hides a default lesson (adds Deactivation).
+
+PATCH /App/Unhide?date=<yyyy-MM-dd>&lessonNumber=<N>
+  Unhides a default lesson (removes Deactivation).
+
+GET /App/Login
+  Returns login page HTML.
+
+POST /App/Login
+  Body (JSON): { "username": string, "password": string }
+  Ok (200): JSON { "sessionId": string, "username": string }
+  Sets cookie: mytimetable.session
+
+GET /App/Register
+  Returns registration page HTML.
+
+POST /App/Register
+  Body (JSON): { "username": string, "password": string }
+  Ok (200): JSON { "sessionId": string, "username": string }
+  Conflict (409): JSON { "error": string }
+  Sets cookie: mytimetable.session
+
+POST /App/Logout
+  Deletes session.
+
+GET /App/Plan
+  Returns the Plan page HTML (text/html).
+
+## Valid Strategies
+
+Prebuilt: gap, emptyseed, leading, trailing, roundrobin, fairshare, largest, smallest, random, weighted
+
+Pickers: roundrobin, fairshare, largest, smallest, random, weighted
+Slotters: sequential, gap, emptyseed, leading, trailing
+
+Composed strategy combines a picker + a slotter (e.g. "fairshare + gap").
+Strategies apply stack-wise (top to bottom), each consuming remaining queue & free slots.
+
+## CLI Required Features
 
 1. Login           — POST /Cli/login, bake session into binary
-2. Get schedule    — GET /Cli, decompress, display table, interactive scroll
-3. Plan stuff      — interactive REPL (add subjects, push/pop/mv strategies)
-4. Reset planning  — client-side only, clear subjects & strategies
-5. Submit plan     — PATCH /Planner, show success/failure counts
-6. Logout          — overwrite baked session, restart binary
+2. Register        — POST /Cli/register
+3. Get schedule    — GET /Cli, decompress binary, display table, interactive scroll
+4. Plan            — interactive REPL (add/rm subjects, push/pop/mv strategies)
+5. Plan status     — show saved plan state from binary
+6. Plan save/clear — persist/clear plan in self-patching binary (restarts)
+7. Submit plan     — PATCH /Planner with query + body, show result table
+8. Conflicts       — GET /Planner/Conflicts, list conflicting slots
+9. Resolve-conflicts — PATCH /Planner/ResolveConflicts
+10. Logout          — overwrite baked session, restart binary
 
 ## Viewport Behavior
 
