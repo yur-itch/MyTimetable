@@ -121,7 +121,11 @@ namespace MyTimetable.Controllers
         [HttpGet("Login")]
         public IActionResult Login() => View();
 
+        [HttpGet("Register")]
+        public IActionResult Register() => View();
+
         public record LoginRequest(string Username, string Password);
+        public record RegisterRequest(string Username, string Password);
 
         [HttpPost("Login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest req)
@@ -132,6 +136,32 @@ namespace MyTimetable.Controllers
             if (!await _auth.CanLogIn(_db, req.Username, req.Password))
                 return Unauthorized(new { error = "Invalid credentials." });
 
+            string sessionId = _sessGen.Generate();
+            await _auth.AddSessionFor(_db, sessionId, req.Username);
+            await _db.SaveChangesAsync();
+
+            Response.Cookies.Append("mytimetable.session", sessionId, new CookieOptions
+            {
+                HttpOnly = true,
+                SameSite = SameSiteMode.Lax,
+                Path = "/",
+                MaxAge = TimeSpan.FromDays(7)
+            });
+
+            return Ok(new { sessionId, username = req.Username });
+        }
+
+        [HttpPost("Register")]
+        public async Task<IActionResult> Register([FromBody] RegisterRequest req)
+        {
+            if (string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.Password))
+                return BadRequest(new { error = "Username and password required." });
+
+            var user = await _auth.Register(_db, req.Username, req.Password, isViewer: true, isEditor: false);
+            if (user == null)
+                return Conflict(new { error = "Username already exists or password does not meet requirements." });
+
+            // Log in automatically after registration
             string sessionId = _sessGen.Generate();
             await _auth.AddSessionFor(_db, sessionId, req.Username);
             await _db.SaveChangesAsync();
