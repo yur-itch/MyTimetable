@@ -74,7 +74,7 @@ namespace MyTimetable.Caching
             };
 
             string html = await _renderer.RenderViewToStringAsync("Get", view, scope.ServiceProvider);
-            _data.ViewResult = Compression.Gzip(html);
+            _data.ViewResult = Compression.Gzip(html, CompressionLevel.SmallestSize);
 
             // CLI view: [4B scrollTarget LE][2B data_len LE][UTF-8 data], gzip-compressed.
             int cliScrollTarget = currentIdx >= 0 ? currentIdx : 0;
