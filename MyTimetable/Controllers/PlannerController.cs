@@ -57,7 +57,6 @@ namespace MyTimetable.Controllers
                 return Unauthorized(new { error = "No viewing rights." });
             if (specifications == null || specifications.Count == 0)
                 return BadRequest(new { error = "No strategies specified." });
-            _planner.LoadQueue(titles);
             CalendarSchedule days = await _builder.LoadFromDb(_db, DateOnly.FromDateTime(_time.GetLocalNow().DateTime), _builder.YearEnd);
             ScheduleChangeset schedule = new();
             List<IPlanningSelectorFactory> factories = new();
@@ -68,11 +67,11 @@ namespace MyTimetable.Controllers
                 factories.Add(sf);
             }
             PlanningSelectorFactory composite = new((dict, slots) => new CompositePlanningSelector(dict, slots, factories));
-            List<DateOnly> dates = _planner.Plan(composite, days, schedule);
+            PlanResult planResult = _planner.Plan(titles, composite, days, schedule);
             await _applier.Apply(_db, schedule);
             await _db.SaveChangesAsync();
-            await _rebuilder.Rebuild(_db, dates);
-            await _planPage.Rebuild(_planner.Queue);
+            await _rebuilder.Rebuild(_db, planResult.Dates);
+            await _planPage.Rebuild(planResult.RemainingQueue);
             if (fromCli)
             {
                 Response.Headers.ContentEncoding = "gzip";
@@ -80,8 +79,8 @@ namespace MyTimetable.Controllers
             }
             else
             {
-                Dictionary<DateOnly, string> rendered = dates.ToDictionary(x => x, x => _data.PartialViewResult[x]);
-                var response = new { success = rendered, failure = _planner.Queue.Values.Sum() };
+                Dictionary<DateOnly, string> rendered = planResult.Dates.ToDictionary(x => x, x => _data.PartialViewResult[x]);
+                var response = new { success = rendered, failure = planResult.RemainingQueue.Values.Sum(), queue = planResult.RemainingQueue };
                 return Ok(response);
             }
         }
@@ -171,11 +170,11 @@ namespace MyTimetable.Controllers
                 return Unauthorized(new { error = "No viewing rights." });
             CalendarSchedule schedule = await _builder.LoadFromDb(_db, DateOnly.FromDateTime(_time.GetLocalNow().DateTime), _builder.YearEnd);
             ScheduleChangeset changeset = new();
-            var dates = _planner.ResolveConflicts(schedule, changeset);
+            ResolveResult result = _planner.ResolveConflicts(schedule, changeset);
             await _applier.Apply(_db, changeset);
             await _db.SaveChangesAsync();
-            await _rebuilder.Rebuild(_db, dates);
-            await _planPage.Rebuild(_planner.Queue);
+            await _rebuilder.Rebuild(_db, result.Dates);
+            await _planPage.Rebuild(result.FreedQueue);
             if (fromCli)
             {
                 Response.Headers.ContentEncoding = "gzip";
@@ -183,8 +182,8 @@ namespace MyTimetable.Controllers
             }
             else
             {
-                Dictionary<DateOnly, string> rendered = dates.ToDictionary(x => x, x => _data.PartialViewResult[x]);
-                var response = new { success = rendered, failure = _planner.Queue.Values.Sum() };
+                Dictionary<DateOnly, string> rendered = result.Dates.ToDictionary(x => x, x => _data.PartialViewResult[x]);
+                var response = new { success = rendered, failure = result.FreedQueue.Values.Sum(), queue = result.FreedQueue };
                 return Ok(response);
             }
         }
