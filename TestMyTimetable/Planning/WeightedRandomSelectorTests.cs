@@ -65,7 +65,11 @@ public class TestWeightedRandomSelector
     {
         var queue = new Dictionary<string, int>
         {
-            ["A"] = 20, ["B"] = 20, ["C"] = 20, ["D"] = 20, ["E"] = 20
+            ["A"] = 20,
+            ["B"] = 20,
+            ["C"] = 20,
+            ["D"] = 20,
+            ["E"] = 20
         };
         var sel = new WeightedRandomSelector(queue, Slots(100), new Random(42));
         var titles = sel.Plan((_, _) => new(true, true)).Select(p => p.Lesson.Title).Distinct().ToList();

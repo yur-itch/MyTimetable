@@ -74,10 +74,13 @@ namespace MyTimetable.Controllers
             await _db.SaveChangesAsync();
             await _rebuilder.Rebuild(_db, dates);
             await _planPage.Rebuild(_planner.Queue);
-            if (fromCli) {
+            if (fromCli)
+            {
                 Response.Headers.ContentEncoding = "gzip";
                 return File(_data.CliViewResult, "application/octet-stream");
-            } else {
+            }
+            else
+            {
                 Dictionary<DateOnly, string> rendered = dates.ToDictionary(x => x, x => _data.PartialViewResult[x]);
                 var response = new { success = rendered, failure = _planner.Queue.Values.Sum() };
                 return Ok(response);
@@ -174,10 +177,13 @@ namespace MyTimetable.Controllers
             await _db.SaveChangesAsync();
             await _rebuilder.Rebuild(_db, dates);
             await _planPage.Rebuild(_planner.Queue);
-            if (fromCli) {
+            if (fromCli)
+            {
                 Response.Headers.ContentEncoding = "gzip";
                 return File(_data.CliViewResult, "application/octet-stream");
-            } else {
+            }
+            else
+            {
                 Dictionary<DateOnly, string> rendered = dates.ToDictionary(x => x, x => _data.PartialViewResult[x]);
                 var response = new { success = rendered, failure = _planner.Queue.Values.Sum() };
                 return Ok(response);

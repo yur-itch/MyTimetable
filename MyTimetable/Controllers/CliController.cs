@@ -44,7 +44,8 @@ namespace MyTimetable.Controllers
         [HttpPost("Login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest req)
         {
-            if (!await _auth.CanLogIn(_db, req.Username, req.Password)) {
+            if (!await _auth.CanLogIn(_db, req.Username, req.Password))
+            {
                 return Unauthorized("No user with this data");
             }
             string sessionID = _sessGen.Generate();

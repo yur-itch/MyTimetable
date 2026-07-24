@@ -13,7 +13,7 @@ namespace MyTimetable.Caching
 
         public bool StateValid
         {
-            get { lock (_lock) return _stateValid;  }
+            get { lock (_lock) return _stateValid; }
             set { lock (_lock) _stateValid = value; }
         }
 

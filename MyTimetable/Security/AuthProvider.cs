@@ -6,7 +6,8 @@ using System.Runtime.CompilerServices;
 
 namespace MyTimetable.Security
 {
-    public static class SessionExpirationTime {
+    public static class SessionExpirationTime
+    {
         public const ConstTimeSpan TwentyMinutes = 12000000000;
     }
 
@@ -121,10 +122,12 @@ namespace MyTimetable.Security
             return user;
         }
 
-        public async Task AddSessionFor(AppDbContext db, string session, string username, ConstTimeSpan expiresIn = SessionExpirationTime.TwentyMinutes) {
+        public async Task AddSessionFor(AppDbContext db, string session, string username, ConstTimeSpan expiresIn = SessionExpirationTime.TwentyMinutes)
+        {
             DateTime created = time.GetUtcNow().UtcDateTime;
             DateTime expired;
-            unsafe {
+            unsafe
+            {
                 expired = created.Add(Unsafe.As<ConstTimeSpan, TimeSpan>(ref expiresIn));
             }
             await db.Sessions.AddAsync(new Session { Id = session, Username = username, StartedAt = created, ExpiresAt = expired });

@@ -91,10 +91,10 @@ public class TestRoundRobinPicker
         var q = new Dictionary<string, int> { ["First"] = 2, ["Second"] = 2, ["Third"] = 2 };
         var picker = new RoundRobinPicker(q);
 
-        string t = picker.Peek(q); t.Should().Be("First");  picker.Commit(t); q["First"]--;
+        string t = picker.Peek(q); t.Should().Be("First"); picker.Commit(t); q["First"]--;
         t = picker.Peek(q); t.Should().Be("Second"); picker.Commit(t); q["Second"]--;
-        t = picker.Peek(q); t.Should().Be("Third");  picker.Commit(t); q["Third"]--;
-        t = picker.Peek(q); t.Should().Be("First");  picker.Commit(t); q["First"]--;
+        t = picker.Peek(q); t.Should().Be("Third"); picker.Commit(t); q["Third"]--;
+        t = picker.Peek(q); t.Should().Be("First"); picker.Commit(t); q["First"]--;
     }
 
     [Fact]
