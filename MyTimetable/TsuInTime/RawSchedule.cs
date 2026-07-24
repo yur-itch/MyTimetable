@@ -5,41 +5,41 @@ namespace MyTimetable.TsuInTime
 
     public sealed class RawSchedule
     {
-        public List<RawDaySchedule> Grid { get; set; }
+        public List<RawDaySchedule> Grid { get; set; } = null!;
     }
 
     public sealed class RawDaySchedule
     {
         public DateOnly Date { get; set; }
-        public List<RawLesson> Lessons { get; set; }
+        public List<RawLesson> Lessons { get; set; } = null!;
     }
 
     public sealed class RawLesson
     {
-        public string Type { get; set; }  // "EMPTY" или "LESSON"
+        public string Type { get; set; } = null!;  // "EMPTY" или "LESSON"
         public int Starts { get; set; }   // время в секундах
         public int Ends { get; set; }
         public int LessonNumber { get; set; }
 
         // Поля только для типа LESSON
-        public string Id { get; set; }
-        public string Title { get; set; }
-        public string LessonType { get; set; }  // "LECTURE", "PRACTICE", "SEMINAR"
-        public List<RawGroup> Groups { get; set; }
-        public RawProfessor Professor { get; set; }
-        public RawAudience Audience { get; set; }
+        public string Id { get; set; } = null!;
+        public string Title { get; set; } = null!;
+        public string LessonType { get; set; } = null!;  // "LECTURE", "PRACTICE", "SEMINAR"
+        public List<RawGroup> Groups { get; set; } = null!;
+        public RawProfessor Professor { get; set; } = null!;
+        public RawAudience Audience { get; set; } = null!;
     }
 
     public sealed class RawGroup
     {
-        public string Id { get; set; }
-        public string Name { get; set; }
+        public string Id { get; set; } = null!;
+        public string Name { get; set; } = null!;
     }
 
     public sealed class RawProfessor
     {
-        public string Id { get; set; }
-        public string FullName { get; set; }
+        public string Id { get; set; } = null!;
+        public string FullName { get; set; } = null!;
     }
 
     public sealed class RawAudience
