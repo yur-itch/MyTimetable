@@ -103,16 +103,7 @@
         <h1>Планирование пар</h1>
 
         <label>Предметы и количество</label>
-        <div id="rows">
-@foreach (var kv in Model.Queue)
-{
-            <div class="row">
-                <input class="title" type="text" placeholder="Название предмета" value="@kv.Key" />
-                <input class="count" type="number" min="1" value="@kv.Value" />
-                <button type="button" class="del" title="Убрать">✕</button>
-            </div>
-}
-        </div>
+        <div id="rows"></div>
         <button type="button" class="add" onclick="addRow()">+ предмет</button>
 
         <label>Стратегии (применяются стопкой, сверху вниз)</label>
@@ -179,7 +170,8 @@
 
         const rows = document.getElementById('rows');
         const strats = document.getElementById('strats');
-        const STORAGE_KEY = 'planner.strategies.v2';
+        const STRATS_STORAGE_KEY = 'planner.strategies.v2';
+        const QUEUE_STORAGE_KEY = 'planner.queue.v1';
         let restoring = false;
 
         // A strategy spec: { type: "prebuilt"|"composed", name?, picker?, slotter? }
@@ -239,7 +231,18 @@
             for (const el of strats.querySelectorAll('.strat-row')) {
                 if (el._spec) specs.push(el._spec);
             }
-            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(specs)); } catch { }
+            try { localStorage.setItem(STRATS_STORAGE_KEY, JSON.stringify(specs)); } catch { }
+        }
+
+        function saveQueue() {
+            if (restoring) return;
+            const items = [];
+            for (const row of rows.querySelectorAll('.row')) {
+                const title = row.querySelector('.title').value.trim();
+                const count = parseInt(row.querySelector('.count').value, 10);
+                if (title && count > 0) items.push({ title, count });
+            }
+            try { localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(items)); } catch { }
         }
 
         function addRow(title = '', count = 1) {
@@ -251,24 +254,41 @@
                 '<button type="button" class="del" title="Убрать">✕</button>';
             div.querySelector('.title').value = title;
             div.querySelector('.count').value = count;
+            // auto-save queue on every change
+            div.querySelector('.title').addEventListener('input', saveQueue);
+            div.querySelector('.count').addEventListener('input', saveQueue);
             rows.appendChild(div);
         }
 
         rows.addEventListener('click', e => {
-            if (e.target.classList.contains('del')) e.target.closest('.row').remove();
+            if (e.target.classList.contains('del')) {
+                e.target.closest('.row').remove();
+                saveQueue();
+            }
         });
 
+        // Restore state from localStorage.
+        // Server no longer pre-renders rows — all form state is client-side.
         (function init() {
             restoring = true;
             let saved = [];
-            try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { }
+            try { saved = JSON.parse(localStorage.getItem(STRATS_STORAGE_KEY) || '[]'); } catch { }
             for (const s of saved) {
                 if (s.$type === 'prebuilt' || s.$type === 'composed')
                     addStratRow(s);
             }
             if (!strats.querySelector('.strat-row'))
                 addStratRow(makeSpec('prebuilt', 'gap'));
-            if (!rows.querySelector('.row')) addRow();
+
+            // restore queue from localStorage
+            let queueItems = [];
+            try { queueItems = JSON.parse(localStorage.getItem(QUEUE_STORAGE_KEY) || '[]'); } catch { }
+            if (queueItems.length > 0) {
+                for (const item of queueItems)
+                    addRow(item.title, item.count);
+            } else {
+                addRow();
+            }
             restoring = false;
         })();
 
@@ -288,6 +308,14 @@
                 }
                 const data = await res.json();
                 const days = data.success ? Object.keys(data.success).length : 0;
+                // persist freed items so page reload pre-fills them
+                if (data.queue) {
+                    const items = [];
+                    for (const [title, count] of Object.entries(data.queue)) {
+                        if (count > 0) items.push({ title, count });
+                    }
+                    try { localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(items)); } catch { }
+                }
                 result.className = 'ok';
                 result.innerHTML = 'Конфликты разрешены (затронуто дней: ' + days +
                     '). <a class="back" href="/App">открыть расписание →</a>';
@@ -374,6 +402,14 @@
                 const failure = data.failure ?? 0;
                 const placed = requested - failure;
                 const days = data.success ? Object.keys(data.success).length : 0;
+                // persist leftover queue so page reload pre-fills it
+                if (data.queue) {
+                    const items = [];
+                    for (const [title, count] of Object.entries(data.queue)) {
+                        if (count > 0) items.push({ title, count });
+                    }
+                    try { localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(items)); } catch { }
+                }
                 result.className = 'ok';
                 result.innerHTML = 'Размещено пар: ' + placed + ' (в ' + days + ' дн.), не влезло: ' + failure +
                     '. <a class="back" href="/App">открыть расписание →</a>';
