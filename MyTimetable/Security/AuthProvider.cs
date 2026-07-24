@@ -1,7 +1,6 @@
 global using ConstTimeSpan = System.UInt64;
 
 using MyTimetable.Entities;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using System.Runtime.CompilerServices;
 

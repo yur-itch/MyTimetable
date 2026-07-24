@@ -1,5 +1,3 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using MyTimetable.Models;
 using System.Collections;
 using System.Collections.Concurrent;
 

@@ -1,4 +1,3 @@
-using MyTimetable.Models;
 
 namespace MyTimetable.Planning
 {

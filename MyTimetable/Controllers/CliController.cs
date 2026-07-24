@@ -1,8 +1,5 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using MyTimetable.Caching;
 using MyTimetable.Entities;
-using MyTimetable.Models;
 using MyTimetable.Security;
 
 namespace MyTimetable.Controllers

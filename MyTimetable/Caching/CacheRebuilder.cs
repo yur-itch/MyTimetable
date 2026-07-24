@@ -1,12 +1,7 @@
 using System.IO.Compression;
 using System.Text;
-using System.Linq;
 using MyTimetable;
-using MyTimetable.Models;
 using MyTimetable.Rendering;
-using System;
-using System.Threading.Tasks;
-using System.Collections.Generic;
 
 namespace MyTimetable.Caching
 {

@@ -1,6 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
 using MyTimetable.Entities;
-using MyTimetable.Models;
 
 namespace MyTimetable
 {

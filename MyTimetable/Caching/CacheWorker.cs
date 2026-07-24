@@ -1,6 +1,4 @@
-using Microsoft.EntityFrameworkCore;
 using MyTimetable;
-using MyTimetable.Models;
 using MyTimetable.TsuInTime;
 using MyTimetable.Entities;
 
