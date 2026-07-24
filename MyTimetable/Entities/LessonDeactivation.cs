@@ -1,4 +1,6 @@
-﻿namespace MyTimetable.Entities
+﻿using System;
+
+namespace MyTimetable.Entities
 {
     public record class LessonDeactivation
     {

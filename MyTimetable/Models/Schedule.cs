@@ -1,4 +1,7 @@
+using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace MyTimetable.Models
 {
@@ -179,5 +182,5 @@ namespace MyTimetable.Models
         public required string Room { get; set; }
     }
     public record class CustomLesson : Lesson { }
-    
+
 }

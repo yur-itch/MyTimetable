@@ -1,8 +1,12 @@
 using System.IO.Compression;
 using System.Text;
+using System.Linq;
 using MyTimetable;
 using MyTimetable.Models;
 using MyTimetable.Rendering;
+using System;
+using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace MyTimetable.Caching
 {
@@ -45,7 +49,8 @@ namespace MyTimetable.Caching
                     .Range(_builder.YearStart.DayNumber, _builder.YearEnd.DayNumber - _builder.YearStart.DayNumber + 1)
                     .Select(x => DateOnly.FromDayNumber(x))
                     .ToList();
-            } else if (!dates.Any())
+            }
+            else if (!dates.Any())
             {
                 _data.StateValid = true;
                 return true;
