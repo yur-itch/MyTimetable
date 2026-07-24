@@ -18,7 +18,7 @@ public class TestRoundRobinPicker
         var picker = new RoundRobinPicker(q);
         for (int i = 0; i < 5; i++)
         {
-            string t = picker.Peek(q); t.Should().Be("A"); picker.Commit(t);
+            var t = picker.Peek(q); t.Should().Be("A"); picker.Commit(t!);
             q["A"]--;
         }
     }
@@ -29,12 +29,12 @@ public class TestRoundRobinPicker
         var q = new Dictionary<string, int> { ["A"] = 3, ["B"] = 3 };
         var picker = new RoundRobinPicker(q);
 
-        string t = picker.Peek(q); t.Should().Be("A"); picker.Commit(t); q["A"]--;
-        t = picker.Peek(q); t.Should().Be("B"); picker.Commit(t); q["B"]--;
-        t = picker.Peek(q); t.Should().Be("A"); picker.Commit(t); q["A"]--;
-        t = picker.Peek(q); t.Should().Be("B"); picker.Commit(t); q["B"]--;
-        t = picker.Peek(q); t.Should().Be("A"); picker.Commit(t); q["A"]--;
-        t = picker.Peek(q); t.Should().Be("B"); picker.Commit(t); q["B"]--;
+        var t = picker.Peek(q); t.Should().Be("A"); picker.Commit(t!); q["A"]--;
+        t = picker.Peek(q); t.Should().Be("B"); picker.Commit(t!); q["B"]--;
+        t = picker.Peek(q); t.Should().Be("A"); picker.Commit(t!); q["A"]--;
+        t = picker.Peek(q); t.Should().Be("B"); picker.Commit(t!); q["B"]--;
+        t = picker.Peek(q); t.Should().Be("A"); picker.Commit(t!); q["A"]--;
+        t = picker.Peek(q); t.Should().Be("B"); picker.Commit(t!); q["B"]--;
     }
 
     [Fact]
@@ -43,12 +43,12 @@ public class TestRoundRobinPicker
         var q = new Dictionary<string, int> { ["X"] = 2, ["Y"] = 2, ["Z"] = 2 };
         var picker = new RoundRobinPicker(q);
 
-        string t = picker.Peek(q); t.Should().Be("X"); picker.Commit(t); q["X"]--;
-        t = picker.Peek(q); t.Should().Be("Y"); picker.Commit(t); q["Y"]--;
-        t = picker.Peek(q); t.Should().Be("Z"); picker.Commit(t); q["Z"]--;
-        t = picker.Peek(q); t.Should().Be("X"); picker.Commit(t); q["X"]--;
-        t = picker.Peek(q); t.Should().Be("Y"); picker.Commit(t); q["Y"]--;
-        t = picker.Peek(q); t.Should().Be("Z"); picker.Commit(t); q["Z"]--;
+        var t = picker.Peek(q); t.Should().Be("X"); picker.Commit(t!); q["X"]--;
+        t = picker.Peek(q); t.Should().Be("Y"); picker.Commit(t!); q["Y"]--;
+        t = picker.Peek(q); t.Should().Be("Z"); picker.Commit(t!); q["Z"]--;
+        t = picker.Peek(q); t.Should().Be("X"); picker.Commit(t!); q["X"]--;
+        t = picker.Peek(q); t.Should().Be("Y"); picker.Commit(t!); q["Y"]--;
+        t = picker.Peek(q); t.Should().Be("Z"); picker.Commit(t!); q["Z"]--;
     }
 
     [Fact]
@@ -57,9 +57,9 @@ public class TestRoundRobinPicker
         var q = new Dictionary<string, int> { ["A"] = 0, ["B"] = 3 };
         var picker = new RoundRobinPicker(q);
 
-        string t = picker.Peek(q); t.Should().Be("B"); picker.Commit(t); q["B"]--;
-        t = picker.Peek(q); t.Should().Be("B"); picker.Commit(t); q["B"]--;
-        t = picker.Peek(q); t.Should().Be("B"); picker.Commit(t); q["B"]--;
+        var t = picker.Peek(q); t.Should().Be("B"); picker.Commit(t!); q["B"]--;
+        t = picker.Peek(q); t.Should().Be("B"); picker.Commit(t!); q["B"]--;
+        t = picker.Peek(q); t.Should().Be("B"); picker.Commit(t!); q["B"]--;
         picker.Peek(q).Should().BeNull();
     }
 
@@ -77,11 +77,11 @@ public class TestRoundRobinPicker
         var q = new Dictionary<string, int> { ["A"] = 10, ["B"] = 10 };
         var picker = new RoundRobinPicker(q);
 
-        string t = picker.Peek(q); picker.Commit(t); q[t]--;
-        t = picker.Peek(q); picker.Commit(t); q[t]--;
-        t = picker.Peek(q); picker.Commit(t); q[t]--;
-        t = picker.Peek(q); picker.Commit(t); q[t]--;
-        t = picker.Peek(q); picker.Commit(t); q[t]--;
+        var t = picker.Peek(q); picker.Commit(t!); q[t!]--;
+        t = picker.Peek(q); picker.Commit(t!); q[t!]--;
+        t = picker.Peek(q); picker.Commit(t!); q[t!]--;
+        t = picker.Peek(q); picker.Commit(t!); q[t!]--;
+        t = picker.Peek(q); picker.Commit(t!); q[t!]--;
         t = picker.Peek(q); t.Should().Be("B");
     }
 
@@ -91,10 +91,10 @@ public class TestRoundRobinPicker
         var q = new Dictionary<string, int> { ["First"] = 2, ["Second"] = 2, ["Third"] = 2 };
         var picker = new RoundRobinPicker(q);
 
-        string t = picker.Peek(q); t.Should().Be("First"); picker.Commit(t); q["First"]--;
-        t = picker.Peek(q); t.Should().Be("Second"); picker.Commit(t); q["Second"]--;
-        t = picker.Peek(q); t.Should().Be("Third"); picker.Commit(t); q["Third"]--;
-        t = picker.Peek(q); t.Should().Be("First"); picker.Commit(t); q["First"]--;
+        var t = picker.Peek(q); t.Should().Be("First"); picker.Commit(t!); q["First"]--;
+        t = picker.Peek(q); t.Should().Be("Second"); picker.Commit(t!); q["Second"]--;
+        t = picker.Peek(q); t.Should().Be("Third"); picker.Commit(t!); q["Third"]--;
+        t = picker.Peek(q); t.Should().Be("First"); picker.Commit(t!); q["First"]--;
     }
 
     [Fact]
