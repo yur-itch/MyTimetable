@@ -99,7 +99,7 @@ using (var scope = app.Services.CreateScope())
 
     // Пререндерим страницу планирования из текущей (на старте пустой) очереди. Дальше её пересобирают
     // эндпоинты планирования и снятия конфликтов при каждом изменении очереди (PlanPage.Rebuild).
-    await sp.GetRequiredService<PlanPage>().Rebuild(sp.GetRequiredService<Planner>().Queue);
+    await sp.GetRequiredService<PlanPage>().Rebuild(new Dictionary<string, int>());
 }
 
 //app.UseResponseCompression();
