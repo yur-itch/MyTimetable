@@ -1,0 +1,26 @@
+{
+  "lsp": {
+    "roslyn": {
+      "binary": {
+        "arguments": ["--stdio", "--solution", "MyTimetable.slnx"]
+      },
+      "settings": {
+        "csharp|background_analysis": {
+          "dotnet_analyzer_diagnostics_scope": "openFiles",
+          "dotnet_compiler_diagnostics_scope": "openFiles"
+        },
+        "csharp|projects": {
+          "dotnet_enable_automatic_restore": true
+        },
+        "csharp|completion": {
+          "dotnet_show_completion_items_from_unimported_namespaces": true
+        }
+      }
+    }
+  },
+  "languages": {
+    "CSharp": {
+      "language_servers": ["roslyn", "..."]
+    }
+  }
+}
