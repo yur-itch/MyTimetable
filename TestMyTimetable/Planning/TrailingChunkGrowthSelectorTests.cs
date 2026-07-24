@@ -59,7 +59,7 @@ public class TestTrailingChunkGrowthSelector
                     expectedNumber = lastEnd + 1;
             }
 
-            yield return new object[] { open.ToArray(), expectedNumber };
+            yield return new object[] { open.ToArray(), (object?)expectedNumber };
         }
     }
 

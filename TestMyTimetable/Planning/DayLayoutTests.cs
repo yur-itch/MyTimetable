@@ -137,8 +137,8 @@ public class TestDayLayout
             {
                 openArr,
                 6,
-                expectedStart,
-                expectedLength,
+                (object?)expectedStart,
+                (object?)expectedLength,
             };
         }
     }
@@ -184,8 +184,8 @@ public class TestDayLayout
             {
                 openArr,
                 6,
-                expectedStart,
-                expectedLength,
+                (object?)expectedStart,
+                (object?)expectedLength,
             };
         }
     }

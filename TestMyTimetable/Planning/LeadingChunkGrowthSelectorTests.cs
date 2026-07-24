@@ -55,7 +55,7 @@ public class TestLeadingChunkGrowthSelector
             bool canGrow = occupiedFrom <= 6 && occupiedFrom > 1;
             int? expectedNumber = canGrow ? occupiedFrom - 1 : null;
 
-            yield return new object[] { open.ToArray(), expectedNumber };
+            yield return new object[] { open.ToArray(), (object?)expectedNumber };
         }
     }
 
