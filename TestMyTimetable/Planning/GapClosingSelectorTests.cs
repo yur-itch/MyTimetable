@@ -1,6 +1,5 @@
 using System.Reflection;
 using MyTimetable.Planning;
-using FluentAssertions;
 
 namespace TestMyTimetable.Planning
 {

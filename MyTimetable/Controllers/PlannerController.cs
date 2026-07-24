@@ -1,4 +1,3 @@
-using System.Text;
 using MyTimetable.Caching;
 using MyTimetable.Planning;
 using MyTimetable.Rendering;

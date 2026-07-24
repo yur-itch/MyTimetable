@@ -1,6 +1,5 @@
 using System.IO.Compression;
 using System.Text;
-using MyTimetable;
 using MyTimetable.Rendering;
 
 namespace MyTimetable.Caching

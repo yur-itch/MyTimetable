@@ -1,5 +1,3 @@
-using MyTimetable.Entities;
-
 namespace MyTimetable
 {
     // Единый источник сборки модели расписания из БД: дефолтные уроки + отметка скрытых слотов

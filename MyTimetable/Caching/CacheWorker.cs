@@ -1,4 +1,3 @@
-using MyTimetable;
 using MyTimetable.TsuInTime;
 using MyTimetable.Entities;
 

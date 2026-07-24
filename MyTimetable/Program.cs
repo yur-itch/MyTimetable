@@ -1,6 +1,3 @@
-using Microsoft.AspNetCore.ResponseCompression;
-using System.IO.Compression;
-
 using MyTimetable;
 using MyTimetable.Caching;
 using MyTimetable.Planning;
@@ -9,7 +6,6 @@ using MyTimetable.Entities;
 using MyTimetable.Security;
 using MyTimetable.TsuInTime;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc.Razor;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
