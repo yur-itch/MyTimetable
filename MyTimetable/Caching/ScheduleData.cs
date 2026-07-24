@@ -6,7 +6,7 @@ namespace MyTimetable.Caching
     {
         private bool _stateValid = false;
         private readonly Lock _lock = new();
-        private byte[] _brotliViewResult = { };
+        private byte[] _compressedViewResult = { };
         private byte[] _cliViewResult = { };
         public ConcurrentDictionary<DateOnly, string> PartialViewResult = new();
 
@@ -18,8 +18,8 @@ namespace MyTimetable.Caching
 
         public byte[] ViewResult
         {
-            get { lock (_lock) return _brotliViewResult; }
-            set { lock (_lock) _brotliViewResult = value; }
+            get { lock (_lock) return _compressedViewResult; }
+            set { lock (_lock) _compressedViewResult = value; }
         }
 
         public byte[] CliViewResult

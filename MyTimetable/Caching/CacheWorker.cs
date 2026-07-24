@@ -10,14 +10,16 @@ namespace MyTimetable.Caching
         private readonly IServiceProvider _serviceProvider;
         private readonly ScheduleBuilder _builder;
         private readonly CacheRebuilder _rebuilder;
+        private readonly TimeProvider _time;
 
-        public CacheWorker(ILogger<CacheWorker> logger, IServiceProvider serviceProvider, ScheduleBuilder builder, CacheRebuilder rebuilder, TsuInTimeFetcher fetcher)
+        public CacheWorker(ILogger<CacheWorker> logger, IServiceProvider serviceProvider, ScheduleBuilder builder, CacheRebuilder rebuilder, TsuInTimeFetcher fetcher, TimeProvider time)
         {
             _logger = logger;
             _serviceProvider = serviceProvider;
             _builder = builder;
             _rebuilder = rebuilder;
             this.fetcher = fetcher;
+            _time = time;
         }
 
         // Тянет расписание из API и, если оно доступно, перезаписывает дефолтные уроки в БД.
@@ -86,7 +88,7 @@ namespace MyTimetable.Caching
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            var today = DateOnly.FromDateTime(_time.GetLocalNow().DateTime);
             var oldData = new CalendarSchedule((await _builder.LoadFromDb(db)).Where(x => x.Date >= today));
             var dateMapping = new Dictionary<DateOnly, DaySchedule>();
             var daysToInvalidate = new List<DateOnly>();
