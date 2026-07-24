@@ -17,7 +17,9 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
-	  <Using Include="FluentAssertions" />
+    <Using Include="FluentAssertions" />
+    <Using Include="MyTimetable.Models" />
+    <Using Include="MyTimetable.Planning" />
   </ItemGroup>
 
   <ItemGroup>
