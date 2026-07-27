@@ -188,7 +188,8 @@ namespace MyTimetable.TsuInTime
 
         public async Task<CalendarSchedule> Get(string url)
         {
-            var response = await client.GetAsync(url);
+            var response = await _client.GetAsync(url);
+            response.EnsureSuccessStatusCode();
             string json = await response.Content.ReadAsStringAsync();
             var rawSchedule = JsonSerializer.Deserialize<RawSchedule>(json,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
