@@ -1,7 +1,7 @@
 
 namespace MyTimetable.Planning;
 
-internal sealed record GapRange(int Start, int Size);
+internal readonly record struct GapRange(int Start, int Size);
 
 internal sealed record SlotRange(Slot First, int Size)
 {
