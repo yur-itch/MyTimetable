@@ -91,16 +91,17 @@ namespace MyTimetable.Planning
                     newSubject = false;
                 }
 
-                ProposeResult result = accept(slot, title);
+                Slot currentSlot = slot.Value;
+                ProposeResult result = accept(currentSlot, title);
 
                 if (result.SlotOK && result.SubjectOK)
                 {
-                    CommitSlot(slot);
+                    CommitSlot(currentSlot);
                     CommitSubject(title);
                     Queue[title]--;
                     yield return new PlannedSlot
                     {
-                        Slot = slot,
+                        Slot = currentSlot,
                         Lesson = new CustomLesson { LessonType = "PRACTICE", Title = title }
                     };
                     newSlot = true;
