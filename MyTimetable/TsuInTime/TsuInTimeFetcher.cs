@@ -4,21 +4,40 @@ namespace MyTimetable.TsuInTime
 {
     public sealed class TsuInTimeFetcher
     {
-        private HttpClient client = new(new HttpClientHandler
-        {
-            // TSU intime uses a cert from an untrusted Russian CA
-            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
-            // Bypass local proxy (e.g. V2Ray on :10809) — intime.tsu.ru is accessible directly
-            UseProxy = false
-        });
-        private string endpoint = "https://intime.tsu.ru/api/web/v1/schedule/group";
-        private string groupID = "06696fef-39f2-11f0-9dca-6cb3110a6d8e";
-        private string[] groupNames = { "972501", "972501 (1)" };
+        private readonly HttpClient _client;
+        private readonly string endpoint = "https://intime.tsu.ru/api/web/v1/schedule/group";
+        private readonly string groupID = "06696fef-39f2-11f0-9dca-6cb3110a6d8e";
+        private readonly string[] groupNames = { "972501", "972501 (1)" };
         private readonly TimeProvider _time;
 
-        public TsuInTimeFetcher(TimeProvider? time = null)
+        public TsuInTimeFetcher(
+            TimeProvider? time = null,
+            IConfiguration? configuration = null,
+            IHostEnvironment? environment = null)
         {
             _time = time ?? TimeProvider.System;
+
+            var handler = new HttpClientHandler
+            {
+                // The endpoint is accessible directly and should not use a local proxy.
+                UseProxy = false
+            };
+
+            // The endpoint currently uses a certificate from a Russian CA that may not be
+            // trusted by the local machine. This insecure workaround is available only when
+            // explicitly enabled in Development configuration.
+            bool allowUntrusted = environment?.IsDevelopment() == true
+                && configuration?.GetValue<bool>("Schedule:AllowUntrustedCertificate") == true;
+            if (allowUntrusted)
+            {
+                handler.ServerCertificateCustomValidationCallback =
+                    HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+            }
+
+            _client = new HttpClient(handler)
+            {
+                Timeout = TimeSpan.FromSeconds(30)
+            };
         }
 
         private string BuildUrl()
