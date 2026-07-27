@@ -8,8 +8,11 @@ using MyTimetable.TsuInTime;
 using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
+string connectionString = builder.Configuration.GetConnectionString("Default")
+    ?? throw new InvalidOperationException(
+        "ConnectionStrings:Default is not configured. Set it with User Secrets or an environment variable.");
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+    options.UseNpgsql(connectionString));
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 
 // Источник «сейчас» для горизонта планирования (ScheduleBuilder/Planner/CacheRebuilder/AppController).
