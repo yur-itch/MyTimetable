@@ -22,11 +22,12 @@ namespace MyTimetable.Security
             time = timeProvider;
         }
 
-        private static async Task<User?> GetUserWithSession(AppDbContext db, string? session)
+        private async Task<User?> GetUserWithSession(AppDbContext db, string? session)
         {
             if (string.IsNullOrEmpty(session)) return null;
             Session? dbSess = await db.Sessions.FindAsync(session);
             if (dbSess == null) return null;
+            if (dbSess.ExpiresAt <= time.GetUtcNow()) return null;
             return await db.Users.FindAsync(dbSess.Username);
         }
 

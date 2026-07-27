@@ -85,6 +85,7 @@ builder.Services.AddSingleton<CacheRebuilder>();
 //    options.Level = CompressionLevel.Optimal;
 //});
 builder.Services.AddHostedService<CacheWorker>();
+builder.Services.AddHostedService<SessionExpirationWorker>();
 var app = builder.Build();
 
 // Применяем миграции на старте: на чистой БД (свежий Postgres на Railway) это создаёт схему.
