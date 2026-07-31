@@ -168,7 +168,10 @@
         }
 
         function maybeLogout(res) {
-            if (res.status === 401) window.location.href = '/App/Login';
+            if (res.status === 401) {
+                clearLegacySession();
+                window.location.href = '/App/Login';
+            }
         }
 
         const rows = document.getElementById('rows');
