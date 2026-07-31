@@ -1269,28 +1269,35 @@ static int cmd_plan(int argc, char** argv) {
             }
             pos += snprintf(qs + pos, sizeof(qs) - (size_t)pos, "&fromCli=true");
 
-            // Build JSON body with StrategySpec array
+            // Build JSON body with StrategySpec array.
             char body[4096];
-            int bpos = 0;
-            bpos += snprintf(body + bpos, sizeof(body) - (size_t)bpos, "[");
-            for (int i = 0; i < s; i++) {
-                if (i > 0) bpos += snprintf(body + bpos, sizeof(body) - (size_t)bpos, ",");
+            size_t bpos = 0;
+            int body_ok = append_text(body, sizeof(body), &bpos, "[");
+            int emitted = 0;
+            for (int i = 0; i < s && body_ok; i++) {
                 char name[32] = {0}, p[32] = {0}, sl[32] = {0};
                 int kind = parse_strategy_spec(strats[i], name, p, sl);
                 if (kind == 1) {
-                    bpos += snprintf(body + bpos, sizeof(body) - (size_t)bpos,
-                        "{\"$type\":\"prebuilt\",\"name\":\"%s\"}", name);
+                    if (emitted) body_ok = append_text(body, sizeof(body), &bpos, ",");
+                    if (body_ok) body_ok = append_text(body, sizeof(body), &bpos,
+                        "{\"$type\":\"prebuilt\",\"name\":\"");
+                    if (body_ok) body_ok = append_json_string(body, sizeof(body), &bpos, name);
+                    if (body_ok) body_ok = append_text(body, sizeof(body), &bpos, "\"}");
+                    emitted = 1;
                 } else if (kind == 2) {
-                    bpos += snprintf(body + bpos, sizeof(body) - (size_t)bpos,
-                        "{\"$type\":\"composed\",\"picker\":\"%s\",\"slotter\":\"%s\"}", p, sl);
-                } else {
-                    // Shouldn't happen — push validates, but skip gracefully
-                    continue;
+                    if (emitted) body_ok = append_text(body, sizeof(body), &bpos, ",");
+                    if (body_ok) body_ok = append_text(body, sizeof(body), &bpos,
+                        "{\"$type\":\"composed\",\"picker\":\"");
+                    if (body_ok) body_ok = append_json_string(body, sizeof(body), &bpos, p);
+                    if (body_ok) body_ok = append_text(body, sizeof(body), &bpos, "\",\"slotter\":\"");
+                    if (body_ok) body_ok = append_json_string(body, sizeof(body), &bpos, sl);
+                    if (body_ok) body_ok = append_text(body, sizeof(body), &bpos, "\"}");
+                    emitted = 1;
                 }
             }
-            bpos += snprintf(body + bpos, sizeof(body) - (size_t)bpos, "]");
+            if (body_ok) body_ok = append_text(body, sizeof(body), &bpos, "]");
 
-            if (pos >= (int)sizeof(qs) - 512 || bpos >= (int)sizeof(body) - 512) {
+            if (!body_ok || pos >= (int)sizeof(qs) - 512) {
                 fputs("  Payload too large. Reduce subjects or strategies.\n", stdout);
                 continue;
             }
