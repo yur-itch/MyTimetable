@@ -150,22 +150,20 @@
     </div>
 
     <script>
-        function authHeaders() {
-            const sid = localStorage.getItem('mytimetable.session');
-            return sid ? { 'X-Session-Id': sid } : {};
+        const APP_CACHE = 'schedule-v3';
+
+        async function clearAppCache() {
+            try { await caches.delete(APP_CACHE); } catch { }
         }
 
         async function logout() {
-            try { await fetch('/App/Logout', { method: 'POST', headers: authHeaders() }); } catch {}
-            localStorage.removeItem('mytimetable.session');
+            try { await fetch('/App/Logout', { method: 'POST' }); } catch {}
+            await clearAppCache();
             window.location.href = '/App/Login';
         }
 
         function maybeLogout(res) {
-            if (res.status === 401) {
-                localStorage.removeItem('mytimetable.session');
-                window.location.href = '/App/Login';
-            }
+            if (res.status === 401) window.location.href = '/App/Login';
         }
 
         const rows = document.getElementById('rows');
@@ -336,7 +334,7 @@
 
             reset.disabled = true;
             try {
-                const res = await fetch('/Planner/Reset', { method: 'POST', headers: authHeaders() });
+                const res = await fetch('/Planner/Reset', { method: 'POST' });
                 maybeLogout(res);
                 if (!res.ok) {
                     result.className = 'err';
@@ -389,7 +387,7 @@
             try {
                 const res = await fetch('/Planner?' + params.join('&'), {
                     method: 'PATCH',
-                    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json' }
                     body: JSON.stringify(specs)
                 });
                 maybeLogout(res);
