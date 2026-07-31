@@ -973,7 +973,7 @@ static void run_table_repl(const char* data_text, int scroll_target) {
 
 static int cmd_schedule(int argc, char** argv) {
     static const char* const options[] = { "--host", "--port" };
-    if (!validate_cli_args(argc, argv, 2, options, 2, NULL, 0, 0)) return 1;
+    if (!validate_cli_args(argc, argv, 2, options, 2, https_flag, 1, 0)) return 1;
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i],"--host")==0 && i+1<argc) {
             if (!mbstowcs_terminated(client.host, sizeof(client.host) / sizeof(client.host[0]), argv[++i]))
@@ -1108,7 +1108,7 @@ static void plan_show_status(char titles[][MAX_TITLE_LEN], int* counts, int n,
 
 static int cmd_plan(int argc, char** argv) {
     static const char* const options[] = { "--host", "--port" };
-    if (!validate_cli_args(argc, argv, 2, options, 2, NULL, 0, 1)) return 1;
+    if (!validate_cli_args(argc, argv, 2, options, 2, https_flag, 1, 1)) return 1;
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i], "--host") == 0 && i + 1 < argc) {
             if (!mbstowcs_terminated(client.host, sizeof(client.host) / sizeof(client.host[0]), argv[++i]))
@@ -1517,7 +1517,7 @@ static int cmd_plan(int argc, char** argv) {
 
 static int cmd_conflicts(int argc, char** argv) {
     static const char* const options[] = { "--host", "--port" };
-    if (!validate_cli_args(argc, argv, 2, options, 2, NULL, 0, 0)) return 1;
+    if (!validate_cli_args(argc, argv, 2, options, 2, https_flag, 1, 0)) return 1;
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i],"--host")==0 && i+1<argc) {
             if (!mbstowcs_terminated(client.host, sizeof(client.host) / sizeof(client.host[0]), argv[++i]))
@@ -1576,7 +1576,7 @@ static int cmd_conflicts(int argc, char** argv) {
 
 static int cmd_resolve_conflicts(int argc, char** argv) {
     static const char* const options[] = { "--host", "--port" };
-    if (!validate_cli_args(argc, argv, 2, options, 2, NULL, 0, 0)) return 1;
+    if (!validate_cli_args(argc, argv, 2, options, 2, https_flag, 1, 0)) return 1;
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i],"--host")==0 && i+1<argc) {
             if (!mbstowcs_terminated(client.host, sizeof(client.host) / sizeof(client.host[0]), argv[++i]))
