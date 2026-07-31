@@ -549,7 +549,7 @@ static int do_login_hex(const char* user, const char* pass) {
     if (!body) return 0;
     int st = 0; char* r = http_request(L"POST", L"/Cli/login", body, &st);
     free(body);
-    if (!r || st != 200) { return 0; }
+    if (!r || last_response_truncated || st != 200) { return 0; }
     // Response body is plain 32-char hex session ID
     if (strlen(r) != SESSION_SIZE * 2) return 0;
     unsigned char raw[SESSION_SIZE];
@@ -567,6 +567,10 @@ static int do_register_hex(const char* user, const char* pass, char* err_buf, in
     int st = 0; char* r = http_request(L"POST", L"/Cli/register", body, &st);
     free(body);
     if (!r) { snprintf(err_buf, err_sz, "Connection failed"); return 0; }
+    if (last_response_truncated) {
+        snprintf(err_buf, err_sz, "Server response is too large");
+        return 0;
+    }
     if (st != 200) {
         snprintf(err_buf, err_sz, "Server error %d: %s", st, r);
         return 0;
@@ -868,7 +872,7 @@ static int fetch_strategies(void) {
     if (strategies_loaded) return 1;
     int st = 0;
     char* raw = http_request(L"GET", L"/Planner/Strategies", NULL, &st);
-    if (!raw || st != 200) return 0;
+    if (!raw || last_response_truncated || st != 200) return 0;
 
     // Parse binary: 3 blocks [2B count][2B len][chars]...
     {
@@ -1261,6 +1265,10 @@ static int cmd_plan(int argc, char** argv) {
 
             if (!resp) {
                 fputs("  Connection failed.\n", stdout);
+                continue;
+            }
+            if (last_response_truncated) {
+                fputs("  Server response is too large.\n", stdout);
                 continue;
             }
             if (st == 401) {
