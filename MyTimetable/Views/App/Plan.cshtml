@@ -150,10 +150,13 @@
     </div>
 
     <script>
-        const APP_CACHE = 'schedule-v3';
-
-        async function clearAppCache() {
-            try { await caches.delete(APP_CACHE); } catch { }
+        async function setServiceWorkerMode(mode) {
+            if (!('serviceWorker' in navigator)) return;
+            try {
+                const registration = await navigator.serviceWorker.register('/sw.js');
+                const worker = registration.active ?? (await navigator.serviceWorker.ready).active;
+                worker?.postMessage({ type: 'set-mode', mode });
+            } catch { }
         }
 
         function clearLegacySession() {
@@ -162,13 +165,14 @@
 
         async function logout() {
             try { await fetch('/App/Logout', { method: 'POST' }); } catch {}
-            await clearAppCache();
+            await setServiceWorkerMode(null);
             clearLegacySession();
             window.location.href = '/App/Login';
         }
 
         function maybeLogout(res) {
             if (res.status === 401) {
+                setServiceWorkerMode(null);
                 clearLegacySession();
                 window.location.href = '/App/Login';
             }
@@ -395,7 +399,7 @@
             try {
                 const res = await fetch('/Planner?' + params.join('&'), {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(specs)
                 });
                 maybeLogout(res);
@@ -426,6 +430,8 @@
                 go.disabled = false;
             }
         }
+
+        setServiceWorkerMode('editor');
     </script>
 </body>
 </html>
