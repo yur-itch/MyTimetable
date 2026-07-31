@@ -847,7 +847,7 @@ static int cmd_register(int argc, char** argv) {
 
 static int cmd_logout(int argc, char** argv) {
     static const char* const options[] = { "--host", "--port" };
-    if (!validate_cli_args(argc, argv, 2, options, 2, NULL, 0, 0)) return 1;
+    if (!validate_cli_args(argc, argv, 2, options, 2, https_flag, 1, 0)) return 1;
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i], "--host") == 0 && i + 1 < argc) {
             if (!mbstowcs_terminated(client.host, sizeof(client.host) / sizeof(client.host[0]), argv[++i]))
