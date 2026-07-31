@@ -1670,8 +1670,8 @@ static void help(void) {
            "  mytimetable plan [--host <h>] [--port <p>] [--https]   interactive planner\n"
            "  mytimetable plan status|show          show saved plan state\n"
            "  mytimetable plan clear|reset           clear saved plan state\n"
-           "  mytimetable conflicts                list conflicting lessons\n"
-           "  mytimetable resolve-conflicts          resolve all conflicts\n"
+           "  mytimetable conflicts [--host <h>] [--port <p>] [--https]  list conflicting lessons\n"
+           "  mytimetable resolve-conflicts [--host <h>] [--port <p>] [--https]  resolve all conflicts\n"
            "  mytimetable help\n\n"
            "Token stored INSIDE the .exe file. No config files.\n"
            "Run 'logout' to erase it.\n");
