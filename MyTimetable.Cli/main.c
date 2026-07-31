@@ -276,21 +276,78 @@ static int hex_decode(const char* hex, unsigned char* out, int out_sz) {
 }
 
 // ── Plan save/load ────────────────────────────────────────────────
+static int plan_append_literal(char* buf, int bufsz, int* pos, const char* text) {
+    size_t len = strlen(text);
+    if (*pos < 0 || *pos >= bufsz || len >= (size_t)(bufsz - *pos)) return 0;
+    memcpy(buf + *pos, text, len);
+    *pos += (int)len;
+    buf[*pos] = 0;
+    return 1;
+}
+
+static int plan_append_escaped(char* buf, int bufsz, int* pos, const char* text) {
+    for (const unsigned char* p = (const unsigned char*)text; *p; p++) {
+        char first = (char)*p;
+        char second = 0;
+        int count = 1;
+        if (*p == '\\' || *p == '=') {
+            first = '\\'; second = (char)*p; count = 2;
+        } else if (*p == '\n') {
+            first = '\\'; second = 'n'; count = 2;
+        } else if (*p == '\r') {
+            first = '\\'; second = 'r'; count = 2;
+        }
+        if (*pos < 0 || *pos >= bufsz || count >= bufsz - *pos) return 0;
+        buf[(*pos)++] = first;
+        if (count == 2) buf[(*pos)++] = second;
+    }
+    if (*pos >= bufsz) return 0;
+    buf[*pos] = 0;
+    return 1;
+}
+
+static const char* plan_find_separator(const char* text) {
+    int escaped = 0;
+    for (const char* p = text; *p; p++) {
+        if (escaped) { escaped = 0; continue; }
+        if (*p == '\\') { escaped = 1; continue; }
+        if (*p == '=') return p;
+    }
+    return NULL;
+}
+
+static void plan_unescape_title(char* dst, size_t dst_size,
+                                const char* src, size_t src_len) {
+    size_t out = 0;
+    for (size_t i = 0; i < src_len && out + 1 < dst_size; i++) {
+        if (src[i] == '\\' && i + 1 < src_len) {
+            char escaped = src[++i];
+            if (escaped == 'n') dst[out++] = '\n';
+            else if (escaped == 'r') dst[out++] = '\r';
+            else dst[out++] = escaped;
+        } else {
+            dst[out++] = src[i];
+        }
+    }
+    dst[out] = 0;
+}
+
 static int plan_serialize(char* buf, int bufsz,
                            char titles[][MAX_TITLE_LEN], int* counts, int n,
                            char strats[][32], int s) {
     int pos = 0;
     for (int i = 0; i < n; i++) {
-        int written = snprintf(buf + pos, (size_t)(bufsz - pos),
-                               "subjects:%s=%d\n", titles[i], counts[i]);
+        if (!plan_append_literal(buf, bufsz, &pos, "subjects:") ||
+            !plan_append_escaped(buf, bufsz, &pos, titles[i]) ||
+            !plan_append_literal(buf, bufsz, &pos, "=")) return -1;
+        int written = snprintf(buf + pos, (size_t)(bufsz - pos), "%d\n", counts[i]);
         if (written < 0 || written >= bufsz - pos) return -1;
         pos += written;
     }
     for (int i = 0; i < s; i++) {
-        int written = snprintf(buf + pos, (size_t)(bufsz - pos),
-                               "strategies:%s\n", strats[i]);
-        if (written < 0 || written >= bufsz - pos) return -1;
-        pos += written;
+        if (!plan_append_literal(buf, bufsz, &pos, "strategies:") ||
+            !plan_append_literal(buf, bufsz, &pos, strats[i]) ||
+            !plan_append_literal(buf, bufsz, &pos, "\n")) return -1;
     }
     return pos;
 }
@@ -310,12 +367,10 @@ static int plan_deserialize(const char* data,
     while (line) {
         if (strncmp(line, "subjects:", 9) == 0) {
             const char* kv = line + 9;
-            const char* eq = strchr(kv, '=');
+            const char* eq = plan_find_separator(kv);
             if (eq && *n < MAX_SUBJECTS) {
-                size_t tl = (size_t)(eq - kv);
-                if (tl >= MAX_TITLE_LEN) tl = MAX_TITLE_LEN - 1;
-                memcpy(titles[*n], kv, tl);
-                titles[*n][tl] = 0;
+                plan_unescape_title(titles[*n], MAX_TITLE_LEN,
+                                     kv, (size_t)(eq - kv));
                 if (!parse_int_range(eq + 1, 1, INT_MAX, &counts[*n]))
                     counts[*n] = 1;
                 (*n)++;
