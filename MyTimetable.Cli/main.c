@@ -641,7 +641,24 @@ static int cmd_register(int argc, char** argv) {
     return 0;
 }
 
-static int cmd_logout(void) {
+static int cmd_logout(int argc, char** argv) {
+    static const char* const options[] = { "--host", "--port" };
+    if (!validate_cli_args(argc, argv, 2, options, 2, 0)) return 1;
+    for (int i = 2; i < argc; i++) {
+        if (strcmp(argv[i], "--host") == 0 && i + 1 < argc) {
+            if (!mbstowcs_terminated(client.host, sizeof(client.host) / sizeof(client.host[0]), argv[++i]))
+                wcscpy(client.host, DEFAULT_HOST);
+        } else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc) {
+            char* endptr = NULL;
+            long val = strtol(argv[++i], &endptr, 10);
+            if (endptr == argv[i] || *endptr != '\0' || val < 1 || val > 65535) {
+                fprintf(stderr, "Invalid port: %s. Using default %d.\n", argv[i], DEFAULT_PORT);
+                client.port = DEFAULT_PORT;
+            } else {
+                client.port = (int)val;
+            }
+        }
+    }
     if (!needs_login()) {
         fputs("Logging out from server...\n", stdout);
         int st = 0;
@@ -874,9 +891,11 @@ static void plan_show_status(char titles[][MAX_TITLE_LEN], int* counts, int n,
 }
 
 static int cmd_plan(int argc, char** argv) {
+    static const char* const options[] = { "--host", "--port" };
+    if (!validate_cli_args(argc, argv, 2, options, 2, 1)) return 1;
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i], "--host") == 0 && i + 1 < argc) {
-            if (mbstowcs(client.host, argv[++i], 256) == (size_t)-1)
+            if (!mbstowcs_terminated(client.host, sizeof(client.host) / sizeof(client.host[0]), argv[++i]))
                 wcscpy(client.host, DEFAULT_HOST);
         }
         else if (strcmp(argv[i], "--port") == 0 && i + 1 < argc) {
@@ -1393,7 +1412,7 @@ int main(int argc, char** argv) {
     const char* cmd = argv[1];
     if (strcmp(cmd,"login")==0) return cmd_login(argc,argv);
     if (strcmp(cmd,"register")==0) return cmd_register(argc,argv);
-    if (strcmp(cmd,"logout")==0) return cmd_logout();
+    if (strcmp(cmd,"logout")==0) return cmd_logout(argc,argv);
     if (strcmp(cmd,"schedule")==0) return cmd_schedule(argc,argv);
     if (strcmp(cmd,"plan")==0) return cmd_plan(argc,argv);
     if (strcmp(cmd,"conflicts")==0) return cmd_conflicts(argc,argv);
