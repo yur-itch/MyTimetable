@@ -1564,6 +1564,7 @@ static int cmd_conflicts(int argc, char** argv) {
             }
         }
     }
+    if (!require_secure_transport()) return 1;
     if (needs_login()) { fprintf(stderr, "No token. Run 'login' first.\n"); return 1; }
 
     // GET /Planner/Conflicts?fromCli=true
@@ -1623,6 +1624,7 @@ static int cmd_resolve_conflicts(int argc, char** argv) {
             }
         }
     }
+    if (!require_secure_transport()) return 1;
     if (needs_login()) { fprintf(stderr, "No token. Run 'login' first.\n"); return 1; }
 
     // PATCH /Planner/ResolveConflicts?fromCli=true
