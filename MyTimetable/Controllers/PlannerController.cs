@@ -139,7 +139,12 @@ namespace MyTimetable.Controllers
         }
 
         [HttpGet]
-        public IActionResult Plan() => Content(_planPage.Html, "text/html; charset=utf-8");
+        public async Task<IActionResult> Plan()
+        {
+            if (!await _auth.IsEditor(_db, SID))
+                return RedirectToAction("Login", "App");
+            return Content(_planPage.Html, "text/html; charset=utf-8");
+        }
 
         [HttpGet("Conflicts")]
         public async Task<IActionResult> Conflicts()
