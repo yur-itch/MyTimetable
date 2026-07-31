@@ -675,7 +675,9 @@ static int cmd_logout(int argc, char** argv) {
     if (!needs_login()) {
         fputs("Logging out from server...\n", stdout);
         int st = 0;
-        http_request(L"POST", L"/Cli/Logout", NULL, &st);
+        char* response = http_request(L"POST", L"/Cli/Logout", NULL, &st);
+        if (!response || last_response_truncated || st != 200)
+            fprintf(stderr, "Warning: server logout failed (HTTP %d).\n", st);
     }
     fputs("Clearing baked-in token...\n", stdout);
     self_patch(SESSION_PLACEHOLDER, 0, NULL);
