@@ -499,30 +499,55 @@ static char* http_request(const WCHAR* method, const WCHAR* path,
 }
 
 // ── Binary read helpers ──────────────────────────────────────────
-static int read_u16(const unsigned char* p, int* off) {
-    int v = p[*off] | (p[*off + 1] << 8);
+static int read_u16(const unsigned char* p, size_t data_len,
+                    size_t* off, int* value) {
+    if (*off > data_len || data_len - *off < 2) return 0;
+    *value = (int)p[*off] | ((int)p[*off + 1] << 8);
     *off += 2;
-    return v;
+    return 1;
 }
-static int read_i32(const unsigned char* p, int* off) {
-    int v = p[*off] | (p[*off + 1] << 8) | (p[*off + 2] << 16) | (p[*off + 3] << 24);
+
+static int read_i32(const unsigned char* p, size_t data_len,
+                    size_t* off, int* value) {
+    if (*off > data_len || data_len - *off < 4) return 0;
+    uint32_t v = (uint32_t)p[*off] |
+                 ((uint32_t)p[*off + 1] << 8) |
+                 ((uint32_t)p[*off + 2] << 16) |
+                 ((uint32_t)p[*off + 3] << 24);
+    *value = (int)(int32_t)v;
     *off += 4;
-    return v;
+    return 1;
 }
+
+static int parse_table_frame(char* raw, size_t raw_len,
+                             int* scroll_target, size_t* data_offset,
+                             size_t* data_len) {
+    const unsigned char* p = (const unsigned char*)raw;
+    size_t off = 0;
+    int encoded_len = 0;
+    if (!read_i32(p, raw_len, &off, scroll_target) ||
+        !read_u16(p, raw_len, &off, &encoded_len) ||
+        (size_t)encoded_len > raw_len - off)
+        return 0;
+    *data_offset = off;
+    *data_len = (size_t)encoded_len;
+    return 1;
+}
+
 static int read_block(char (*dest)[32], int* count,
-                      const unsigned char* p, size_t data_len, int* off) {
-    if (*off < 0 || (size_t)*off + 2 > data_len) return 0;
-    int item_count = read_u16(p, off);
+                      const unsigned char* p, size_t data_len, size_t* off) {
+    int item_count = 0;
+    if (!read_u16(p, data_len, off, &item_count)) return 0;
     if (item_count > 32) return 0;
     *count = item_count;
     for (int i = 0; i < item_count; i++) {
-        if ((size_t)*off + 2 > data_len) return 0;
-        int len = read_u16(p, off);
-        if ((size_t)len > data_len - (size_t)*off) return 0;
+        int len = 0;
+        if (!read_u16(p, data_len, off, &len) ||
+            (size_t)len > data_len - *off) return 0;
         int copied = len < 31 ? len : 31;
         memcpy(dest[i], p + *off, (size_t)copied);
         dest[i][copied] = 0;
-        *off += len;
+        *off += (size_t)len;
     }
     return 1;
 }
