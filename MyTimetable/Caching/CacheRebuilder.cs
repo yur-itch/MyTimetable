@@ -37,7 +37,8 @@ namespace MyTimetable.Caching
                 return false;
             }
 
-            if (dates == null)
+            bool fullRebuild = dates == null;
+            if (fullRebuild)
             {
                 dates = Enumerable
                     .Range(_builder.YearStart.DayNumber, _builder.YearEnd.DayNumber - _builder.YearStart.DayNumber + 1)
@@ -52,7 +53,9 @@ namespace MyTimetable.Caching
 
             using var scope = _serviceProvider.CreateScope();
 
-            _data.PartialViewResult.Clear();
+            if (fullRebuild)
+                _data.PartialViewResult.Clear();
+
             foreach (DaySchedule day in dates.Select(x => schedule.DateToDaySchedule(x)!))
             {
                 _data.PartialViewResult[day.Date] = await _renderer.RenderViewToStringAsync("GetOne", day, scope.ServiceProvider, true);
