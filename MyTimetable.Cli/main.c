@@ -134,6 +134,8 @@ static int validate_cli_args(int argc, char** argv, int start,
     return 1;
 }
 
+static const char* const https_flag[] = { "--https" };
+
 static int read_password_stdin(char* password, size_t password_size) {
     if (password_size > INT_MAX || !fgets(password, (int)password_size, stdin)) return 0;
     size_t len = strlen(password);
