@@ -76,10 +76,10 @@ static int mbstowcs_terminated(WCHAR* dst, size_t dst_count, const char* src) {
     if (!dst || dst_count == 0 || !src) return 0;
     size_t converted = mbstowcs(dst, src, dst_count);
     if (converted == (size_t)-1 || converted >= dst_count) {
-        dst[0] = L'\\0';
+        dst[0] = L'\0';
         return 0;
     }
-    dst[converted] = L'\\0';
+    dst[converted] = L'\0';
     return 1;
 }
 
@@ -87,10 +87,10 @@ static int wcstombs_terminated(char* dst, size_t dst_count, const WCHAR* src) {
     if (!dst || dst_count == 0 || !src) return 0;
     size_t converted = wcstombs(dst, src, dst_count);
     if (converted == (size_t)-1 || converted >= dst_count) {
-        dst[0] = '\\0';
+        dst[0] = '\0';
         return 0;
     }
-    dst[converted] = '\\0';
+    dst[converted] = '\0';
     return 1;
 }
 
@@ -104,7 +104,7 @@ static int validate_cli_args(int argc, char** argv, int start,
             if (strcmp(argv[i], options[j]) == 0) {
                 known = 1;
                 if (i + 1 >= argc || argv[i + 1][0] == '-') {
-                    fprintf(stderr, "Missing value for %s.\\n", argv[i]);
+                    fprintf(stderr, "Missing value for %s.\n", argv[i]);
                     return 0;
                 }
                 i++;
@@ -113,11 +113,11 @@ static int validate_cli_args(int argc, char** argv, int start,
         }
         if (known) continue;
         if (argv[i][0] == '-') {
-            fprintf(stderr, "Unknown option: %s\\n", argv[i]);
+            fprintf(stderr, "Unknown option: %s\n", argv[i]);
             return 0;
         }
         if (!allow_one_positional || positional_count++ > 0) {
-            fprintf(stderr, "Unexpected argument: %s\\n", argv[i]);
+            fprintf(stderr, "Unexpected argument: %s\n", argv[i]);
             return 0;
         }
     }
