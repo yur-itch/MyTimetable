@@ -300,7 +300,7 @@ static int plan_deserialize(const char* data,
             const char* kv = line + 9;
             const char* eq = strchr(kv, '=');
             if (eq && *n < MAX_SUBJECTS) {
-                size_t tl = eq - kv;
+                size_t tl = (size_t)(eq - kv);
                 if (tl >= MAX_TITLE_LEN) tl = MAX_TITLE_LEN - 1;
                 memcpy(titles[*n], kv, tl);
                 titles[*n][tl] = 0;
@@ -341,12 +341,10 @@ static void plan_patch_save(char titles[][MAX_TITLE_LEN], int* counts, int n,
 // ── HTTP (WinHTTP, gzip auto-decompression) ───────────────────────
 typedef struct { WCHAR host[256]; int port; } Client;
 static Client client = { .host = L"localhost", .port = DEFAULT_PORT };
-static size_t last_response_len = 0;
 static int last_response_truncated = 0;
 
 static char* http_request(const WCHAR* method, const WCHAR* path,
                           const char* body_utf8, int* status_out) {
-    last_response_len = 0;
     last_response_truncated = 0;
     HINTERNET hSession = WinHttpOpen(L"MyTimetable.CLI/1.0",
                                      WINHTTP_ACCESS_TYPE_NO_PROXY, NULL, NULL, 0);
@@ -392,7 +390,6 @@ static char* http_request(const WCHAR* method, const WCHAR* path,
             break;
         }
     }
-    last_response_len = total;
     buf[total] = '\0';
     WinHttpCloseHandle(hRequest); WinHttpCloseHandle(hConnect); WinHttpCloseHandle(hSession);
 
@@ -848,7 +845,7 @@ static int parse_strategy_spec(const char* raw, char* name, char* p, char* sl) {
         strncpy(name, raw, 31); name[31] = 0;
         return is_prebuilt(name) ? 1 : 0;
     }
-    size_t plen = colon - raw;
+    size_t plen = (size_t)(colon - raw);
     if (plen > 31) plen = 31;
     memcpy(p, raw, plen); p[plen] = 0;
     strncpy(sl, colon + 1, 31); sl[31] = 0;
