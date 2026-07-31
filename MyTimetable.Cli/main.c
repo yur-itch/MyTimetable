@@ -1517,8 +1517,13 @@ static int cmd_conflicts(int argc, char** argv) {
     // Parse binary: [2B count][10B date][1B number]...
     {
         const unsigned char* p = (const unsigned char*)raw;
-        int off = 0;
-        int count = read_u16(p, &off);
+        size_t off = 0;
+        int count = 0;
+        if (!read_u16(p, last_response_len, &off, &count) ||
+            (size_t)count > (last_response_len - off) / 11) {
+            fputs("Malformed conflicts response.\n", stderr);
+            return 1;
+        }
         for (int i = 0; i < count; i++) {
             char date[11] = {0};
             memcpy(date, p + off, 10);
@@ -1571,16 +1576,17 @@ static int cmd_resolve_conflicts(int argc, char** argv) {
     fputs("Conflicts resolved.\n", stdout);
     // Parse binary: [4B scrollTarget LE][2B data_len LE][UTF-8 data]
     {
-        const unsigned char* p = (const unsigned char*)raw;
-        int off = 0;
-        int scroll_target = read_i32(p, &off);
-        int data_len = read_u16(p, &off);
-        if (off + data_len < BUFSIZE) {
-            char saved = raw[off + data_len];
-            raw[off + data_len] = 0;
-            run_table_repl(raw + off, scroll_target);
-            raw[off + data_len] = saved;
+        int scroll_target = 0;
+        size_t data_offset = 0, data_len = 0;
+        if (!parse_table_frame(raw, last_response_len, &scroll_target,
+                               &data_offset, &data_len)) {
+            fputs("Malformed conflicts resolution response.\n", stderr);
+            return 1;
         }
+        char saved = raw[data_offset + data_len];
+        raw[data_offset + data_len] = 0;
+        run_table_repl(raw + data_offset, scroll_target);
+        raw[data_offset + data_len] = saved;
     }
     return 0;
 }
