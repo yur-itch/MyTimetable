@@ -444,6 +444,18 @@ typedef struct { WCHAR host[256]; int port; int secure; } Client;
 static Client client = { .host = L"localhost", .port = DEFAULT_PORT, .secure = 0 };
 static size_t last_response_len = 0;
 
+static int is_local_host(void) {
+    return _wcsicmp(client.host, L"localhost") == 0 ||
+           _wcsicmp(client.host, L"127.0.0.1") == 0 ||
+           _wcsicmp(client.host, L"::1") == 0;
+}
+
+static int require_secure_transport(void) {
+    if (client.secure || is_local_host()) return 1;
+    fputs("Refusing non-HTTPS connection to a remote host. Use --https.\n", stderr);
+    return 0;
+}
+
 static void save_client_environment(void) {
     char host[256];
     if (wcstombs_terminated(host, sizeof(host), client.host))
