@@ -153,11 +153,17 @@
         </div>
     </div>
     <script>
+        const APP_CACHE = 'schedule-v3';
+
         function maybeLogout(res) {
             if (res.status === 401) {
                 clearLegacySession();
                 window.location.href = '/App/Login';
             }
+        }
+
+        async function clearAppCache() {
+            try { await caches.delete(APP_CACHE); } catch { }
         }
 
         function clearLegacySession() {
@@ -212,6 +218,7 @@
             try {
                 await fetch('/App/Logout', { method: 'POST' });
             } catch {}
+            await clearAppCache();
             clearLegacySession();
             window.location.href = '/App/Login';
         }
