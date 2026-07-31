@@ -265,10 +265,10 @@ static void self_patch_any(const char* anchor_data, const char* data, int data_s
         "if($b.Length -ne %d){throw 'Invalid patch size'}; "
         "$f.Write($b,0,$b.Length); $f.Flush($true); $f.Close(); $f=$null; "
         "Move-Item -LiteralPath $tmp -Destination $path -Force; "
-        "if(%d){& '%s' '%s'}"
+        "if(%d){Start-Process -FilePath $path -ArgumentList '%s' -WindowStyle Hidden}"
         "}catch{Write-Error $_; exit 1}"
         "finally{if($f){$f.Dispose()}; if(Test-Path -LiteralPath $tmp){Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue}}}\"",
-        ps_path, payload_offset, b64, data_size, will_restart, ps_path, restart_esc);
+        ps_path, payload_offset, b64, data_size, will_restart, restart_esc);
 
     free(binary);
 
