@@ -37,15 +37,29 @@ namespace MyTimetable.Caching
                 return false;
             }
 
-            bool fullRebuild = dates == null;
-            if (fullRebuild)
+            bool fullRebuild;
+            if (dates == null)
             {
+                fullRebuild = true;
                 dates = Enumerable
                     .Range(_builder.YearStart.DayNumber, _builder.YearEnd.DayNumber - _builder.YearStart.DayNumber + 1)
                     .Select(x => DateOnly.FromDayNumber(x))
                     .ToList();
             }
-            else if (!dates.Any())
+            else
+            {
+                fullRebuild = false;
+                if (dates.Any())
+                {
+                    // Keep the already cached days and update only the requested dates.
+                }
+                else
+                {
+                    _data.StateValid = true;
+                    return true;
+                }
+            }
+            if (!fullRebuild && !dates.Any())
             {
                 _data.StateValid = true;
                 return true;
