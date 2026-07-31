@@ -70,11 +70,15 @@ namespace MyTimetable.Caching
             {
                 SlotCount = schedule.Max(d => d.Cells.Length),
                 ScrollTarget = scrollTarget,
+                CanEdit = false,
                 Days = ordered.Select(kv => kv.Value).ToList()
             };
 
-            string html = await _renderer.RenderViewToStringAsync("Get", view, scope.ServiceProvider);
-            _data.ViewResult = Compression.Gzip(html, CompressionLevel.SmallestSize);
+            string viewerHtml = await _renderer.RenderViewToStringAsync("Get", view, scope.ServiceProvider);
+            _data.ViewerViewResult = Compression.Gzip(viewerHtml, CompressionLevel.SmallestSize);
+
+            string editorHtml = await _renderer.RenderViewToStringAsync("Get", view with { CanEdit = true }, scope.ServiceProvider);
+            _data.EditorViewResult = Compression.Gzip(editorHtml, CompressionLevel.SmallestSize);
 
             // CLI view: [4B scrollTarget LE][2B data_len LE][UTF-8 data], gzip-compressed.
             int cliScrollTarget = currentIdx >= 0 ? currentIdx : 0;
