@@ -137,16 +137,34 @@ static int validate_cli_args(int argc, char** argv, int start,
 static const char* const https_flag[] = { "--https" };
 
 static int read_password_stdin(char* password, size_t password_size) {
-    if (password_size > INT_MAX || !fgets(password, (int)password_size, stdin)) return 0;
-    size_t len = strlen(password);
-    if (len > 0 && password[len - 1] != '\n' && !feof(stdin)) {
-        int c;
-        while ((c = fgetc(stdin)) != '\n' && c != EOF) {}
-        return 0;
+    if (password_size > INT_MAX) return 0;
+
+    HANDLE input = GetStdHandle(STD_INPUT_HANDLE);
+    DWORD old_mode = 0;
+    int no_echo = GetConsoleMode(input, &old_mode) && (old_mode & ENABLE_ECHO_INPUT);
+    if (no_echo) {
+        SetConsoleMode(input, old_mode & ~ENABLE_ECHO_INPUT);
+        fputs("Password: ", stderr);
+        fflush(stderr);
     }
-    while (len > 0 && (password[len - 1] == '\n' || password[len - 1] == '\r'))
-        password[--len] = 0;
-    return 1;
+
+    int ok = fgets(password, (int)password_size, stdin) != NULL;
+    if (ok) {
+        size_t len = strlen(password);
+        if (len > 0 && password[len - 1] != '\n' && !feof(stdin)) {
+            int c;
+            while ((c = fgetc(stdin)) != '\n' && c != EOF) {}
+            ok = 0;
+        }
+        while (len > 0 && (password[len - 1] == '\n' || password[len - 1] == '\r'))
+            password[--len] = 0;
+    }
+
+    if (no_echo) {
+        SetConsoleMode(input, old_mode);
+        fputc('\n', stderr);
+    }
+    return ok;
 }
 
 // ── Свой путь ─────────────────────────────────────────────────────
