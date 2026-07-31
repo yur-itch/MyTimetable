@@ -1406,7 +1406,7 @@ static void help(void) {
            "Usage:\n"
            "  mytimetable login [--user <u>] [--password <p>] [--host <h>] [--port <p>]\n"
            "  mytimetable register [--user <u>] [--password <p>] [--host <h>] [--port <p>]\n"
-           "  mytimetable logout\n"
+           "  mytimetable logout [--host <h>] [--port <p>]\n"
            "  mytimetable schedule                 full-year schedule, scrollable\n"
            "  mytimetable plan                      interactive planner\n"
            "  mytimetable plan status|show          show saved plan state\n"
