@@ -525,7 +525,7 @@ static void json_escape(char* dst, const char* src) {
 
 static int append_text(char* dst, size_t capacity, size_t* pos, const char* text) {
     size_t len = strlen(text);
-    if (*pos > capacity || len > capacity - *pos - 1) return 0;
+    if (*pos >= capacity || len >= capacity - *pos) return 0;
     memcpy(dst + *pos, text, len);
     *pos += len;
     dst[*pos] = 0;
@@ -535,7 +535,7 @@ static int append_text(char* dst, size_t capacity, size_t* pos, const char* text
 static int append_json_string(char* dst, size_t capacity, size_t* pos,
                               const char* text) {
     size_t len = json_escaped_length(text);
-    if (len == SIZE_MAX || *pos > capacity || len > capacity - *pos - 1)
+    if (len == SIZE_MAX || *pos >= capacity || len >= capacity - *pos)
         return 0;
     json_escape(dst + *pos, text);
     *pos += len;
