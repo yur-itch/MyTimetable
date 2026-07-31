@@ -129,8 +129,10 @@ static const char* own_path(void) {
     static char path[MAX_PATH_A] = {0};
     if (path[0]) return path;
     WCHAR wpath[MAX_PATH_A];
-    GetModuleFileNameW(NULL, wpath, MAX_PATH_A);
-    wcstombs(path, wpath, MAX_PATH_A);
+    DWORD length = GetModuleFileNameW(NULL, wpath, MAX_PATH_A);
+    if (length == 0 || length >= MAX_PATH_A ||
+        !wcstombs_terminated(path, sizeof(path), wpath))
+        path[0] = '\0';
     return path;
 }
 
