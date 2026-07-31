@@ -145,12 +145,18 @@ static void self_patch_any(const char* anchor_data, const char* data, int data_s
     fseek(f, 0, SEEK_END);
     long fsize = ftell(f);
     fseek(f, 0, SEEK_SET);
-    char* binary = malloc(fsize);
+    if (fsize <= 0) { fclose(f); return; }
+    size_t binary_size = (size_t)fsize;
+    char* binary = malloc(binary_size);
     if (!binary) { fclose(f); return; }
-    fread(binary, 1, fsize, f);
+    if (fread(binary, 1, binary_size, f) != binary_size) {
+        fclose(f);
+        free(binary);
+        return;
+    }
     fclose(f);
 
-    char* anchor = (char*)mem_find(binary, fsize, anchor_data, ANCHOR_SIZE);
+    char* anchor = (char*)mem_find(binary, binary_size, anchor_data, ANCHOR_SIZE);
     if (!anchor) {
         fputs("Anchor not found - cannot self-patch\n", stderr);
         free(binary);
