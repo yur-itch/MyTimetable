@@ -211,13 +211,18 @@ static int plan_serialize(char* buf, int bufsz,
                            char titles[][MAX_TITLE_LEN], int* counts, int n,
                            char strats[][32], int s) {
     int pos = 0;
-    for (int i = 0; i < n && pos < bufsz - 2; i++) {
-        pos += snprintf(buf + pos, bufsz - pos, "subjects:%s=%d\n", titles[i], counts[i]);
+    for (int i = 0; i < n; i++) {
+        int written = snprintf(buf + pos, (size_t)(bufsz - pos),
+                               "subjects:%s=%d\n", titles[i], counts[i]);
+        if (written < 0 || written >= bufsz - pos) return -1;
+        pos += written;
     }
-    for (int i = 0; i < s && pos < bufsz - 2; i++) {
-        pos += snprintf(buf + pos, bufsz - pos, "strategies:%s\n", strats[i]);
+    for (int i = 0; i < s; i++) {
+        int written = snprintf(buf + pos, (size_t)(bufsz - pos),
+                               "strategies:%s\n", strats[i]);
+        if (written < 0 || written >= bufsz - pos) return -1;
+        pos += written;
     }
-    if (pos < bufsz) buf[pos] = 0;
     return pos;
 }
 
@@ -262,6 +267,10 @@ static void plan_patch_save(char titles[][MAX_TITLE_LEN], int* counts, int n,
                              char strats[][32], int s) {
     char buf[PLAN_DATA_SIZE];
     int len = plan_serialize(buf, sizeof(buf), titles, counts, n, strats, s);
+    if (len < 0) {
+        fputs("Plan is too large to save (maximum 1024 bytes).\n", stderr);
+        return;
+    }
     if (len == 0 || (len == 1 && buf[0] == '\n')) {
         memset(buf, 0, PLAN_DATA_SIZE);
     } else {
