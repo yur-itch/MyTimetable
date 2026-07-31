@@ -1456,16 +1456,17 @@ static int cmd_plan(int argc, char** argv) {
 
             // Parse binary: [4B scrollTarget LE][2B data_len LE][UTF-8 data]
             {
-                const unsigned char* p = (const unsigned char*)resp;
-                int off = 0;
-                int starget = read_i32(p, &off);
-                int data_len = read_u16(p, &off);
-                if (off + data_len < BUFSIZE) {
-                    char saved = resp[off + data_len];
-                    resp[off + data_len] = 0;
-                    run_table_repl(resp + off, starget);
-                    resp[off + data_len] = saved;
+                int starget = 0;
+                size_t data_offset = 0, data_len = 0;
+                if (!parse_table_frame(resp, last_response_len, &starget,
+                                       &data_offset, &data_len)) {
+                    fputs("  Malformed planner response.\n", stdout);
+                    continue;
                 }
+                char saved = resp[data_offset + data_len];
+                resp[data_offset + data_len] = 0;
+                run_table_repl(resp + data_offset, starget);
+                resp[data_offset + data_len] = saved;
             }
 
             plan_show_status(titles, counts, n, strats, s);
