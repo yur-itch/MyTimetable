@@ -803,6 +803,10 @@ static int cmd_schedule(int argc, char** argv) {
     int st = 0;
     char* raw = http_request(L"GET", L"/Cli", NULL, &st);
     if (!raw) { fprintf(stderr, "Connection failed\n"); return 1; }
+    if (last_response_truncated) {
+        fprintf(stderr, "Server response is too large\n");
+        return 1;
+    }
     if (st == 401) {
         fputs("Token expired. Clearing...\n", stderr);
         self_patch(SESSION_PLACEHOLDER, 0, NULL);
@@ -1329,6 +1333,10 @@ static int cmd_conflicts(int argc, char** argv) {
     int st = 0;
     char* raw = http_request(L"GET", L"/Planner/Conflicts?fromCli=true", NULL, &st);
     if (!raw) { fprintf(stderr, "Connection failed\n"); return 1; }
+    if (last_response_truncated) {
+        fprintf(stderr, "Server response is too large\n");
+        return 1;
+    }
     if (st == 401) {
         fputs("Token expired. Clearing...\n", stderr);
         self_patch(SESSION_PLACEHOLDER, 0, NULL);
@@ -1379,6 +1387,10 @@ static int cmd_resolve_conflicts(int argc, char** argv) {
     int st = 0;
     char* raw = http_request(L"PATCH", L"/Planner/ResolveConflicts?fromCli=true", NULL, &st);
     if (!raw) { fprintf(stderr, "Connection failed\n"); return 1; }
+    if (last_response_truncated) {
+        fprintf(stderr, "Server response is too large\n");
+        return 1;
+    }
     if (st == 401) {
         fputs("Token expired. Clearing...\n", stderr);
         self_patch(SESSION_PLACEHOLDER, 0, NULL);
