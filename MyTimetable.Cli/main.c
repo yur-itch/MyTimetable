@@ -816,6 +816,7 @@ static int cmd_login(int argc, char** argv) {
         }
         pass = password_buf;
     }
+    if (!require_secure_transport()) return 1;
     if (!do_login_hex(user, pass)) { printf("Login failed\n"); return 1; }
     printf("Logged in as '%s'\nPatching token into binary...\n", user);
     self_patch(session_ptr(session_data), 1, "schedule");
@@ -859,6 +860,7 @@ static int cmd_register(int argc, char** argv) {
         fputs("Usage: mytimetable register --user <username> --password <password>\n", stderr);
         return 1;
     }
+    if (!require_secure_transport()) return 1;
     char err[512] = {0};
     if (!do_register_hex(user, pass, err, sizeof(err))) {
         printf("Registration failed: %s\n", err);
@@ -888,6 +890,7 @@ static int cmd_logout(int argc, char** argv) {
         }
     }
     if (!needs_login()) {
+        if (!require_secure_transport()) return 1;
         fputs("Logging out from server...\n", stdout);
         int st = 0;
         char* response = http_request(L"POST", L"/Cli/Logout", NULL, &st);
