@@ -578,12 +578,14 @@ static int do_register_hex(const char* user, const char* pass, char* err_buf, in
 
 // ── Commands ──────────────────────────────────────────────────────
 static int cmd_login(int argc, char** argv) {
-    const char* user = "admin", *pass = "admin";
+    const char* user = "admin", *pass = "123456Qq!";
+    static const char* const options[] = { "--user", "--password", "--host", "--port" };
+    if (!validate_cli_args(argc, argv, 2, options, 4, 0)) return 1;
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i],"--user")==0 && i+1<argc) user = argv[++i];
         if (strcmp(argv[i],"--password")==0 && i+1<argc) pass = argv[++i];
         if (strcmp(argv[i],"--host")==0 && i+1<argc) {
-            if (mbstowcs(client.host, argv[++i], 256) == (size_t)-1)
+            if (!mbstowcs_terminated(client.host, sizeof(client.host) / sizeof(client.host[0]), argv[++i]))
                 wcscpy(client.host, DEFAULT_HOST);
         }
         if (strcmp(argv[i],"--port")==0 && i+1<argc) {
@@ -605,11 +607,13 @@ static int cmd_login(int argc, char** argv) {
 
 static int cmd_register(int argc, char** argv) {
     const char* user = NULL, *pass = NULL;
+    static const char* const options[] = { "--user", "--password", "--host", "--port" };
+    if (!validate_cli_args(argc, argv, 2, options, 4, 0)) return 1;
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i],"--user")==0 && i+1<argc) user = argv[++i];
         if (strcmp(argv[i],"--password")==0 && i+1<argc) pass = argv[++i];
         if (strcmp(argv[i],"--host")==0 && i+1<argc) {
-            if (mbstowcs(client.host, argv[++i], 256) == (size_t)-1)
+            if (!mbstowcs_terminated(client.host, sizeof(client.host) / sizeof(client.host[0]), argv[++i]))
                 wcscpy(client.host, DEFAULT_HOST);
         }
         if (strcmp(argv[i],"--port")==0 && i+1<argc) {
@@ -745,9 +749,11 @@ static void run_table_repl(const char* data_text, int scroll_target) {
 }
 
 static int cmd_schedule(int argc, char** argv) {
+    static const char* const options[] = { "--host", "--port" };
+    if (!validate_cli_args(argc, argv, 2, options, 2, 0)) return 1;
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i],"--host")==0 && i+1<argc) {
-            if (mbstowcs(client.host, argv[++i], 256) == (size_t)-1)
+            if (!mbstowcs_terminated(client.host, sizeof(client.host) / sizeof(client.host[0]), argv[++i]))
                 wcscpy(client.host, DEFAULT_HOST);
         }
         else if (strcmp(argv[i],"--port")==0 && i+1<argc) {
@@ -1260,9 +1266,11 @@ static int cmd_plan(int argc, char** argv) {
 }
 
 static int cmd_conflicts(int argc, char** argv) {
+    static const char* const options[] = { "--host", "--port" };
+    if (!validate_cli_args(argc, argv, 2, options, 2, 0)) return 1;
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i],"--host")==0 && i+1<argc) {
-            if (mbstowcs(client.host, argv[++i], 256) == (size_t)-1)
+            if (!mbstowcs_terminated(client.host, sizeof(client.host) / sizeof(client.host[0]), argv[++i]))
                 wcscpy(client.host, DEFAULT_HOST);
         }
         else if (strcmp(argv[i],"--port")==0 && i+1<argc) {
@@ -1308,9 +1316,11 @@ static int cmd_conflicts(int argc, char** argv) {
 }
 
 static int cmd_resolve_conflicts(int argc, char** argv) {
+    static const char* const options[] = { "--host", "--port" };
+    if (!validate_cli_args(argc, argv, 2, options, 2, 0)) return 1;
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i],"--host")==0 && i+1<argc) {
-            if (mbstowcs(client.host, argv[++i], 256) == (size_t)-1)
+            if (!mbstowcs_terminated(client.host, sizeof(client.host) / sizeof(client.host[0]), argv[++i]))
                 wcscpy(client.host, DEFAULT_HOST);
         }
         else if (strcmp(argv[i],"--port")==0 && i+1<argc) {
