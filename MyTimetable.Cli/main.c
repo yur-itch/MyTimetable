@@ -702,6 +702,7 @@ static int cmd_login(int argc, char** argv) {
     static const char* const options[] = { "--user", "--password", "--host", "--port" };
     static const char* const flags[] = { "--password-stdin" };
     if (!validate_cli_args(argc, argv, 2, options, 4, flags, 1, 0)) return 1;
+    int password_from_stdin = 0;
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i],"--user")==0 && i+1<argc) user = argv[++i];
         if (strcmp(argv[i],"--password")==0 && i+1<argc) pass = argv[++i];
@@ -731,6 +732,7 @@ static int cmd_register(int argc, char** argv) {
     static const char* const options[] = { "--user", "--password", "--host", "--port" };
     static const char* const flags[] = { "--password-stdin" };
     if (!validate_cli_args(argc, argv, 2, options, 4, flags, 1, 0)) return 1;
+    int password_from_stdin = 0;
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i],"--user")==0 && i+1<argc) user = argv[++i];
         if (strcmp(argv[i],"--password")==0 && i+1<argc) pass = argv[++i];
