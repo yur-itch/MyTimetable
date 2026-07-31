@@ -145,7 +145,9 @@ namespace MyTimetable.Controllers
                 MaxAge = TimeSpan.FromDays(7)
             });
 
-            return Ok(new { sessionId, username = req.Username });
+            // Browser authentication uses the HttpOnly cookie. The session ID remains
+            // available from /Cli/Login for non-browser clients.
+            return Ok(new { username = req.Username });
         }
 
         [HttpPost("Register")]
@@ -171,7 +173,9 @@ namespace MyTimetable.Controllers
                 MaxAge = TimeSpan.FromDays(7)
             });
 
-            return Ok(new { sessionId, username = req.Username });
+            // Browser authentication uses the HttpOnly cookie. The session ID remains
+            // available from /Cli/Register for non-browser clients.
+            return Ok(new { username = req.Username });
         }
 
         [HttpPost("Logout")]
