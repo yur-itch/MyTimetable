@@ -156,9 +156,14 @@
             try { await caches.delete(APP_CACHE); } catch { }
         }
 
+        function clearLegacySession() {
+            try { localStorage.removeItem('mytimetable.session'); } catch { }
+        }
+
         async function logout() {
             try { await fetch('/App/Logout', { method: 'POST' }); } catch {}
             await clearAppCache();
+            clearLegacySession();
             window.location.href = '/App/Login';
         }
 
