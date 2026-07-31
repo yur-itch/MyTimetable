@@ -42,6 +42,7 @@ namespace MyTimetable.Controllers
                 return StatusCode(503, "Расписание временно недоступно");
             }
             bool canEdit = await CanEdit();
+            Response.Headers["X-UI-Mode"] = canEdit ? "editor" : "viewer";
             Response.Headers.ContentEncoding = "gzip";
             return File(canEdit ? _data.EditorViewResult : _data.ViewerViewResult,
                 "text/html; charset=utf-8");
@@ -114,6 +115,7 @@ namespace MyTimetable.Controllers
         public async Task<IActionResult> Plan()
         {
             if (!await CanEdit()) return RedirectToAction("Login");
+            Response.Headers["X-UI-Mode"] = "editor";
             return Content(_planPage.Html, "text/html; charset=utf-8");
         }
 
@@ -149,7 +151,7 @@ namespace MyTimetable.Controllers
 
             // Browser authentication uses the HttpOnly cookie. The session ID remains
             // available from /Cli/Login for non-browser clients.
-            return Ok(new { username = req.Username });
+            return Ok(new { username = req.Username, canEdit = await _auth.IsEditor(_db, sessionId) });
         }
 
         [HttpPost("Register")]
@@ -177,7 +179,7 @@ namespace MyTimetable.Controllers
 
             // Browser authentication uses the HttpOnly cookie. The session ID remains
             // available from /Cli/Register for non-browser clients.
-            return Ok(new { username = req.Username });
+            return Ok(new { username = req.Username, canEdit = await _auth.IsEditor(_db, sessionId) });
         }
 
         [HttpPost("Logout")]
