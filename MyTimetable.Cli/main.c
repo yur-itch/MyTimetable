@@ -1017,6 +1017,7 @@ static int cmd_schedule(int argc, char** argv) {
             }
         }
     }
+    if (!require_secure_transport()) return 1;
     if (needs_login()) { fprintf(stderr, "No token. Run 'login' first.\n"); return 1; }
 
     // GET /Cli — gzip-compressed, decompressed by WinHTTP
@@ -1152,6 +1153,8 @@ static int cmd_plan(int argc, char** argv) {
             }
         }
     }
+
+    if (!require_secure_transport()) return 1;
 
     // Fetch available strategies from server — fail if unreachable.
     if (!fetch_strategies()) {
