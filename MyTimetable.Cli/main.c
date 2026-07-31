@@ -98,10 +98,18 @@ static int wcstombs_terminated(char* dst, size_t dst_count, const WCHAR* src) {
 
 static int validate_cli_args(int argc, char** argv, int start,
                              const char* const* options, int option_count,
+                             const char* const* flags, int flag_count,
                              int allow_one_positional) {
     int positional_count = 0;
     for (int i = start; i < argc; i++) {
         int known = 0;
+        for (int j = 0; j < flag_count; j++) {
+            if (strcmp(argv[i], flags[j]) == 0) {
+                known = 1;
+                break;
+            }
+        }
+        if (known) continue;
         for (int j = 0; j < option_count; j++) {
             if (strcmp(argv[i], options[j]) == 0) {
                 known = 1;
@@ -123,6 +131,19 @@ static int validate_cli_args(int argc, char** argv, int start,
             return 0;
         }
     }
+    return 1;
+}
+
+static int read_password_stdin(char* password, size_t password_size) {
+    if (!fgets(password, password_size, stdin)) return 0;
+    size_t len = strlen(password);
+    if (len > 0 && password[len - 1] != '\n' && !feof(stdin)) {
+        int c;
+        while ((c = fgetc(stdin)) != '\n' && c != EOF) {}
+        return 0;
+    }
+    while (len > 0 && (password[len - 1] == '\n' || password[len - 1] == '\r'))
+        password[--len] = 0;
     return 1;
 }
 
