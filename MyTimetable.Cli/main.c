@@ -68,7 +68,7 @@ static const char* own_path(void) {
 }
 
 // ── Self-patch ────────────────────────────────────────────────────
-static void self_patch_any(const char* anchor_str, const char* data, int data_size, int will_restart, const char* restart_args) {
+static void self_patch_any(const char* anchor_data, const char* data, int data_size, int will_restart, const char* restart_args) {
     FILE* f = fopen(own_path(), "rb");
     if (!f) { fprintf(stderr, "Cannot read self\n"); return; }
     fseek(f, 0, SEEK_END);
@@ -79,7 +79,7 @@ static void self_patch_any(const char* anchor_str, const char* data, int data_si
     fread(binary, 1, fsize, f);
     fclose(f);
 
-    char* anchor = (char*)mem_find(binary, fsize, anchor_str, ANCHOR_SIZE);
+    char* anchor = (char*)mem_find(binary, fsize, anchor_data, ANCHOR_SIZE);
     if (!anchor) {
         fputs("Anchor not found - cannot self-patch\n", stderr);
         free(binary);
@@ -163,7 +163,7 @@ static void self_patch_any(const char* anchor_str, const char* data, int data_si
 
 static void self_patch(const char* new_session, int will_restart, const char* restart_args) {
     printf(will_restart ? "Token saved. Restarting...\n" : "Token cleared.\n");
-    self_patch_any(SESSION_ANCHOR, new_session, SESSION_SIZE, will_restart, restart_args);
+    self_patch_any(session_data, new_session, SESSION_SIZE, will_restart, restart_args);
 }
 
 // ── Session helper ────────────────────────────────────────────────
@@ -254,7 +254,7 @@ static void plan_patch_save(char titles[][MAX_TITLE_LEN], int* counts, int n,
     }
     fputs("Saving plan to binary...\n", stdout);
     fflush(stdout);
-    self_patch_any(PLAN_ANCHOR, buf, PLAN_DATA_SIZE, 1, "plan");
+    self_patch_any(plan_data, buf, PLAN_DATA_SIZE, 1, "plan");
 }
 
 // ── HTTP (WinHTTP, gzip auto-decompression) ───────────────────────
