@@ -109,6 +109,10 @@
         <div class="switch">Нет аккаунта? <a href="/App/Register">Зарегистрироваться</a></div>
     </div>
     <script>
+        async function clearAppCache() {
+            try { await caches.delete('schedule-v3'); } catch { }
+        }
+
         document.getElementById('login-form').addEventListener('submit', async e => {
             e.preventDefault();
             const btn = document.getElementById('submit-btn');
@@ -135,8 +139,7 @@
                         : 'Ошибка ' + res.status;
                     return;
                 }
-                const data = await res.json();
-                localStorage.setItem('mytimetable.session', data.sessionId);
+                await clearAppCache();
                 window.location.href = '/App';
             } catch {
                 err.textContent = 'Сеть недоступна.';
