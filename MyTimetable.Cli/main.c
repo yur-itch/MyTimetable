@@ -1037,7 +1037,7 @@ static int fetch_strategies(void) {
     // Parse binary: 3 blocks [2B count][2B len][chars]...
     {
         const unsigned char* p = (const unsigned char*)raw;
-        int off = 0;
+        size_t off = 0;
         if (!read_block(prebuilt_names, &prebuilt_count, p, last_response_len, &off) ||
             !read_block(picker_names, &picker_count, p, last_response_len, &off) ||
             !read_block(slotter_names, &slotter_count, p, last_response_len, &off)) {
