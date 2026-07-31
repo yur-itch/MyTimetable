@@ -363,6 +363,7 @@ static char* http_request(const WCHAR* method, const WCHAR* path,
     HINTERNET hSession = WinHttpOpen(L"MyTimetable.CLI/1.0",
                                      WINHTTP_ACCESS_TYPE_NO_PROXY, NULL, NULL, 0);
     if (!hSession) return NULL;
+    WinHttpSetTimeouts(hSession, 5000, 5000, 15000, 30000);
     // Enable gzip/deflate auto-decompression
     DWORD decompress_flags = WINHTTP_DECOMPRESSION_FLAG_ALL;
     if (!WinHttpSetOption(hSession, WINHTTP_OPTION_DECOMPRESSION,
