@@ -357,7 +357,7 @@ static char* http_request(const WCHAR* method, const WCHAR* path,
         char hex[64] = {0};
         session_hex(hex, 64);
         WCHAR wsid[64];
-        if (mbstowcs(wsid, hex, 64) != (size_t)-1) {
+        if (mbstowcs_terminated(wsid, sizeof(wsid) / sizeof(wsid[0]), hex)) {
             WCHAR auth[256];
             swprintf(auth, 256, L"X-Session-Id: %s\r\n", wsid);
             wcscat(headers, auth);
@@ -1241,7 +1241,10 @@ static int cmd_plan(int argc, char** argv) {
             }
 
             WCHAR wpath[4096];
-            mbstowcs(wpath, qs, 4096);
+            if (!mbstowcs_terminated(wpath, sizeof(wpath) / sizeof(wpath[0]), qs)) {
+                fputs("  Query contains invalid or too-long characters.\n", stdout);
+                continue;
+            }
 
             fputs("  Sending plan...\n", stdout);
             int st = 0;
