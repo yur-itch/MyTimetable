@@ -9,6 +9,12 @@ function cacheName(mode) {
     return CACHE_NAMES[mode] ?? null;
 }
 
+async function cachedForMode(mode, request) {
+    const name = cacheName(mode);
+    if (!name) return null;
+    return caches.open(name).then(cache => cache.match(request));
+}
+
 self.addEventListener('install', e => {
     self.skipWaiting();
 });
@@ -50,6 +56,11 @@ self.addEventListener('fetch', e => {
                 return response;
             }
 
+            if (response.status >= 500 && response.status <= 599) {
+                const cached = await cachedForMode(activeMode, e.request);
+                return cached ?? response;
+            }
+
             if (response.ok && mode && (response.headers.get('content-type') || '').includes('text/html')) {
                 activeMode = mode;
                 const cache = await caches.open(cacheName(mode));
@@ -57,11 +68,8 @@ self.addEventListener('fetch', e => {
             }
             return response;
         } catch {
-            const name = cacheName(activeMode);
-            if (name) {
-                const cached = await caches.open(name).then(cache => cache.match(e.request));
-                if (cached) return cached;
-            }
+            const cached = await cachedForMode(activeMode, e.request);
+            if (cached) return cached;
 
             return new Response('Офлайн-версия недоступна', {
                 status: 503,
