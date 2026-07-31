@@ -240,7 +240,6 @@ static void self_patch_any(const char* anchor_data, const char* data, int data_s
 }
 
 static void self_patch(const char* new_session, int will_restart, const char* restart_args) {
-    printf(will_restart ? "Token saved. Restarting...\n" : "Token cleared.\n");
     self_patch_any(session_data, new_session, SESSION_SIZE, will_restart, restart_args);
 }
 
@@ -256,17 +255,24 @@ static void session_hex(char* out, size_t out_sz) {
     out[pos] = '\0';
 }
 
+static int hex_digit_value(unsigned char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
 static int hex_decode(const char* hex, unsigned char* out, int out_sz) {
     int len = 0;
-    while (*hex && *(hex+1) && len < out_sz) {
-        char hi = *hex++;
-        char lo = *hex++;
-        int h = (hi >= 'a') ? (hi - 'a' + 10) : (hi >= 'A') ? (hi - 'A' + 10) : (hi - '0');
-        int l = (lo >= 'a') ? (lo - 'a' + 10) : (lo >= 'A') ? (lo - 'A' + 10) : (lo - '0');
-        if (h < 0 || h > 15 || l < 0 || l > 15) return -1;
-        out[len++] = (unsigned char)((h << 4) | l);
+    while (*hex) {
+        if (!hex[1] || len >= out_sz) return -1;
+        int hi = hex_digit_value((unsigned char)hex[0]);
+        int lo = hex_digit_value((unsigned char)hex[1]);
+        if (hi < 0 || lo < 0) return -1;
+        out[len++] = (unsigned char)((hi << 4) | lo);
+        hex += 2;
     }
-    return *hex && *(hex+1) ? -1 : len;
+    return len;
 }
 
 // ── Plan save/load ────────────────────────────────────────────────
@@ -347,17 +353,23 @@ static void plan_patch_save(char titles[][MAX_TITLE_LEN], int* counts, int n,
 // ── HTTP (WinHTTP, gzip auto-decompression) ───────────────────────
 typedef struct { WCHAR host[256]; int port; } Client;
 static Client client = { .host = L"localhost", .port = DEFAULT_PORT };
+static size_t last_response_len = 0;
 static int last_response_truncated = 0;
 
 static char* http_request(const WCHAR* method, const WCHAR* path,
                           const char* body_utf8, int* status_out) {
+    last_response_len = 0;
     last_response_truncated = 0;
     HINTERNET hSession = WinHttpOpen(L"MyTimetable.CLI/1.0",
                                      WINHTTP_ACCESS_TYPE_NO_PROXY, NULL, NULL, 0);
     if (!hSession) return NULL;
     // Enable gzip/deflate auto-decompression
-    DWORD decompress_flags = 0x03;  // GZIP | DEFLATE
-    WinHttpSetOption(hSession, 118 /* WINHTTP_OPTION_DECOMPRESSION */, &decompress_flags, sizeof(decompress_flags));
+    DWORD decompress_flags = WINHTTP_DECOMPRESSION_FLAG_ALL;
+    if (!WinHttpSetOption(hSession, WINHTTP_OPTION_DECOMPRESSION,
+                          &decompress_flags, sizeof(decompress_flags))) {
+        WinHttpCloseHandle(hSession);
+        return NULL;
+    }
     HINTERNET hConnect = WinHttpConnect(hSession, client.host, (INTERNET_PORT)client.port, 0);
     if (!hConnect) { WinHttpCloseHandle(hSession); return NULL; }
     HINTERNET hRequest = WinHttpOpenRequest(hConnect, method, path, NULL, NULL, NULL, 0);
@@ -383,8 +395,14 @@ static char* http_request(const WCHAR* method, const WCHAR* path,
         { WinHttpCloseHandle(hRequest); WinHttpCloseHandle(hConnect); WinHttpCloseHandle(hSession); return NULL; }
 
     DWORD status = 0, status_len = sizeof(status);
-    WinHttpQueryHeaders(hRequest, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
-                        NULL, &status, &status_len, NULL);
+    if (!WinHttpQueryHeaders(hRequest,
+                             WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+                             NULL, &status, &status_len, NULL)) {
+        WinHttpCloseHandle(hRequest);
+        WinHttpCloseHandle(hConnect);
+        WinHttpCloseHandle(hSession);
+        return NULL;
+    }
     if (status_out) *status_out = (int)status;
 
     static char buf[BUFSIZE];
@@ -396,6 +414,7 @@ static char* http_request(const WCHAR* method, const WCHAR* path,
             break;
         }
     }
+    last_response_len = total;
     buf[total] = '\0';
     WinHttpCloseHandle(hRequest); WinHttpCloseHandle(hConnect); WinHttpCloseHandle(hSession);
 
