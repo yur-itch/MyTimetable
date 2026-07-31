@@ -432,14 +432,22 @@ static int read_i32(const unsigned char* p, int* off) {
     *off += 4;
     return v;
 }
-static void read_block(char (*dest)[32], int* count, const unsigned char* p, int* off) {
-    *count = read_u16(p, off);
-    for (int i = 0; i < *count && i < 32; i++) {
+static int read_block(char (*dest)[32], int* count,
+                      const unsigned char* p, size_t data_len, int* off) {
+    if (*off < 0 || (size_t)*off + 2 > data_len) return 0;
+    int item_count = read_u16(p, off);
+    if (item_count > 32) return 0;
+    *count = item_count;
+    for (int i = 0; i < item_count; i++) {
+        if ((size_t)*off + 2 > data_len) return 0;
         int len = read_u16(p, off);
-        memcpy(dest[i], p + *off, (size_t)(len < 31 ? len : 31));
-        dest[i][len < 31 ? len : 31] = 0;
+        if ((size_t)len > data_len - (size_t)*off) return 0;
+        int copied = len < 31 ? len : 31;
+        memcpy(dest[i], p + *off, (size_t)copied);
+        dest[i][copied] = 0;
         *off += len;
     }
+    return 1;
 }
 
 // ── URL encoding ─────────────────────────────────────────────────
@@ -887,9 +895,14 @@ static int fetch_strategies(void) {
     {
         const unsigned char* p = (const unsigned char*)raw;
         int off = 0;
-        read_block(prebuilt_names, &prebuilt_count, p, &off);
-        read_block(picker_names, &picker_count, p, &off);
-        read_block(slotter_names, &slotter_count, p, &off);
+        if (!read_block(prebuilt_names, &prebuilt_count, p, last_response_len, &off) ||
+            !read_block(picker_names, &picker_count, p, last_response_len, &off) ||
+            !read_block(slotter_names, &slotter_count, p, last_response_len, &off)) {
+            prebuilt_count = 0;
+            picker_count = 0;
+            slotter_count = 0;
+            return 0;
+        }
     }
     strategies_loaded = 1;
     return 1;
