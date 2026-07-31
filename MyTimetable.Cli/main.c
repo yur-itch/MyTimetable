@@ -1,8 +1,10 @@
 // MyTimetable.CLI — самопатчащийся single-binary auth-клиент.
 // Сборка (из MyTimetable.Cli/):
-//   gcc main.c -lwinhttp -lshell32 \
-//       -Os -s -flto -fno-ident -fno-asynchronous-unwind-tables -fno-unwind-tables \
-//       -o mytimetable.exe
+/*
+ * gcc main.c -lwinhttp -lshell32 \
+ *     -Os -s -flto -fno-ident -fno-asynchronous-unwind-tables -fno-unwind-tables \
+ *     -o mytimetable.exe
+ */
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -415,29 +417,6 @@ static void read_block(char (*dest)[32], int* count, const unsigned char* p, int
         dest[i][len < 31 ? len : 31] = 0;
         *off += len;
     }
-}
-
-// ── Display helpers ───────────────────────────────────────────────
-static const char* short_name(const char* t) {
-    if (!t) return "?";
-    if (strstr(t,"Физическая культура")||strstr(t,"Элективные дисциплины")) return "Физра";
-    if (strstr(t,"Алгебра и геометрия")) return "Алгем";
-    if (strstr(t,"Математический анализ")) return "Матан";
-    if (strstr(t,"Основы программирования")) return "Прога";
-    if (strstr(t,"Дискретные структуры")) return "МКН2";
-    if (strstr(t,"Иностранный язык")) return "Английский";
-    if (strstr(t,"История России")) return "История";
-    return t;
-}
-
-static int vis_len(const char* s) {
-    int n = 0;
-    while (*s) {
-        if (*s == 0x1b) { while (*s && *s != 'm') s++; if (*s) s++; }
-        else if ((*s & 0xc0) == 0x80) { s++; }
-        else { n++; s++; }
-    }
-    return n;
 }
 
 // ── URL encoding ─────────────────────────────────────────────────
