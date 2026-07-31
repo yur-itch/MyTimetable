@@ -41,8 +41,10 @@ namespace MyTimetable.Controllers
             {
                 return StatusCode(503, "Расписание временно недоступно");
             }
+            bool canEdit = await CanEdit();
             Response.Headers.ContentEncoding = "gzip";
-            return File(_data.ViewResult, "text/html; charset=utf-8");
+            return File(canEdit ? _data.EditorViewResult : _data.ViewerViewResult,
+                "text/html; charset=utf-8");
         }
 
         [HttpGet("GetOne")]
