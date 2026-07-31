@@ -143,7 +143,7 @@ static int read_password_stdin(char* password, size_t password_size) {
     DWORD old_mode = 0;
     int no_echo = GetConsoleMode(input, &old_mode) && (old_mode & ENABLE_ECHO_INPUT);
     if (no_echo) {
-        SetConsoleMode(input, old_mode & ~ENABLE_ECHO_INPUT);
+        SetConsoleMode(input, old_mode & ~((DWORD)ENABLE_ECHO_INPUT));
         fputs("Password: ", stderr);
         fflush(stderr);
     }
