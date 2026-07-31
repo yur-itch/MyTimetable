@@ -244,7 +244,7 @@ static int plan_deserialize(const char* data,
                 titles[*n][tl] = 0;
                 if (!parse_int_range(eq + 1, 1, INT_MAX, &counts[*n]))
                     counts[*n] = 1;
-                (*n++);
+                (*n)++;
             }
         } else if (strncmp(line, "strategies:", 11) == 0) {
             if (*s < MAX_STRATEGIES) {
