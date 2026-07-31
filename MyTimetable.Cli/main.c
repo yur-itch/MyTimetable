@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <stdint.h>
 
 #define DEFAULT_HOST L"localhost"
 #define DEFAULT_PORT 8080
@@ -380,9 +381,88 @@ static int url_encode(char* dst, const char* src) {
 // ── Проверка сессии ──────────────────────────────────────────────
 static int needs_login(void) { return is_placeholder(session_ptr(session_data)); }
 
+static size_t json_escaped_length(const char* src) {
+    size_t len = 0;
+    for (const unsigned char* p = (const unsigned char*)src; *p; p++) {
+        size_t extra = 1;
+        switch (*p) {
+            case '\"': case '\\\\': case '\\b': case '\\f':
+            case '\\n': case '\\r': case '\\t':
+                extra = 2; break;
+            default:
+                if (*p < 0x20) extra = 6;
+                break;
+        }
+        if (len > SIZE_MAX - extra) return SIZE_MAX;
+        len += extra;
+    }
+    return len;
+}
+
+static void json_escape(char* dst, const char* src) {
+    static const char hex[] = "0123456789ABCDEF";
+    char* out = dst;
+    for (const unsigned char* p = (const unsigned char*)src; *p; p++) {
+        switch (*p) {
+            case '\"': *out++ = '\\\\'; *out++ = '\"'; break;
+            case '\\\\': *out++ = '\\\\'; *out++ = '\\\\'; break;
+            case '\\b': *out++ = '\\\\'; *out++ = 'b'; break;
+            case '\\f': *out++ = '\\\\'; *out++ = 'f'; break;
+            case '\\n': *out++ = '\\\\'; *out++ = 'n'; break;
+            case '\\r': *out++ = '\\\\'; *out++ = 'r'; break;
+            case '\\t': *out++ = '\\\\'; *out++ = 't'; break;
+            default:
+                if (*p < 0x20) {
+                    *out++ = '\\\\'; *out++ = 'u';
+                    *out++ = '0'; *out++ = '0';
+                    *out++ = hex[*p >> 4]; *out++ = hex[*p & 0x0F];
+                } else {
+                    *out++ = (char)*p;
+                }
+                break;
+        }
+    }
+    *out = 0;
+}
+
+static int size_add(size_t* total, size_t value) {
+    if (value > SIZE_MAX - *total) return 0;
+    *total += value;
+    return 1;
+}
+
+static char* make_auth_body(const char* user, const char* pass) {
+    static const char prefix[] = "{\"username\":\"";
+    static const char separator[] = "\",\"password\":\"";
+    static const char suffix[] = "\"}";
+    size_t user_len = json_escaped_length(user);
+    size_t pass_len = json_escaped_length(pass);
+    size_t total = 0;
+
+    if (user_len == SIZE_MAX || pass_len == SIZE_MAX ||
+        !size_add(&total, sizeof(prefix) - 1) ||
+        !size_add(&total, user_len) ||
+        !size_add(&total, sizeof(separator) - 1) ||
+        !size_add(&total, pass_len) ||
+        !size_add(&total, sizeof(suffix)))
+        return NULL;
+
+    char* body = malloc(total);
+    if (!body) return NULL;
+    char* out = body;
+    memcpy(out, prefix, sizeof(prefix) - 1); out += sizeof(prefix) - 1;
+    json_escape(out, user); out += user_len;
+    memcpy(out, separator, sizeof(separator) - 1); out += sizeof(separator) - 1;
+    json_escape(out, pass); out += pass_len;
+    memcpy(out, suffix, sizeof(suffix));
+    return body;
+}
+
 static int do_login_hex(const char* user, const char* pass) {
-    char body[256]; snprintf(body, sizeof(body), "{\"username\":\"%s\",\"password\":\"%s\"}", user, pass);
+    char* body = make_auth_body(user, pass);
+    if (!body) return 0;
     int st = 0; char* r = http_request(L"POST", L"/Cli/login", body, &st);
+    free(body);
     if (!r || st != 200) { return 0; }
     // Response body is plain 32-char hex session ID
     if (strlen(r) != SESSION_SIZE * 2) return 0;
@@ -393,8 +473,13 @@ static int do_login_hex(const char* user, const char* pass) {
 }
 
 static int do_register_hex(const char* user, const char* pass, char* err_buf, int err_sz) {
-    char body[256]; snprintf(body, sizeof(body), "{\"username\":\"%s\",\"password\":\"%s\"}", user, pass);
+    char* body = make_auth_body(user, pass);
+    if (!body) {
+        snprintf(err_buf, err_sz, "Request is too large");
+        return 0;
+    }
     int st = 0; char* r = http_request(L"POST", L"/Cli/register", body, &st);
+    free(body);
     if (!r) { snprintf(err_buf, err_sz, "Connection failed"); return 0; }
     if (st != 200) {
         snprintf(err_buf, err_sz, "Server error %d: %s", st, r);
