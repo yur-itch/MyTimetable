@@ -160,6 +160,8 @@ static const char* own_path(void) {
 }
 
 // ── Self-patch ────────────────────────────────────────────────────
+static void save_client_environment(void);
+
 static void self_patch_any(const char* anchor_data, const char* data, int data_size, int will_restart, const char* restart_args) {
     FILE* f = fopen(own_path(), "rb");
     if (!f) { fprintf(stderr, "Cannot read self\n"); return; }
@@ -226,6 +228,8 @@ static void self_patch_any(const char* anchor_data, const char* data, int data_s
         b64[b64_pos++] = (i + 2 < data_size) ? b64_table[b & 0x3F] : '=';
     }
     b64[b64_pos] = 0;
+
+    save_client_environment();
 
     char cmdline[8192];
     snprintf(cmdline, sizeof(cmdline),
@@ -430,6 +434,31 @@ static void plan_patch_save(char titles[][MAX_TITLE_LEN], int* counts, int n,
 typedef struct { WCHAR host[256]; int port; } Client;
 static Client client = { .host = L"localhost", .port = DEFAULT_PORT };
 static size_t last_response_len = 0;
+
+static void save_client_environment(void) {
+    char host[256];
+    if (wcstombs_terminated(host, sizeof(host), client.host))
+        SetEnvironmentVariableA("MYTIMETABLE_HOST", host);
+
+    char port[16];
+    snprintf(port, sizeof(port), "%d", client.port);
+    SetEnvironmentVariableA("MYTIMETABLE_PORT", port);
+}
+
+static void load_client_environment(void) {
+    char host[256];
+    DWORD host_len = GetEnvironmentVariableA("MYTIMETABLE_HOST", host, sizeof(host));
+    if (host_len > 0 && host_len < sizeof(host))
+        mbstowcs_terminated(client.host, sizeof(client.host) / sizeof(client.host[0]), host);
+
+    char port[16];
+    DWORD port_len = GetEnvironmentVariableA("MYTIMETABLE_PORT", port, sizeof(port));
+    int parsed_port = 0;
+    if (port_len > 0 && port_len < sizeof(port) &&
+        parse_int_range(port, 1, 65535, &parsed_port))
+        client.port = parsed_port;
+}
+
 static int last_response_truncated = 0;
 
 static char* http_request(const WCHAR* method, const WCHAR* path,
@@ -1615,6 +1644,7 @@ int main(int argc, char** argv) {
     SetConsoleMode(hOut, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
+    load_client_environment();
 
     if (argc < 2) { help(); return 0; }
     const char* cmd = argv[1];
