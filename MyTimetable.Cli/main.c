@@ -466,6 +466,11 @@ static void load_client_environment(void) {
     if (secure_len == 1 && secure[0] == '1') client.secure = 1;
 }
 
+static void apply_https_option(int argc, char** argv) {
+    for (int i = 2; i < argc; i++)
+        if (strcmp(argv[i], "--https") == 0) client.secure = 1;
+}
+
 static int last_response_truncated = 0;
 
 static char* http_request(const WCHAR* method, const WCHAR* path,
@@ -1653,6 +1658,7 @@ int main(int argc, char** argv) {
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
     load_client_environment();
+    apply_https_option(argc, argv);
 
     if (argc < 2) { help(); return 0; }
     const char* cmd = argv[1];
