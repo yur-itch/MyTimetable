@@ -1226,10 +1226,10 @@ static int cmd_plan(int argc, char** argv) {
                 char name[32] = {0}, p[32] = {0}, sl[32] = {0};
                 int kind = parse_strategy_spec(strats[i], name, p, sl);
                 if (kind == 1) {
-                    bpos += snprintf(body + bpos, sizeof(body) - bpos,
+                    bpos += snprintf(body + bpos, sizeof(body) - (size_t)bpos,
                         "{\"$type\":\"prebuilt\",\"name\":\"%s\"}", name);
                 } else if (kind == 2) {
-                    bpos += snprintf(body + bpos, sizeof(body) - bpos,
+                    bpos += snprintf(body + bpos, sizeof(body) - (size_t)bpos,
                         "{\"$type\":\"composed\",\"picker\":\"%s\",\"slotter\":\"%s\"}", p, sl);
                 } else {
                     // Shouldn't happen — push validates, but skip gracefully
