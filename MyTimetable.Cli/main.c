@@ -13,6 +13,8 @@
 #include <string.h>
 #include <time.h>
 #include <stdint.h>
+#include <errno.h>
+#include <limits.h>
 
 #define DEFAULT_HOST L"localhost"
 #define DEFAULT_PORT 8080
@@ -56,6 +58,18 @@ static void* mem_find(const void* haystack, size_t hlen,
     for (size_t i = 0; i + nlen <= hlen; i++)
         if (memcmp(h + i, n, nlen) == 0) return (void*)(h + i);
     return NULL;
+}
+
+static int parse_int_range(const char* text, int min_value, int max_value, int* out) {
+    if (!text || !*text) return 0;
+    errno = 0;
+    char* end = NULL;
+    long value = strtol(text, &end, 10);
+    if (errno == ERANGE || end == text || *end != '\0' ||
+        value < min_value || value > max_value)
+        return 0;
+    *out = (int)value;
+    return 1;
 }
 
 // ── Свой путь ─────────────────────────────────────────────────────
@@ -228,9 +242,9 @@ static int plan_deserialize(const char* data,
                 if (tl >= MAX_TITLE_LEN) tl = MAX_TITLE_LEN - 1;
                 memcpy(titles[*n], kv, tl);
                 titles[*n][tl] = 0;
-                counts[*n] = atoi(eq + 1);
-                if (counts[*n] < 1) counts[*n] = 1;
-                (*n)++;
+                if (!parse_int_range(eq + 1, 1, INT_MAX, &counts[*n]))
+                    counts[*n] = 1;
+                (*n++);
             }
         } else if (strncmp(line, "strategies:", 11) == 0) {
             if (*s < MAX_STRATEGIES) {
@@ -939,8 +953,11 @@ static int cmd_plan(int argc, char** argv) {
         }
         else if (strcmp(args[0], "add") == 0) {
             if (ac < 3) { printf("Usage: add <title> <count>\n"); continue; }
-            int cnt = atoi(args[ac - 1]);
-            if (cnt < 1) { printf("Count must be >= 1\n"); continue; }
+            int cnt = 0;
+            if (!parse_int_range(args[ac - 1], 1, INT_MAX, &cnt)) {
+                printf("Count must be an integer >= 1\n");
+                continue;
+            }
             if (n >= MAX_SUBJECTS) { printf("Max %d subjects\n", MAX_SUBJECTS); continue; }
             char title_buf[MAX_TITLE_LEN] = {0};
             for (int ai = 1; ai < ac - 1; ai++) {
@@ -1047,7 +1064,12 @@ static int cmd_plan(int argc, char** argv) {
             if (s == 0) { printf("(empty)\n"); continue; }
             int idx = s - 1; // default: remove last
             if (ac >= 2) {
-                idx = atoi(args[1]) - 1;
+                int position = 0;
+                if (!parse_int_range(args[1], 1, s, &position)) {
+                    printf("Position must be 1-%d\n", s);
+                    continue;
+                }
+                idx = position - 1;
                 if (idx < 0 || idx >= s) {
                     printf("Position must be 1-%d\n", s);
                     continue;
@@ -1061,8 +1083,15 @@ static int cmd_plan(int argc, char** argv) {
         }
         else if (strcmp(args[0], "mv") == 0) {
             if (ac < 3) { printf("Usage: mv <from> <to>\n"); continue; }
-            int from = atoi(args[1]) - 1;
-            int to   = atoi(args[2]) - 1;
+            int from_position = 0;
+            int to_position = 0;
+            if (!parse_int_range(args[1], 1, s, &from_position) ||
+                !parse_int_range(args[2], 1, s, &to_position)) {
+                printf("Positions must be 1-%d\n", s);
+                continue;
+            }
+            int from = from_position - 1;
+            int to = to_position - 1;
             if (from < 0 || from >= s || to < 0 || to >= s) {
                 printf("Positions must be 1-%d\n", s);
                 continue;
