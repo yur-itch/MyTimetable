@@ -338,9 +338,13 @@ static void plan_patch_save(char titles[][MAX_TITLE_LEN], int* counts, int n,
 // ── HTTP (WinHTTP, gzip auto-decompression) ───────────────────────
 typedef struct { WCHAR host[256]; int port; } Client;
 static Client client = { .host = L"localhost", .port = DEFAULT_PORT };
+static size_t last_response_len = 0;
+static int last_response_truncated = 0;
 
 static char* http_request(const WCHAR* method, const WCHAR* path,
                           const char* body_utf8, int* status_out) {
+    last_response_len = 0;
+    last_response_truncated = 0;
     HINTERNET hSession = WinHttpOpen(L"MyTimetable.CLI/1.0",
                                      WINHTTP_ACCESS_TYPE_NO_PROXY, NULL, NULL, 0);
     if (!hSession) return NULL;
@@ -379,8 +383,13 @@ static char* http_request(const WCHAR* method, const WCHAR* path,
     static char buf[BUFSIZE];
     DWORD total = 0, read = 0;
     while (WinHttpReadData(hRequest, buf + total, BUFSIZE - total - 1, &read) && read > 0) {
-        total += read; if (total >= BUFSIZE - 1) break;
+        total += read;
+        if (total >= BUFSIZE - 1) {
+            last_response_truncated = 1;
+            break;
+        }
     }
+    last_response_len = total;
     buf[total] = '\0';
     WinHttpCloseHandle(hRequest); WinHttpCloseHandle(hConnect); WinHttpCloseHandle(hSession);
 
