@@ -214,7 +214,8 @@ static void self_patch_any(const char* anchor_data, const char* data, int data_s
 
     free(binary);
 
-    STARTUPINFOA si = { sizeof(si) };
+    STARTUPINFOA si = {0};
+    si.cb = sizeof(si);
     PROCESS_INFORMATION pi;
     int spawned = 0;
     if (CreateProcessA(NULL, cmdline, NULL, NULL, FALSE,
@@ -422,7 +423,8 @@ static void read_block(char (*dest)[32], int* count, const unsigned char* p, int
 // ── URL encoding ─────────────────────────────────────────────────
 static int url_enc_char(char* d, unsigned char c) {
     if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~') {
-        if (d) *d = c; return 1;
+        if (d) *d = (char)c;
+        return 1;
     }
     if (d) {
         static const char hex[] = "0123456789ABCDEF";
