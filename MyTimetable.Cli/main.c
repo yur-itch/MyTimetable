@@ -431,8 +431,8 @@ static void plan_patch_save(char titles[][MAX_TITLE_LEN], int* counts, int n,
 }
 
 // ── HTTP (WinHTTP, gzip auto-decompression) ───────────────────────
-typedef struct { WCHAR host[256]; int port; } Client;
-static Client client = { .host = L"localhost", .port = DEFAULT_PORT };
+typedef struct { WCHAR host[256]; int port; int secure; } Client;
+static Client client = { .host = L"localhost", .port = DEFAULT_PORT, .secure = 0 };
 static size_t last_response_len = 0;
 
 static void save_client_environment(void) {
@@ -443,6 +443,7 @@ static void save_client_environment(void) {
     char port[16];
     snprintf(port, sizeof(port), "%d", client.port);
     SetEnvironmentVariableA("MYTIMETABLE_PORT", port);
+    SetEnvironmentVariableA("MYTIMETABLE_HTTPS", client.secure ? "1" : "0");
 }
 
 static void load_client_environment(void) {
@@ -457,6 +458,10 @@ static void load_client_environment(void) {
     if (port_len > 0 && port_len < sizeof(port) &&
         parse_int_range(port, 1, 65535, &parsed_port))
         client.port = parsed_port;
+
+    char secure[8];
+    DWORD secure_len = GetEnvironmentVariableA("MYTIMETABLE_HTTPS", secure, sizeof(secure));
+    if (secure_len == 1 && secure[0] == '1') client.secure = 1;
 }
 
 static int last_response_truncated = 0;
@@ -478,7 +483,8 @@ static char* http_request(const WCHAR* method, const WCHAR* path,
     }
     HINTERNET hConnect = WinHttpConnect(hSession, client.host, (INTERNET_PORT)client.port, 0);
     if (!hConnect) { WinHttpCloseHandle(hSession); return NULL; }
-    HINTERNET hRequest = WinHttpOpenRequest(hConnect, method, path, NULL, NULL, NULL, 0);
+    DWORD request_flags = client.secure ? WINHTTP_FLAG_SECURE : 0;
+    HINTERNET hRequest = WinHttpOpenRequest(hConnect, method, path, NULL, NULL, NULL, request_flags);
     if (!hRequest) { WinHttpCloseHandle(hConnect); WinHttpCloseHandle(hSession); return NULL; }
 
     WCHAR headers[512] = L"Content-Type: application/json\r\nAccept: application/json\r\n";
