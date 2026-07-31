@@ -545,28 +545,28 @@ static int do_login_hex(const char* user, const char* pass) {
 static int do_register_hex(const char* user, const char* pass, char* err_buf, int err_sz) {
     char* body = make_auth_body(user, pass);
     if (!body) {
-        snprintf(err_buf, err_sz, "Request is too large");
+        snprintf(err_buf, (size_t)err_sz, "Request is too large");
         return 0;
     }
     int st = 0; char* r = http_request(L"POST", L"/Cli/register", body, &st);
     free(body);
-    if (!r) { snprintf(err_buf, err_sz, "Connection failed"); return 0; }
+    if (!r) { snprintf(err_buf, (size_t)err_sz, "Connection failed"); return 0; }
     if (last_response_truncated) {
-        snprintf(err_buf, err_sz, "Server response is too large");
+        snprintf(err_buf, (size_t)err_sz, "Server response is too large");
         return 0;
     }
     if (st != 200) {
-        snprintf(err_buf, err_sz, "Server error %d: %s", st, r);
+        snprintf(err_buf, (size_t)err_sz, "Server error %d: %s", st, r);
         return 0;
     }
     // Response body is plain 32-char hex session ID
     if (strlen(r) != SESSION_SIZE * 2) {
-        snprintf(err_buf, err_sz, "Bad token from server");
+        snprintf(err_buf, (size_t)err_sz, "Bad token from server");
         return 0;
     }
     unsigned char raw[SESSION_SIZE];
     if (hex_decode(r, raw, SESSION_SIZE) != SESSION_SIZE) {
-        snprintf(err_buf, err_sz, "Invalid token format");
+        snprintf(err_buf, (size_t)err_sz, "Invalid token format");
         return 0;
     }
     memcpy(session_ptr(session_data), raw, SESSION_SIZE);
