@@ -1,4 +1,0 @@
-MyTimetable.Cli/main.c: In function 'read_password_stdin':
-MyTimetable.Cli/main.c:146:40: warning: unsigned conversion from 'int' to 'long unsigned int' changes value from '-5' to '4294967291' [-Wsign-conversion]
-  146 |         SetConsoleMode(input, old_mode & ~ENABLE_ECHO_INPUT);
-      |                                        ^

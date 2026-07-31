@@ -1,0 +1,1 @@
+Refusing non-HTTPS connection to a remote host. Use --https.
