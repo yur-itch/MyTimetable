@@ -966,6 +966,10 @@ static int cmd_plan(int argc, char** argv) {
             }
             for (int i = 0; i < n; i++) {
                 if (strcmp(titles[i], title_buf) == 0) {
+                    if (counts[i] > INT_MAX - cnt) {
+                        printf("Count is too large\n");
+                        goto add_done;
+                    }
                     counts[i] += cnt;
                     printf("  Updated: %s -> x %d\n", title_buf, counts[i]);
                     goto add_done;
