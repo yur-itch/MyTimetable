@@ -706,6 +706,7 @@ static int cmd_login(int argc, char** argv) {
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i],"--user")==0 && i+1<argc) user = argv[++i];
         if (strcmp(argv[i],"--password")==0 && i+1<argc) pass = argv[++i];
+        if (strcmp(argv[i],"--password-stdin")==0) password_from_stdin = 1;
         if (strcmp(argv[i],"--host")==0 && i+1<argc) {
             if (!mbstowcs_terminated(client.host, sizeof(client.host) / sizeof(client.host[0]), argv[++i]))
                 wcscpy(client.host, DEFAULT_HOST);
@@ -736,6 +737,7 @@ static int cmd_register(int argc, char** argv) {
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i],"--user")==0 && i+1<argc) user = argv[++i];
         if (strcmp(argv[i],"--password")==0 && i+1<argc) pass = argv[++i];
+        if (strcmp(argv[i],"--password-stdin")==0) password_from_stdin = 1;
         if (strcmp(argv[i],"--host")==0 && i+1<argc) {
             if (!mbstowcs_terminated(client.host, sizeof(client.host) / sizeof(client.host[0]), argv[++i]))
                 wcscpy(client.host, DEFAULT_HOST);
