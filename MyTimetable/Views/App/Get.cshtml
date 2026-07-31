@@ -150,16 +150,14 @@
         </div>
     </div>
     <script>
-        function authHeaders() {
-            const sid = localStorage.getItem('mytimetable.session');
-            return sid ? { 'X-Session-Id': sid } : {};
-        }
+        const APP_CACHE = 'schedule-v3';
 
         function maybeLogout(res) {
-            if (res.status === 401) {
-                localStorage.removeItem('mytimetable.session');
-                window.location.href = '/App/Login';
-            }
+            if (res.status === 401) window.location.href = '/App/Login';
+        }
+
+        async function clearAppCache() {
+            try { await caches.delete(APP_CACHE); } catch { }
         }
 
         requestAnimationFrame(() => {
@@ -183,7 +181,7 @@
             const action = el.classList.contains('hidden') ? 'Unhide' : 'Hide';
             try {
                 // PATCH сразу возвращает обновлённый партиал дня — вставляем его, без отдельного GET.
-                const res = await fetch('/App/' + action + '?date=' + dateStr + '&lessonNumber=' + num, { method: 'PATCH', headers: authHeaders() });
+                const res = await fetch('/App/' + action + '?date=' + dateStr + '&lessonNumber=' + num, { method: 'PATCH' });
                 maybeLogout(res);
                 if (res.ok) swapDay(dateStr, await res.text());
             } catch {}
@@ -191,7 +189,7 @@
 
         async function refreshDay(dateStr) {
             try {
-                const res = await fetch('/App/GetOne?date=' + dateStr, { headers: authHeaders() });
+                const res = await fetch('/App/GetOne?date=' + dateStr);
                 maybeLogout(res);
                 if (res.ok) swapDay(dateStr, await res.text());
             } catch {}
@@ -199,9 +197,9 @@
 
         async function logout() {
             try {
-                await fetch('/App/Logout', { method: 'POST', headers: authHeaders() });
+                await fetch('/App/Logout', { method: 'POST' });
             } catch {}
-            localStorage.removeItem('mytimetable.session');
+            await clearAppCache();
             window.location.href = '/App/Login';
         }
 
