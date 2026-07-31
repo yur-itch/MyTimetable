@@ -1208,21 +1208,21 @@ static int cmd_plan(int argc, char** argv) {
             // Build query string: /Planner?titles[Encoded]=N&...&fromCli=true
             char qs[4096];
             int pos = 0;
-            pos += snprintf(qs + pos, sizeof(qs) - pos, "/Planner?");
+            pos += snprintf(qs + pos, sizeof(qs) - (size_t)pos, "/Planner?");
             for (int i = 0; i < n && pos < (int)sizeof(qs) - 512; i++) {
-                if (i > 0) pos += snprintf(qs + pos, sizeof(qs) - pos, "&");
-                pos += snprintf(qs + pos, sizeof(qs) - pos, "titles[");
+                if (i > 0) pos += snprintf(qs + pos, sizeof(qs) - (size_t)pos, "&");
+                pos += snprintf(qs + pos, sizeof(qs) - (size_t)pos, "titles[");
                 pos += url_encode(qs + pos, titles[i]);
-                pos += snprintf(qs + pos, sizeof(qs) - pos, "]=%d", counts[i]);
+                pos += snprintf(qs + pos, sizeof(qs) - (size_t)pos, "]=%d", counts[i]);
             }
-            pos += snprintf(qs + pos, sizeof(qs) - pos, "&fromCli=true");
+            pos += snprintf(qs + pos, sizeof(qs) - (size_t)pos, "&fromCli=true");
 
             // Build JSON body with StrategySpec array
             char body[4096];
             int bpos = 0;
-            bpos += snprintf(body + bpos, sizeof(body) - bpos, "[");
+            bpos += snprintf(body + bpos, sizeof(body) - (size_t)bpos, "[");
             for (int i = 0; i < s; i++) {
-                if (i > 0) bpos += snprintf(body + bpos, sizeof(body) - bpos, ",");
+                if (i > 0) bpos += snprintf(body + bpos, sizeof(body) - (size_t)bpos, ",");
                 char name[32] = {0}, p[32] = {0}, sl[32] = {0};
                 int kind = parse_strategy_spec(strats[i], name, p, sl);
                 if (kind == 1) {
@@ -1236,7 +1236,7 @@ static int cmd_plan(int argc, char** argv) {
                     continue;
                 }
             }
-            bpos += snprintf(body + bpos, sizeof(body) - bpos, "]");
+            bpos += snprintf(body + bpos, sizeof(body) - (size_t)bpos, "]");
 
             if (pos >= (int)sizeof(qs) - 512 || bpos >= (int)sizeof(body) - 512) {
                 fputs("  Payload too large. Reduce subjects or strategies.\n", stdout);
