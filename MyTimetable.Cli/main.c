@@ -1561,8 +1561,8 @@ static int cmd_resolve_conflicts(int argc, char** argv) {
 static void help(void) {
     printf("MyTimetable CLI - self-patching single-binary auth\n\n"
            "Usage:\n"
-           "  mytimetable login [--user <u>] [--password <p>] [--host <h>] [--port <p>]\n"
-           "  mytimetable register [--user <u>] [--password <p>] [--host <h>] [--port <p>]\n"
+           "  mytimetable login [--user <u>] [--password <p>|--password-stdin] [--host <h>] [--port <p>]\n"
+           "  mytimetable register [--user <u>] [--password <p>|--password-stdin] [--host <h>] [--port <p>]\n"
            "  mytimetable logout [--host <h>] [--port <p>]\n"
            "  mytimetable schedule                 full-year schedule, scrollable\n"
            "  mytimetable plan                      interactive planner\n"
