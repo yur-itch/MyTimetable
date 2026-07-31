@@ -722,6 +722,14 @@ static int cmd_login(int argc, char** argv) {
             }
         }
     }
+    char password_buf[512];
+    if (password_from_stdin) {
+        if (!read_password_stdin(password_buf, sizeof(password_buf))) {
+            fputs("Cannot read password from stdin.\n", stderr);
+            return 1;
+        }
+        pass = password_buf;
+    }
     if (!do_login_hex(user, pass)) { printf("Login failed\n"); return 1; }
     printf("Logged in as '%s'\nPatching token into binary...\n", user);
     self_patch(session_ptr(session_data), 1, "schedule");
@@ -752,6 +760,14 @@ static int cmd_register(int argc, char** argv) {
                 client.port = (int)val;
             }
         }
+    }
+    char password_buf[512];
+    if (password_from_stdin) {
+        if (!read_password_stdin(password_buf, sizeof(password_buf))) {
+            fputs("Cannot read password from stdin.\n", stderr);
+            return 1;
+        }
+        pass = password_buf;
     }
     if (!user || !pass) {
         fputs("Usage: mytimetable register --user <username> --password <password>\n", stderr);
