@@ -52,6 +52,7 @@ namespace MyTimetable.Caching
 
             using var scope = _serviceProvider.CreateScope();
 
+            _data.PartialViewResult.Clear();
             foreach (DaySchedule day in dates.Select(x => schedule.DateToDaySchedule(x)!))
             {
                 _data.PartialViewResult[day.Date] = await _renderer.RenderViewToStringAsync("GetOne", day, scope.ServiceProvider, true);

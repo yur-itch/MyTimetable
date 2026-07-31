@@ -1,4 +1,3 @@
-
 namespace MyTimetable.Planning;
 
 public interface ISlotterFactory

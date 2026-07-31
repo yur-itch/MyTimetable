@@ -1,4 +1,3 @@
-
 namespace MyTimetable.Planning;
 
 internal readonly record struct GapRange(int Start, int Size);
