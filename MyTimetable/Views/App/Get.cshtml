@@ -81,8 +81,8 @@
             flex: 1 1 0;
             min-height: 0;
             overflow: hidden;
-            cursor: pointer;
         }
+        .editable .lesson { cursor: pointer; }
         .lesson.hidden { opacity: .32; }
         .lesson.custom { cursor: default; }
         .lesson-title { font-size: 13px; font-weight: 600; line-height: 1.25; color: #f3f3f8; }
@@ -131,8 +131,11 @@
         .logout-btn:hover { background: #271826; }
     </style>
 </head>
-<body>
+<body class="@(Model.CanEdit ? "editable" : "")">
+@if (Model.CanEdit)
+{
     <a class="plan-btn" href="/App/Plan" title="Планирование">+</a>
+}
     <button class="logout-btn" onclick="logout()" title="Выйти">выход</button>
     <div id="scroller">
         <div class="grid">
@@ -173,14 +176,21 @@
         });
 
         document.querySelector('.grid').addEventListener('click', e => {
-            const lesson = e.target.closest('.lesson');
+@if (Model.CanEdit)
+{
+<text>            const lesson = e.target.closest('.lesson');
             if (lesson) { toggleLesson(lesson); return; }
+</text>
+}
             const label = e.target.closest('.day-label');
             if (!label) return;
             const id = label.closest('[id^="day-"]')?.id;
             if (id) refreshDay(id.slice(4));
         });
 
+@if (Model.CanEdit)
+{
+<text>
         async function toggleLesson(el) {
             const dateStr = el.closest('[id^="day-"]')?.id.slice(4);
             const num = el.dataset.num;
@@ -193,6 +203,8 @@
                 if (res.ok) swapDay(dateStr, await res.text());
             } catch {}
         }
+</text>
+}
 
         async function refreshDay(dateStr) {
             try {
