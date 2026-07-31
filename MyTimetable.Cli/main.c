@@ -372,7 +372,7 @@ static char* http_request(const WCHAR* method, const WCHAR* path,
     }
 
     DWORD body_len = body_utf8 ? (DWORD)strlen(body_utf8) : 0;
-    BOOL ok = WinHttpSendRequest(hRequest, headers, -1,
+    BOOL ok = WinHttpSendRequest(hRequest, headers, (DWORD)-1,
                                  (LPVOID)(body_utf8 ? body_utf8 : ""),
                                  body_len, body_len, 0);
     if (!ok || !WinHttpReceiveResponse(hRequest, NULL))
@@ -414,7 +414,7 @@ static void read_block(char (*dest)[32], int* count, const unsigned char* p, int
     *count = read_u16(p, off);
     for (int i = 0; i < *count && i < 32; i++) {
         int len = read_u16(p, off);
-        memcpy(dest[i], p + *off, len < 31 ? len : 31);
+        memcpy(dest[i], p + *off, (size_t)(len < 31 ? len : 31));
         dest[i][len < 31 ? len : 31] = 0;
         *off += len;
     }
