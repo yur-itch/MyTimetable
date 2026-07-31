@@ -113,6 +113,10 @@
             try { await caches.delete('schedule-v3'); } catch { }
         }
 
+        function clearLegacySession() {
+            try { localStorage.removeItem('mytimetable.session'); } catch { }
+        }
+
         document.getElementById('login-form').addEventListener('submit', async e => {
             e.preventDefault();
             const btn = document.getElementById('submit-btn');
@@ -140,6 +144,7 @@
                     return;
                 }
                 await clearAppCache();
+                clearLegacySession();
                 window.location.href = '/App';
             } catch {
                 err.textContent = 'Сеть недоступна.';
