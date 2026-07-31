@@ -160,6 +160,10 @@
             try { await caches.delete(APP_CACHE); } catch { }
         }
 
+        function clearLegacySession() {
+            try { localStorage.removeItem('mytimetable.session'); } catch { }
+        }
+
         requestAnimationFrame(() => {
             const cur = document.getElementById("@Model.ScrollTarget");
             if (cur) (cur.firstElementChild ?? cur).scrollIntoView({ block: "center" });
@@ -200,6 +204,7 @@
                 await fetch('/App/Logout', { method: 'POST' });
             } catch {}
             await clearAppCache();
+            clearLegacySession();
             window.location.href = '/App/Login';
         }
 
