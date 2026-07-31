@@ -49,20 +49,11 @@ namespace MyTimetable.Caching
             else
             {
                 fullRebuild = false;
-                if (dates.Any())
-                {
-                    // Keep the already cached days and update only the requested dates.
-                }
-                else
+                if (!dates.Any())
                 {
                     _data.StateValid = true;
                     return true;
                 }
-            }
-            if (!fullRebuild && !dates.Any())
-            {
-                _data.StateValid = true;
-                return true;
             }
 
             using var scope = _serviceProvider.CreateScope();
