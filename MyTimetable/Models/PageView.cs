@@ -7,6 +7,7 @@ namespace MyTimetable.Models
     {
         public required int SlotCount { get; init; }
         public required string ScrollTarget { get; init; }
+        public required bool CanEdit { get; init; }
         public required IReadOnlyList<string> Days { get; init; }
     }
 }
