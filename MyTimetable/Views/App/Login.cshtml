@@ -109,8 +109,13 @@
         <div class="switch">Нет аккаунта? <a href="/App/Register">Зарегистрироваться</a></div>
     </div>
     <script>
-        async function clearAppCache() {
-            try { await caches.delete('schedule-v3'); } catch { }
+        async function setServiceWorkerMode(mode) {
+            if (!('serviceWorker' in navigator)) return;
+            try {
+                const registration = await navigator.serviceWorker.register('/sw.js');
+                const worker = registration.active ?? (await navigator.serviceWorker.ready).active;
+                worker?.postMessage({ type: 'set-mode', mode });
+            } catch { }
         }
 
         function clearLegacySession() {
@@ -143,7 +148,8 @@
                         : 'Ошибка ' + res.status;
                     return;
                 }
-                await clearAppCache();
+                const data = await res.json();
+                await setServiceWorkerMode(data.canEdit ? 'editor' : 'viewer');
                 clearLegacySession();
                 window.location.href = '/App';
             } catch {
