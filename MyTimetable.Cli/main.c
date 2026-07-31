@@ -236,14 +236,21 @@ static void self_patch_any(const char* anchor_data, const char* data, int data_s
     char cmdline[8192];
     snprintf(cmdline, sizeof(cmdline),
         "powershell -NoProfile -Command \"&{"
-        "sleep 1; "
-        "$f=[IO.File]::Open('%s',[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None); "
+        "$ErrorActionPreference='Stop'; "
+        "Start-Sleep -Seconds 1; "
+        "$path='%s'; $tmp=$path+'.tmp'; $f=$null; "
+        "try{"
+        "[IO.File]::Copy($path,$tmp,$true); "
+        "$f=[IO.File]::Open($tmp,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None); "
         "$f.Seek(%ld,0); "
         "$b=[Convert]::FromBase64String('%s'); "
-        "$f.Write($b,0,$b.Length); "
-        "$f.Close(); "
-        "if(%d){& '%s' '%s'}}\"",
-        ps_path, payload_offset, b64, will_restart, ps_path, restart_esc);
+        "if($b.Length -ne %d){throw 'Invalid patch size'}; "
+        "$f.Write($b,0,$b.Length); $f.Flush($true); $f.Close(); $f=$null; "
+        "Move-Item -LiteralPath $tmp -Destination $path -Force; "
+        "if(%d){& '%s' '%s'}"
+        "}catch{Write-Error $_; exit 1}"
+        "finally{if($f){$f.Dispose()}; if(Test-Path -LiteralPath $tmp){Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue}}}\"",
+        ps_path, payload_offset, b64, data_size, will_restart, ps_path, restart_esc);
 
     free(binary);
 
