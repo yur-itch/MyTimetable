@@ -972,16 +972,17 @@ static int cmd_schedule(int argc, char** argv) {
 
     // Parse binary: [4B scrollTarget LE][2B data_len LE][UTF-8 data]
     {
-        const unsigned char* p = (const unsigned char*)raw;
-        int off = 0;
-        int scroll_target = read_i32(p, &off);
-        int data_len = read_u16(p, &off);
-        if (off + data_len < BUFSIZE) {
-            char saved = raw[off + data_len];
-            raw[off + data_len] = 0;
-            run_table_repl(raw + off, scroll_target);
-            raw[off + data_len] = saved;
+        int scroll_target = 0;
+        size_t data_offset = 0, data_len = 0;
+        if (!parse_table_frame(raw, last_response_len, &scroll_target,
+                               &data_offset, &data_len)) {
+            fputs("Malformed schedule response.\n", stderr);
+            return 1;
         }
+        char saved = raw[data_offset + data_len];
+        raw[data_offset + data_len] = 0;
+        run_table_repl(raw + data_offset, scroll_target);
+        raw[data_offset + data_len] = saved;
     }
     return 0;
 }
