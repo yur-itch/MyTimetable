@@ -386,8 +386,8 @@ static size_t json_escaped_length(const char* src) {
     for (const unsigned char* p = (const unsigned char*)src; *p; p++) {
         size_t extra = 1;
         switch (*p) {
-            case '\"': case '\\\\': case '\\b': case '\\f':
-            case '\\n': case '\\r': case '\\t':
+            case '\"': case '\\': case '\b': case '\f':
+            case '\n': case '\r': case '\t':
                 extra = 2; break;
             default:
                 if (*p < 0x20) extra = 6;
@@ -404,16 +404,16 @@ static void json_escape(char* dst, const char* src) {
     char* out = dst;
     for (const unsigned char* p = (const unsigned char*)src; *p; p++) {
         switch (*p) {
-            case '\"': *out++ = '\\\\'; *out++ = '\"'; break;
-            case '\\\\': *out++ = '\\\\'; *out++ = '\\\\'; break;
-            case '\\b': *out++ = '\\\\'; *out++ = 'b'; break;
-            case '\\f': *out++ = '\\\\'; *out++ = 'f'; break;
-            case '\\n': *out++ = '\\\\'; *out++ = 'n'; break;
-            case '\\r': *out++ = '\\\\'; *out++ = 'r'; break;
-            case '\\t': *out++ = '\\\\'; *out++ = 't'; break;
+            case '\"': *out++ = '\\'; *out++ = '\"'; break;
+            case '\\': *out++ = '\\'; *out++ = '\\'; break;
+            case '\b': *out++ = '\\'; *out++ = 'b'; break;
+            case '\f': *out++ = '\\'; *out++ = 'f'; break;
+            case '\n': *out++ = '\\'; *out++ = 'n'; break;
+            case '\r': *out++ = '\\'; *out++ = 'r'; break;
+            case '\t': *out++ = '\\'; *out++ = 't'; break;
             default:
                 if (*p < 0x20) {
-                    *out++ = '\\\\'; *out++ = 'u';
+                    *out++ = '\\'; *out++ = 'u';
                     *out++ = '0'; *out++ = '0';
                     *out++ = hex[*p >> 4]; *out++ = hex[*p & 0x0F];
                 } else {
